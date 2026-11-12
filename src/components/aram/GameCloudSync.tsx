@@ -51,7 +51,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
             ...remote.state,
             userId: String(userId),
             userName: userName || current.userName,
-          });
+          } as Partial<ReturnType<typeof useGame.getState>>);
         } else {
           // One-time migration: preserve this device's legacy local save in Turso.
           useGame.setState({ userId: String(userId), userName: userName || current.userName });
