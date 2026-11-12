@@ -15,6 +15,7 @@ import { SettingsSheet } from '@/components/aram/SettingsSheet';
 import { TournamentsSheet } from '@/components/aram/TournamentsSheet';
 import { useTelegram } from '@/hooks/use-telegram';
 import { Toaster } from 'sonner';
+import { GameCloudSync } from '@/components/aram/GameCloudSync';
 
 export default function Home() {
   const lang = useGame((s) => s.lang);
@@ -22,7 +23,7 @@ export default function Home() {
   const resetDaily = useGame((s) => s.resetDailyIfNeeded);
   const resetWeekly = useGame((s) => s.resetWeeklyIfNeeded);
   const resetMonthly = useGame((s) => s.resetMonthlyIfNeeded);
-  const { user, startParam } = useTelegram();
+  const { user, startParam, initData, isVerified } = useTelegram();
   const setLang = useGame((s) => s.setLang);
   const addReferral = useGame((s) => s.addReferral);
 
@@ -74,6 +75,7 @@ export default function Home() {
 
   return (
     <div className="aram-app aram-bg flex flex-col" dir={dirOf(lang)}>
+      {isVerified && user && <GameCloudSync initData={initData} userId={user.id} userName={user.username || user.first_name || 'Player'} />}
       <TopBar
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenTournaments={() => setTournamentsOpen(true)}
