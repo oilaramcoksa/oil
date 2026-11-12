@@ -192,6 +192,7 @@ const ar: Dict = {
   // Friends screen
   friendsTitle: 'الأصدقاء',
   inviteLink: 'رابط الدعوة',
+  referralLinkLoading: 'جارٍ تجهيز رابط الدعوة...',
   copyLink: 'نسخ الرابط',
   shareLink: 'مشاركة',
   yourReferrals: 'إحالاتك',
@@ -468,6 +469,7 @@ const en: Dict = {
 
   friendsTitle: 'Friends',
   inviteLink: 'Invite link',
+  referralLinkLoading: 'Preparing your referral link...'
   copyLink: 'Copy link',
   shareLink: 'Share',
   yourReferrals: 'Your referrals',
@@ -739,6 +741,7 @@ const ru: Dict = {
 
   friendsTitle: 'Друзья',
   inviteLink: 'Ссылка',
+  referralLinkLoading: 'Подготавливаем вашу реферальную ссылку...'
   copyLink: 'Копировать',
   shareLink: 'Поделиться',
   yourReferrals: 'Ваши приглашённые',
