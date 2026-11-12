@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
                    COALESCE(NULLIF(p.username, ''), NULLIF(TRIM(COALESCE(p.first_name,'') || ' ' || COALESCE(p.last_name,'')), ''), 'Player') AS player_name,
                    s.coins_earned, s.taps, s.sells
             FROM player_monthly_stats s
-            INNER JOIN players p ON p.telegram_id = s.telegram_id
+            RIGHT JOIN players p ON p.telegram_id = s.telegram_id
             WHERE s.month_key = ?
-            ORDER BY s.coins_earned DESC, s.updated_at ASC
+            ORDER BY COALESCE(s.coins_earned, 0) DESC, COALESCE(s.updated_at, p.created_at) ASC
             LIMIT 100`,
       args: [month],
     });
