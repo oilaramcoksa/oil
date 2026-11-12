@@ -612,14 +612,24 @@ export const useGame = create<GameState>()(
         try {
           const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
           if (!initData) return { ok: false, error: 'telegram_auth_required' };
-          const res = await fetch('/api/withdrawals', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
-            body: JSON.stringify({
-              units,
-              tonAddress,
-            }),
-          });
+          const idempotencyKey = window.crypto.randomUUID();
+          const requestBody = JSON.stringify({ units, tonAddress, idempotencyKey });
+          let res: Response | undefined;
+          // Retry once with the same key if the connection drops after the
+          // server may already have committed the withdrawal.
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+              res = await fetch('/api/withdrawals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+                body: requestBody,
+              });
+              break;
+            } catch (error) {
+              if (attempt === 1) throw error;
+            }
+          }
+          if (!res) return { ok: false, error: 'network_error' };
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.withdrawal) {
             return { ok: false, error: data.error ?? 'server_error' };
