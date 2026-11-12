@@ -91,7 +91,7 @@ export function StoreScreen() {
           if (!statusResponse.ok) throw new Error(statusData.error ?? 'payment_status_unavailable');
           if (statusData.payment?.status === 'confirmed') {
             // Only a server-confirmed payment may activate an upgrade.
-            toast.success('تم تأكيد الدفع من الخادم');
+            toast.success(t(lang, 'paymentConfirmed'));
             setVerifying(false);
             return;
           }
@@ -99,13 +99,13 @@ export function StoreScreen() {
             setVerifying(false);
             setPaymentFailed(true);
             notify('error');
-            toast.error('فشل الدفع: لم يتم التحقق من وصول المبلغ خلال ساعة');
+            toast.error(t(lang, 'paymentTimeout'));
             return;
           }
           if (Date.now() - startedAt >= 60 * 60 * 1000 + 5000) {
             setVerifying(false);
             setPaymentFailed(true);
-            toast.error('انتهت مهلة التحقق. لم يتم تفعيل الترقية');
+            toast.error(t(lang, 'paymentTimeout'));
             return;
           }
           window.setTimeout(() => { void checkStatus(); }, 15000);
@@ -113,17 +113,17 @@ export function StoreScreen() {
           if (Date.now() - startedAt >= 60 * 60 * 1000 + 5000) {
             setVerifying(false);
             setPaymentFailed(true);
-            toast.error('تعذر التحقق من الدفع. لم يتم تفعيل الترقية');
+            toast.error(t(lang, 'paymentTimeout'));
           } else {
             window.setTimeout(() => { void checkStatus(); }, 15000);
           }
         }
       };
-      toast.info('تم تسجيل طلب التحقق. سيظل الدفع قيد المراجعة لمدة ساعة');
+      toast.info(t(lang, 'paymentRequestCreated'));
       void checkStatus();
     } catch (error) {
       setVerifying(false);
-      toast.error(error instanceof Error ? error.message : 'تعذر تسجيل طلب الدفع');
+      toast.error(error instanceof Error ? error.message : t(lang, 'paymentStatusUnavailable'));
     }
   };
 
@@ -150,7 +150,7 @@ export function StoreScreen() {
   const buyPart = async () => {
     if (!selectedPart || partVerifying) return;
     const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
-    if (!initData) { toast.error('يجب فتح التطبيق من خلال بوت تيليجرام'); return; }
+    if (!initData) { toast.error(t(lang, 'telegramRequired')); return; }
     setPartVerifying(true);
     setPartFailed(false);
     try {
@@ -160,7 +160,7 @@ export function StoreScreen() {
         body: JSON.stringify({ itemId: selectedPart.id }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'تعذر إنشاء طلب الدفع');
+      if (!response.ok || !data.payment?.id) throw new Error(data.error ?? t(lang, 'paymentStatusUnavailable'));
       await navigator.clipboard?.writeText(data.payment.destination).catch(() => undefined);
       toast.info(t(lang, 'paymentRequestCreated'));
       const paymentId = String(data.payment.id);
@@ -241,7 +241,7 @@ export function StoreScreen() {
       <div className="my-5 flex items-center gap-3" aria-label={t(lang, 'buyMiningPackage')}>
         <span className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-700/40 to-amber-700/40" />
         <h3 className="shrink-0 rounded-full border border-amber-500/30 bg-amber-100/70 px-4 py-2 text-xs font-black text-[#6b3d12] shadow-sm">
-          شراء باقة لتسريع التعدين
+          {t(lang, 'buyMiningPackage')}
         </h3>
         <span className="h-px flex-1 bg-gradient-to-l from-transparent via-amber-700/40 to-amber-700/40" />
       </div>
@@ -436,13 +436,13 @@ export function StoreScreen() {
                       <motion.span aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                         animate={{ x: ['-120%', '120%'] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }} />
                       <span className="relative flex items-center justify-center gap-2">
-                        {partFailed ? t(lang, 'paymentFailedNoActivation') : <><Zap className="w-5 h-5" /> اشتريت القطعة - تحقق من الدفع</>}
+                        {partFailed ? t(lang, 'paymentFailedNoActivation') : <><Zap className="w-5 h-5" /> {t(lang, 'confirmPayment')}</>}
                       </span>
                     </Button>
                   </motion.div>
                 )}
               </AnimatePresence>
-              <button disabled={partVerifying} onClick={() => setSelectedPart(null)} className="text-amber-200/60 text-xs mt-4 disabled:opacity-30">إغلاق</button>
+              <button disabled={partVerifying} onClick={() => setSelectedPart(null)} className="text-amber-200/60 text-xs mt-4 disabled:opacity-30">{t(lang, 'close')}</button>
               <p className="text-[9px] text-amber-200/40 mt-2">{t(lang, 'paymentNotActivated')}</p>
             </motion.div>
           </motion.div>
@@ -579,12 +579,12 @@ export function StoreScreen() {
                       {verifying ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          جاري التحقق من الدفع...
+                          {t(lang, 'verifying')}
                         </>
                       ) : (
                         <>
                           <Check className="w-4 h-4 mr-2" />
-                          {paymentFailed ? 'انتهت مهلة الدفع - لم يتم التفعيل' : `${t(lang, 'iPaid')} ${selected.priceUSD}`}
+                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : `${t(lang, 'iPaid')} ${selected.priceUSD}`}
                         </>
                       )}
                     </Button>
