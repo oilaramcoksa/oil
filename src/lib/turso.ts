@@ -257,6 +257,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
         ['referrals', 'reward_coins', 'INTEGER NOT NULL DEFAULT 0'],
         ['referrals', 'qualified_at', 'TEXT'],
         ['referrals', 'rewarded_at', 'TEXT'],
+        ['withdrawal_requests', 'idempotency_key', 'TEXT'],
       ];
       for (const [table, column, definition] of legacyColumns) {
         const info = await db.execute(`PRAGMA table_info(${table})`);
@@ -265,6 +266,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
         }
       }
       await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_player_events_idempotency ON player_events(idempotency_key)');
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_withdrawal_idempotency ON withdrawal_requests(telegram_id, idempotency_key)');
 
       // Backfill wallet and game-state rows for all players registered before this schema.
       await db.execute(`INSERT OR IGNORE INTO player_wallets(telegram_id)
