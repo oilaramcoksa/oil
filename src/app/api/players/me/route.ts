@@ -56,14 +56,28 @@ export async function GET(req: NextRequest) {
             FROM player_monthly_stats WHERE telegram_id = ? AND month_key = ?`,
       args: [telegramId, new Date().toISOString().slice(0, 7)],
     });
-    const referralCount = await db.execute({
-      sql: 'SELECT COUNT(*) AS total FROM referrals WHERE referrer_telegram_id = ?',
+    const referralRows = await db.execute({
+      sql: `SELECT r.id, r.reward_coins, r.status, r.created_at,
+                   p.username, p.first_name, p.last_name
+            FROM referrals r
+            JOIN players p ON p.telegram_id = r.referee_telegram_id
+            WHERE r.referrer_telegram_id = ?
+            ORDER BY r.created_at DESC LIMIT 100`,
       args: [telegramId],
     });
+    const referrals = referralRows.rows.map((row) => ({
+      id: String(row.id),
+      name: String(row.username || row.first_name || 'Player'),
+      joinedAt: Date.parse(String(row.created_at)) || Date.now(),
+      earned: Number(row.reward_coins ?? 0),
+      active: String(row.status) === 'qualified' || String(row.status) === 'rewarded',
+      status: String(row.status),
+    }));
     return NextResponse.json({
       player: { telegramId, username: identity.username ?? null, firstName: identity.first_name ?? null, lastName: identity.last_name ?? null },
       referralCode,
-      referralCount: Number(referralCount.rows[0]?.total ?? 0),
+      referralCount: referrals.length,
+      referrals,
       monthlyStats: stats.rows[0] ?? { taps: 0, sells: 0, coins_earned: 0 },
       source: 'turso',
     }, { headers: { 'Cache-Control': 'no-store, private' } });
