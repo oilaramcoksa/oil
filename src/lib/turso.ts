@@ -213,6 +213,18 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
         BEFORE DELETE ON ledger_entries BEGIN SELECT RAISE(ABORT, 'ledger_entries_are_immutable'); END`,
     ],
   },
+  {
+    version: 3,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS player_game_snapshots (
+        telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+        state_json TEXT NOT NULL,
+        revision INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      'CREATE INDEX IF NOT EXISTS idx_game_snapshots_updated ON player_game_snapshots(updated_at)',
+    ],
+  },
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {
