@@ -26,6 +26,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
     let disposed = false;
     let unsubscribe: (() => void) | undefined;
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
+    let saveQueue: Promise<void> = Promise.resolve();
 
     const headers = { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData };
     const save = async (state: ReturnType<typeof useGame.getState>) => {
@@ -66,7 +67,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
           last = next;
           if (saveTimer) clearTimeout(saveTimer);
           saveTimer = setTimeout(() => {
-            void save(state).catch((error) => {
+            saveQueue = saveQueue.then(() => save(useGame.getState())).catch((error) => {
               console.error('game_state_cloud_sync_failed', error);
             });
           }, 700);
