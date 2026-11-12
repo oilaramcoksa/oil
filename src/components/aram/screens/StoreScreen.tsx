@@ -127,9 +127,9 @@ export function StoreScreen() {
   };
 
   const shopParts = [
-    { id: 'oil_pump' as const, name: 'مضخة البترول', price: 0.5, multiplier: '×3', icon: '🛢️', description: 'تضاعف سرعة الإنتاج ثلاث مرات' },
-    { id: 'fuel_station' as const, name: 'محطة الوقود', price: 0.3, multiplier: '×2', icon: '⛽', description: 'تضاعف سرعة الإنتاج مرتين' },
-    { id: 'oil_truck' as const, name: 'شاحنة نقل البترول', price: 0.1, multiplier: '×1.5', icon: '🚛', description: 'ترفع سرعة الإنتاج إلى مرة ونصف' },
+    { id: 'oil_pump' as const, name: 'مضخة البترول', price: 0.5, multiplier: '×3', image: '/images/shop/oil-pump.png', description: 'تضاعف سرعة الإنتاج ثلاث مرات' },
+    { id: 'fuel_station' as const, name: 'محطة الوقود', price: 0.3, multiplier: '×2', image: '/images/shop/fuel-station.png', description: 'تضاعف سرعة الإنتاج مرتين' },
+    { id: 'oil_truck' as const, name: 'شاحنة نقل البترول', price: 0.1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', description: 'ترفع سرعة الإنتاج إلى مرة ونصف' },
   ];
 
   const buyPart = async () => {
@@ -213,7 +213,7 @@ export function StoreScreen() {
           {shopParts.map((part) => (
             <motion.button key={part.id} whileTap={{ scale: 0.97 }} onClick={() => { setSelectedPart(part); setPartFailed(false); setPartVerifying(false); }}
               className="aram-card rounded-2xl p-2 text-center border border-amber-300">
-              <div className="text-4xl mb-1">{part.icon}</div>
+              <div className="h-20 flex items-center justify-center mb-1"><img src={part.image} alt={part.name} className="max-h-20 max-w-full object-contain" /></div>
               <div className="text-[11px] font-black text-[#2a1c0a] leading-tight">{part.name}</div>
               <div className="text-lg font-black text-emerald-700 my-1">{part.multiplier}</div>
               <div className="text-[11px] font-bold text-amber-900">{part.price} TON</div>
@@ -353,7 +353,7 @@ export function StoreScreen() {
             onClick={() => { if (!partVerifying) setSelectedPart(null); }}>
             <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
               onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-gradient-to-b from-[#2a1c0a] to-[#0c0703] p-5 text-center">
-              <div className="text-6xl mb-2">{selectedPart.icon}</div>
+              <div className="h-36 flex items-center justify-center mb-2"><img src={selectedPart.image} alt={selectedPart.name} className="max-h-36 max-w-full object-contain" /></div>
               <h3 className="text-amber-100 font-black text-lg">{selectedPart.name}</h3>
               <div className="text-3xl font-black text-emerald-300 my-2">{selectedPart.multiplier}</div>
               <p className="text-amber-200/70 text-xs mb-3">{selectedPart.description}</p>
