@@ -24,6 +24,11 @@ export async function GET(req: NextRequest) {
       args: [telegramId, identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, referralCode],
     });
 
+    await db.execute({
+      sql: 'INSERT OR IGNORE INTO player_monthly_stats (telegram_id, month_key) VALUES (?, ?)',
+      args: [telegramId, new Date().toISOString().slice(0, 7)],
+    });
+
     const startParam = getStartParam(req);
     if (startParam?.startsWith('ref_')) {
       const code = startParam.slice(4).slice(0, 64);

@@ -263,7 +263,7 @@ export function TournamentsSheet({ open, onClose }: Props) {
                           <span className="text-xs text-amber-200/60 ml-1">/ {leaderboard.length}</span>
                         </div>
                         <div className="text-[9px] text-amber-200/50 font-bold mt-0.5">
-                          {coinsEarnedThisMonth.toLocaleString()} {t(lang, 'coins')} · {t(lang, 'month')}
+                          {(userEntry?.coinsEarned ?? 0).toLocaleString()} {t(lang, 'coins')} · {t(lang, 'month')}
                         </div>
                       </>
                     ) : (
