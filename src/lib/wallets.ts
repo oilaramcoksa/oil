@@ -17,12 +17,12 @@ export interface CryptoWallet {
 export const WALLETS: CryptoWallet[] = [
   {
     code: 'gram',
-    label: 'GRAM',
-    labelAr: 'جرام',
-    labelRu: 'GRAM',
-    network: 'GRAM Network',
+    label: 'TON',
+    labelAr: 'تون (TON)',
+    labelRu: 'TON',
+    network: 'TON Mainnet',
     address: 'UQAcwdRaN8kD06qJtZxlNnxTkTA46Xz1ROVYB_m-T7okBEJO',
-    icon: '⚡',
+    icon: '💎',
     accent: 'from-sky-400 to-blue-500',
   },
   {
