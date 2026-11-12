@@ -726,7 +726,7 @@ const ru: Dict = {
 
   friendsTitle: 'Друзья',
   inviteLink: 'Ссылка',
-  referralLinkLoading: 'Подготавливаем вашу реферальную ссылку...'
+  referralLinkLoading: 'Подготавливаем вашу реферальную ссылку...',
   copyLink: 'Копировать',
   shareLink: 'Поделиться',
   yourReferrals: 'Ваши приглашённые',
