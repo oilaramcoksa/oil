@@ -33,5 +33,5 @@ export function useTelegram() {
   }, []);
   const haptic = (kind: 'light' | 'medium' | 'heavy' = 'light') => { try { tg?.HapticFeedback?.impactOccurred(kind); } catch { /* noop */ } };
   const notify = (type: 'success' | 'warning' | 'error') => { try { tg?.HapticFeedback?.notificationOccurred(type); } catch { /* noop */ } };
-  return { tg, user, startParam, haptic, notify, isTelegram, isVerified };
+  return { tg, user, startParam, haptic, notify, isTelegram, isVerified, initData: tg?.initData ?? '' };
 }
