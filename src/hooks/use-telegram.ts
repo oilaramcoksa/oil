@@ -27,7 +27,7 @@ export function useTelegram() {
     if (!webApp.initData) return;
     fetch('/api/telegram/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ initData: webApp.initData }), cache: 'no-store' })
       .then(async (res) => { if (!res.ok) throw new Error('Telegram auth failed'); return res.json(); })
-      .then((data: { user: TelegramUser; startParam?: string | null }) => { if (cancelled) return; setUser(data.user); setStartParam(data.startParam ?? null); setIsVerified(true); })
+      .then((data: { user: TelegramUser; startParam?: string | null }) => { if (cancelled) return; setUser(data.user); setStartParam(data.startParam ?? null); setIsVerified(true);\n        void fetch('/api/players/me', { headers: { 'x-telegram-init-data': webApp.initData }, cache: 'no-store' }).catch(() => undefined); })
       .catch(() => { if (!cancelled) { setUser(null); setIsVerified(false); } });
     return () => { cancelled = true; };
   }, []);
