@@ -39,7 +39,7 @@ export function TournamentsSheet({ open, onClose }: Props) {
   const sellsTotal = useGame((s) => s.sellsTotal);
   const referrals = useGame((s) => s.referrals);
   const claimAchievement = useGame((s) => s.claimAchievement);
-  const { haptic, notify } = useTelegram();
+  const { haptic, notify, user: telegramUser } = useTelegram();
 
   // Re-render every second for countdown
   const [, setTick] = useState(0);
@@ -50,13 +50,32 @@ export function TournamentsSheet({ open, onClose }: Props) {
   }, [open]);
 
   const monthKey = useMemo(() => getMonthKey(), []);
-  const leaderboard = useMemo(
-    () => generateMockLeaderboard(coinsEarnedThisMonth, userName, monthKey),
-    [coinsEarnedThisMonth, userName, monthKey]
-  );
+  const leaderboard = useMemo(() => {
+    // Telegram identity is already validated by the Telegram auth hook.
+    // Mock competitors remain local and deterministic; no backend leaderboard is used.
+    const telegramId = telegramUser?.id != null ? String(telegramUser.id) : 'guest-local';
+    const telegramName = [telegramUser?.first_name, telegramUser?.last_name]
+      .filter(Boolean).join(' ').trim() || (telegramUser?.username ? `@${telegramUser.username}` : userName);
+    const entries = generateMockLeaderboard(coinsEarnedThisMonth, telegramName || userName, monthKey)
+      .map((entry) => ({
+        ...entry,
+        playerId: entry.isUser ? telegramId : `mock:${entry.name}`,
+      }));
+    // Stable tie-breaker ensures the same player keeps the same place on every render.
+    entries.sort((a, b) =>
+      b.coinsEarned - a.coinsEarned || a.playerId.localeCompare(b.playerId)
+    );
+    return entries.map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+      prize: index < 5 ? PRIZE_STRUCTURE[index] : undefined,
+    }));
+  }, [coinsEarnedThisMonth, userName, monthKey, telegramUser?.id, telegramUser?.first_name, telegramUser?.last_name, telegramUser?.username]);
   const userEntry = leaderboard.find((e) => e.isUser);
   const userRank = userEntry?.rank ?? 0;
   const top10 = leaderboard.slice(0, 10);
+  // Always show the current player even when their position is below the top ten.
+  if (userEntry && !top10.some((entry) => entry.isUser)) top10.push(userEntry);
 
   const countdownSec = secondsUntilNextMonth();
   const countdownStr = formatLongCountdown(countdownSec);
