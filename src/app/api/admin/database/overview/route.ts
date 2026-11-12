@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       db.execute('SELECT COUNT(*) AS total FROM ledger_entries'),
       db.execute({ sql: 'SELECT COUNT(*) AS players, COALESCE(SUM(coins_earned),0) AS coins_earned, COALESCE(SUM(taps),0) AS taps, COALESCE(SUM(sells),0) AS sells FROM player_monthly_stats WHERE month_key = ?', args: [month] }),
     ]);
-    const one = (r: typeof players) => r.rows[0] ?? {};
+    const one = (r: typeof players): Record<string, unknown> => (r.rows[0] ?? {}) as Record<string, unknown>;
     const num = (v: unknown) => Number(v ?? 0);
     return NextResponse.json({
       generatedAt: new Date().toISOString(),
