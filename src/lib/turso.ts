@@ -13,7 +13,7 @@ export function getTurso(): Client {
 
 const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
   {
-    version: 1,
+    version: 2,
     statements: [
       `CREATE TABLE IF NOT EXISTS players (
         telegram_id TEXT PRIMARY KEY,
