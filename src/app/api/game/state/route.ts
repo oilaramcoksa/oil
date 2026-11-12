@@ -37,27 +37,41 @@ export async function GET(req: NextRequest) {
     await ensureDatabaseSchema();
     const db = getTurso();
     const id = String(identity.id);
-    const result = await db.execute({
-      sql: 'SELECT state_json, revision, updated_at FROM player_game_snapshots WHERE telegram_id = ?',
-      args: [id],
-    });
-    const wallet = await db.execute({
-      sql: 'SELECT oil_balance, coins_balance, coins_locked FROM player_wallets WHERE telegram_id = ?',
-      args: [id],
-    });
+    const [result, wallet] = await Promise.all([
+      db.execute({
+        sql: 'SELECT state_json, revision, updated_at FROM player_game_snapshots WHERE telegram_id = ?',
+        args: [id],
+      }),
+      db.execute({
+        sql: 'SELECT oil_balance, coins_balance, coins_locked FROM player_wallets WHERE telegram_id = ?',
+        args: [id],
+      }),
+    ]);
     const row = result.rows[0];
     const w = wallet.rows[0];
+    const walletState = w ? {
+      oil: Number(w.oil_balance),
+      coins: Number(w.coins_balance),
+    } : null;
+    let state: Record<string, unknown> | null = row
+      ? JSON.parse(String(row.state_json)) as Record<string, unknown>
+      : null;
+
+    // The relational wallet is authoritative. A stale JSON snapshot must never
+    // replace a ledger-backed balance with zero or an older client-side value.
+    if (state && walletState) state = { ...state, ...walletState };
+
     return NextResponse.json({
       exists: !!row,
       revision: Number(row?.revision ?? 0),
       updatedAt: row?.updated_at?.toString() ?? null,
-      state: row ? JSON.parse(String(row.state_json)) : null,
-      wallet: w ? { oil: Number(w.oil_balance), coins: Number(w.coins_balance), locked: Number(w.coins_locked) } : null,
+      state,
+      wallet: w ? { ...walletState, locked: Number(w.coins_locked) } : null,
       source: 'turso',
     }, { headers: { 'Cache-Control': 'no-store, private' } });
   } catch (error) {
     console.error('game_state_read_failed', error);
-    return NextResponse.json({ error: 'game_state_unavailable' }, { status: 503 });
+    return NextResponse.json({ error: 'game_state_unavailable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
@@ -81,14 +95,16 @@ export async function PUT(req: NextRequest) {
       sql: 'SELECT 1 AS found FROM ledger_entries WHERE telegram_id = ? LIMIT 1',
       args: [id],
     });
-    // Keep the financial wallet in step with the persisted game snapshot for now.
-    // Existing ledger-based financial operations are not imported or fabricated here.
+    // Legacy snapshot migration is allowed only before the first ledger entry.
+    // Once the ledger exists, only server-side ledger operations may alter balances.
     const coins = Math.floor(Number(state.coins ?? 0));
     const oil = Math.floor(Number(state.oil ?? 0));
     const oldCoins = Number(current?.coins_balance ?? 0);
     const oldOil = Number(current?.oil_balance ?? 0);
     if (hasLedger.rows.length && (coins !== oldCoins || oil !== oldOil)) {
-      return NextResponse.json({ error: 'wallet_must_be_changed_by_server_game_actions' }, { status: 409 });
+      // Persist non-financial state, but never let stale client balances enter the snapshot.
+      state.coins = oldCoins;
+      state.oil = oldOil;
     }
     await db.batch([
       {
@@ -112,9 +128,11 @@ export async function PUT(req: NextRequest) {
       sql: 'SELECT revision FROM player_game_snapshots WHERE telegram_id = ?',
       args: [id],
     });
-    return NextResponse.json({ ok: true, revision: Number(revision.rows[0]?.revision ?? 1), source: 'turso' });
+    return NextResponse.json({ ok: true, revision: Number(revision.rows[0]?.revision ?? 1), source: 'turso' }, {
+      headers: { 'Cache-Control': 'no-store, private' },
+    });
   } catch (error) {
     console.error('game_state_write_failed', error);
-    return NextResponse.json({ error: 'game_state_save_failed' }, { status: 503 });
+    return NextResponse.json({ error: 'game_state_save_failed' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 }
