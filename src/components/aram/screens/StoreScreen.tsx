@@ -238,6 +238,14 @@ export function StoreScreen() {
         </div>
       </div>
 
+      <div className="my-5 flex items-center gap-3" aria-label="شراء باقة لتسريع التعدين">
+        <span className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-700/40 to-amber-700/40" />
+        <h3 className="shrink-0 rounded-full border border-amber-500/30 bg-amber-100/70 px-4 py-2 text-xs font-black text-[#6b3d12] shadow-sm">
+          شراء باقة لتسريع التعدين
+        </h3>
+        <span className="h-px flex-1 bg-gradient-to-l from-transparent via-amber-700/40 to-amber-700/40" />
+      </div>
+
       {/* Package cards */}
       <div className="space-y-2 mb-3">
         {PACKAGES.map((p, i) => {
