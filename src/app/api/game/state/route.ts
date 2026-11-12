@@ -12,7 +12,7 @@ const STATE_KEYS = [
   'sellsThisWeek', 'tapsTotal', 'sellsTotal', 'coinsEarnedThisMonth',
   'lastMonthKey', 'lastLoginDay', 'loginStreak', 'luckyBoxLastOpened',
   'totalStoreRevenue', 'tournamentHistory', 'claimedAchievements',
-  'cycleEndsAt', 'lastTickAt',
+  'cycleEndsAt', 'lastTickAt', 'lang', 'onboarded', 'acceptedDisclaimer', 'sound', 'vibration',
 ] as const;
 
 function cleanState(input: unknown): Record<string, unknown> | null {
