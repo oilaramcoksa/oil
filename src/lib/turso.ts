@@ -234,6 +234,26 @@ export async function ensureDatabaseSchema(): Promise<void> {
           args: [migration.version],
         });
       }
+      const legacyColumns: Array<[string, string, string]> = [
+        ['players', 'status', "TEXT NOT NULL DEFAULT 'active'"],
+        ['players', 'locale', 'TEXT'],
+        ['player_events', 'metadata_json', 'TEXT'],
+        ['player_events', 'idempotency_key', 'TEXT'],
+        ['player_monthly_stats', 'oil_sold', 'INTEGER NOT NULL DEFAULT 0'],
+        ['player_monthly_stats', 'coins_spent', 'INTEGER NOT NULL DEFAULT 0'],
+        ['player_monthly_stats', 'referrals', 'INTEGER NOT NULL DEFAULT 0'],
+        ['referrals', 'reward_coins', 'INTEGER NOT NULL DEFAULT 0'],
+        ['referrals', 'qualified_at', 'TEXT'],
+        ['referrals', 'rewarded_at', 'TEXT'],
+      ];
+      for (const [table, column, definition] of legacyColumns) {
+        const info = await db.execute(`PRAGMA table_info(${table})`);
+        if (!info.rows.some((row) => row.name === column)) {
+          await db.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+        }
+      }
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_player_events_idempotency ON player_events(idempotency_key)');
+
       // Backfill wallet and game-state rows for all players registered before this schema.
       await db.execute(`INSERT OR IGNORE INTO player_wallets(telegram_id)
         SELECT telegram_id FROM players`);
