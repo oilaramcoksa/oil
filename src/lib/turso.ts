@@ -230,7 +230,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
         if (versions.has(migration.version)) continue;
         await db.batch(migration.statements, 'write');
         await db.execute({
-          sql: 'INSERT INTO schema_migrations(version) VALUES (?)',
+          sql: 'INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)',
           args: [migration.version],
         });
       }
