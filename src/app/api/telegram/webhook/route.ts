@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (!message?.chat?.id || !message.text?.trim().startsWith('/start')) return NextResponse.json({ ok: true });
   const response = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
     method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
-    body: JSON.stringify({ chat_id: message.chat.id, text: 'مرحباً بك في Aramco Oil 🛢️\nافتح التطبيق للبدء في اللعب ومتابعة رصيدك ومهامك.', reply_markup: { inline_keyboard: [[{ text: '🚀 فتح Aramco Oil', web_app: { url: appUrl.replace(/\\/$/, '') } }]] } }),
+    body: JSON.stringify({ chat_id: message.chat.id, text: 'مرحباً بك في Aramco Oil 🛢️\nافتح التطبيق للبدء في اللعب ومتابعة رصيدك ومهامك.', reply_markup: { inline_keyboard: [[{ text: '🚀 فتح Aramco Oil', web_app: { url: appUrl.replace(/\/$/, '') } }]] } }),
   });
   if (!response.ok) return NextResponse.json({ error: 'telegram_send_failed' }, { status: 502 });
   return NextResponse.json({ ok: true });
