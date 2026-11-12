@@ -44,19 +44,28 @@ export async function PATCH(req: NextRequest) {
 
   try {
     await ensureDatabaseSchema();
-    const db = getTurso();
-    const result = await db.execute({
-      sql: `UPDATE withdrawal_requests
-            SET status = ?, tx_hash = ?, admin_note = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ? AND status = 'pending'`,
-      args: [status, txHash, adminNote, id],
-    });
-    if (Number(result.rowsAffected) === 0) return NextResponse.json({ error: 'not_pending_or_missing' }, { status: 409 });
-    await db.execute({
-      sql: 'INSERT INTO admin_audit_logs(id, admin_id, action, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?, ?)',
-      args: [randomUUID(), 'admin_token', `withdrawal_${status}`, 'withdrawal', id, JSON.stringify({ txHash, adminNote })],
-    });
-    return NextResponse.json({ ok: true });
+    const tx = await getTurso().transaction('write');
+    try {
+      const result = await tx.execute({
+        sql: `UPDATE withdrawal_requests
+              SET status = ?, tx_hash = ?, admin_note = ?, updated_at = CURRENT_TIMESTAMP
+              WHERE id = ? AND status = 'pending'`,
+        args: [status, txHash, adminNote, id],
+      });
+      if (Number(result.rowsAffected) === 0) {
+        await tx.rollback();
+        return NextResponse.json({ error: 'not_pending_or_missing' }, { status: 409 });
+      }
+      await tx.execute({
+        sql: 'INSERT INTO admin_audit_logs(id, admin_id, action, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [randomUUID(), 'admin_token', `withdrawal_${status}`, 'withdrawal', id, JSON.stringify({ txHash, adminNote })],
+      });
+      await tx.commit();
+      return NextResponse.json({ ok: true });
+    } catch (error) {
+      await tx.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error('admin_withdrawal_update_failed', error);
     return NextResponse.json({ error: 'database_unavailable' }, { status: 503 });
