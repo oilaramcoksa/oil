@@ -609,22 +609,15 @@ export const useGame = create<GameState>()(
       requestWithdrawal: async (units, tonAddress) => {
         const s = get();
         const coins = units * COINS_PER_USD;
-        if (s.coins < coins) return { ok: false, error: 'insufficient_balance' };
         try {
+          const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
+          if (!initData) return { ok: false, error: 'telegram_auth_required' };
           const res = await fetch('/api/withdrawals', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
             body: JSON.stringify({
-              userId: s.userId,
               units,
               tonAddress,
-              balance: s.coins,
-              snapshot: {
-                tapsTotal: s.tapsTotal,
-                sellsTotal: s.sellsTotal,
-                totalStoreRevenue: s.totalStoreRevenue,
-                referrals: s.referrals.length,
-              },
             }),
           });
           const data = await res.json().catch(() => ({}));
@@ -642,7 +635,7 @@ export const useGame = create<GameState>()(
             meta: { withdrawalId: w.id, usd: units },
           };
           set({
-            coins: cur.coins - coins,
+            coins: Number(data.wallet?.coins ?? Math.max(0, cur.coins - coins)),
             tonAddress,
             withdrawals: [w, ...cur.withdrawals.filter((x) => x.id !== w.id)].slice(0, 50),
             transactions: [tx, ...cur.transactions].slice(0, 50),
@@ -663,33 +656,10 @@ export const useGame = create<GameState>()(
             cache: 'no-store',
           });
           if (!res.ok) return;
-          const data = (await res.json()) as { withdrawals: WithdrawalRecord[] };
-          const cur = get();
-          let coins = cur.coins;
-          let transactions = cur.transactions;
-          const refunded = [...cur.refundedWithdrawals];
-          for (const w of data.withdrawals) {
-            if (w.status === 'rejected' && !refunded.includes(w.id)) {
-              refunded.push(w.id);
-              coins += w.coins;
-              transactions = [
-                {
-                  id: makeId(),
-                  type: 'refund' as const,
-                  amount: w.coins,
-                  label: 'txRefund',
-                  createdAt: Date.now(),
-                  meta: { withdrawalId: w.id },
-                },
-                ...transactions,
-              ].slice(0, 50);
-            }
-          }
+          const data = (await res.json()) as { withdrawals: WithdrawalRecord[]; wallet?: { coins: number } | null };
           set({
             withdrawals: data.withdrawals,
-            refundedWithdrawals: refunded.slice(-100),
-            coins,
-            transactions,
+            ...(data.wallet ? { coins: data.wallet.coins } : {}),
           });
         } catch {
           /* offline — try again next time */
