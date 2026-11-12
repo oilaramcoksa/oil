@@ -38,8 +38,6 @@ export function TournamentsSheet({ open, onClose }: Props) {
   const sellsTotal = useGame((s) => s.sellsTotal);
   const referrals = useGame((s) => s.referrals);
   const claimAchievement = useGame((s) => s.claimAchievement);
-  const { haptic, notify, user: telegramUser } = useTelegram();
-
   // Re-render every second for countdown
   const [, setTick] = useState(0);
   useEffect(() => {
