@@ -14,21 +14,20 @@ import { toast } from 'sonner';
 export function StoreScreen() {
   const lang = useGame((s) => s.lang);
   const upgrades = useGame((s) => s.upgrades);
-  const buyUpgrade = useGame((s) => s.buyUpgrade);
   const { haptic, notify } = useTelegram();
 
   const [selected, setSelected] = useState<UpgradePackage | null>(null);
   const [wallet, setWallet] = useState<CryptoWallet | null>(null);
-  const [paid, setPaid] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [paymentFailed, setPaymentFailed] = useState(false);
   const [copiedAddr, setCopiedAddr] = useState(false);
 
   const openPackage = (p: UpgradePackage) => {
     haptic('medium');
     setSelected(p);
     setWallet(null);
-    setPaid(false);
     setVerifying(false);
+    setPaymentFailed(false);
   };
 
   const closePackage = () => {
@@ -36,7 +35,7 @@ export function StoreScreen() {
     haptic('light');
     setSelected(null);
     setWallet(null);
-    setPaid(false);
+    setPaymentFailed(false);
   };
 
   const selectWallet = (w: CryptoWallet) => {
@@ -57,24 +56,71 @@ export function StoreScreen() {
     }
   };
 
-  const confirmPaid = () => {
-    if (!selected || !wallet) return;
+  const confirmPaid = async () => {
+    if (!selected || !wallet || verifying) return;
+    const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
+    if (!initData) {
+      toast.error('يجب فتح التطبيق من خلال بوت تيليجرام');
+      return;
+    }
     setVerifying(true);
+    setPaymentFailed(false);
     haptic('heavy');
-    // Simulate on-chain verification (in production: poll blockchain for
-    // payment to wallet.address with amount >= selected.priceUSD).
-    // Here we auto-confirm after 2.5s.
-    setTimeout(() => {
-      const txHash = '0x' + Math.random().toString(16).slice(2, 18);
-      buyUpgrade(selected.id, wallet.code, txHash);
+    try {
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+        body: JSON.stringify({ packageId: selected.id, walletCode: wallet.code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'payment_request_failed');
+      const paymentId = String(data.payment.id);
+      const startedAt = Date.now();
+
+      const checkStatus = async (): Promise<void> => {
+        try {
+          const statusResponse = await fetch('/api/payments?id=' + encodeURIComponent(paymentId), {
+            headers: { 'X-Telegram-Init-Data': initData },
+            cache: 'no-store',
+          });
+          const statusData = await statusResponse.json().catch(() => ({}));
+          if (!statusResponse.ok) throw new Error(statusData.error ?? 'payment_status_unavailable');
+          if (statusData.payment?.status === 'confirmed') {
+            // Only a server-confirmed payment may activate an upgrade.
+            toast.success('تم تأكيد الدفع من الخادم');
+            setVerifying(false);
+            return;
+          }
+          if (statusData.payment?.status === 'expired' || statusData.payment?.status === 'rejected') {
+            setVerifying(false);
+            setPaymentFailed(true);
+            notify('error');
+            toast.error('فشل الدفع: لم يتم التحقق من وصول المبلغ خلال ساعة');
+            return;
+          }
+          if (Date.now() - startedAt >= 60 * 60 * 1000 + 5000) {
+            setVerifying(false);
+            setPaymentFailed(true);
+            toast.error('انتهت مهلة التحقق. لم يتم تفعيل الترقية');
+            return;
+          }
+          window.setTimeout(() => { void checkStatus(); }, 15000);
+        } catch {
+          if (Date.now() - startedAt >= 60 * 60 * 1000 + 5000) {
+            setVerifying(false);
+            setPaymentFailed(true);
+            toast.error('تعذر التحقق من الدفع. لم يتم تفعيل الترقية');
+          } else {
+            window.setTimeout(() => { void checkStatus(); }, 15000);
+          }
+        }
+      };
+      toast.info('تم تسجيل طلب التحقق. سيظل الدفع قيد المراجعة لمدة ساعة');
+      void checkStatus();
+    } catch (error) {
       setVerifying(false);
-      notify('success');
-      toast.success(t(lang, 'purchaseSuccess'));
-      // close modal
-      setSelected(null);
-      setWallet(null);
-      setPaid(false);
-    }, 2500);
+      toast.error(error instanceof Error ? error.message : 'تعذر تسجيل طلب الدفع');
+    }
   };
 
   return (
@@ -348,18 +394,18 @@ export function StoreScreen() {
                     {/* Confirm */}
                     <Button
                       onClick={confirmPaid}
-                      disabled={verifying}
+                      disabled={verifying || paymentFailed}
                       className="w-full h-12 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-sm disabled:opacity-50"
                     >
                       {verifying ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          {t(lang, 'verifying')}
+                          جاري التحقق من الدفع...
                         </>
                       ) : (
                         <>
                           <Check className="w-4 h-4 mr-2" />
-                          {t(lang, 'iPaid')} ${selected.priceUSD}
+                          {paymentFailed ? 'انتهت مهلة الدفع - لم يتم التفعيل' : `${t(lang, 'iPaid')} ${selected.priceUSD}`}
                         </>
                       )}
                     </Button>
