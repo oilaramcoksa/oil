@@ -459,7 +459,7 @@ const en: Dict = {
 
   friendsTitle: 'Friends',
   inviteLink: 'Invite link',
-  referralLinkLoading: 'Preparing your referral link...'
+  referralLinkLoading: 'Preparing your referral link...',
   copyLink: 'Copy link',
   shareLink: 'Share',
   yourReferrals: 'Your referrals',
