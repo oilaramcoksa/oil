@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
@@ -14,7 +14,6 @@ import {
   TOTAL_PRIZE_POOL_COINS,
   PRIZE_FUND_PERCENT,
   ACHIEVEMENTS,
-  generateMockLeaderboard,
   getMonthKey,
   secondsUntilNextMonth,
   formatLongCountdown,
@@ -39,8 +38,6 @@ export function TournamentsSheet({ open, onClose }: Props) {
   const sellsTotal = useGame((s) => s.sellsTotal);
   const referrals = useGame((s) => s.referrals);
   const claimAchievement = useGame((s) => s.claimAchievement);
-  const { haptic, notify, user: telegramUser } = useTelegram();
-
   // Re-render every second for countdown
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -49,28 +46,40 @@ export function TournamentsSheet({ open, onClose }: Props) {
     return () => clearInterval(id);
   }, [open]);
 
-  const monthKey = useMemo(() => getMonthKey(), []);
-  const leaderboard = useMemo(() => {
-    // Telegram identity is already validated by the Telegram auth hook.
-    // Mock competitors remain local and deterministic; no backend leaderboard is used.
-    const telegramId = telegramUser?.id != null ? String(telegramUser.id) : 'guest-local';
-    const telegramName = [telegramUser?.first_name, telegramUser?.last_name]
-      .filter(Boolean).join(' ').trim() || (telegramUser?.username ? `@${telegramUser.username}` : userName);
-    const entries = generateMockLeaderboard(coinsEarnedThisMonth, telegramName || userName, monthKey)
-      .map((entry) => ({
-        ...entry,
-        playerId: entry.isUser ? telegramId : `mock:${entry.name}`,
-      }));
-    // Stable tie-breaker ensures the same player keeps the same place on every render.
-    entries.sort((a, b) =>
-      b.coinsEarned - a.coinsEarned || a.playerId.localeCompare(b.playerId)
-    );
-    return entries.map((entry, index) => ({
-      ...entry,
-      rank: index + 1,
-      prize: index < 5 ? PRIZE_STRUCTURE[index] : undefined,
-    }));
-  }, [coinsEarnedThisMonth, userName, monthKey, telegramUser?.id, telegramUser?.first_name, telegramUser?.last_name, telegramUser?.username]);
+  const monthKey = getMonthKey();
+  const [leaderboard, setLeaderboard] = useState<Array<{
+    rank: number; name: string; coinsEarned: number; isUser: boolean;
+    playerId: string; prize?: (typeof PRIZE_STRUCTURE)[number];
+  }>>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const { haptic, notify, user: telegramUser, initData, isVerified } = useTelegram();
+
+  useEffect(() => {
+    if (!open || !isVerified || !initData) return;
+    let cancelled = false;
+    setLeaderboardLoading(true);
+    fetch('/api/leaderboard', {
+      headers: { 'x-telegram-init-data': initData },
+      cache: 'no-store',
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('leaderboard_unavailable');
+        return response.json();
+      })
+      .then((data: { entries?: Array<{ rank: number; name: string; coinsEarned: number; playerId: string }> }) => {
+        if (cancelled) return;
+        const entries = (data.entries ?? []).map((entry) => ({
+          ...entry,
+          isUser: entry.playerId === String(telegramUser?.id ?? ''),
+          prize: entry.rank <= 5 ? PRIZE_STRUCTURE[entry.rank - 1] : undefined,
+        }));
+        setLeaderboard(entries);
+      })
+      .catch(() => { if (!cancelled) setLeaderboard([]); })
+      .finally(() => { if (!cancelled) setLeaderboardLoading(false); });
+    return () => { cancelled = true; };
+  }, [open, isVerified, initData, telegramUser?.id, monthKey]);
+
   const userEntry = leaderboard.find((e) => e.isUser);
   const userRank = userEntry?.rank ?? 0;
   const top10 = leaderboard.slice(0, 10);
@@ -81,10 +90,7 @@ export function TournamentsSheet({ open, onClose }: Props) {
   const countdownStr = formatLongCountdown(countdownSec);
 
   // Funded prize pool: PRIZE_FUND_PERCENT of store revenue, capped at total.
-  const fundedUSD = Math.min(
-    TOTAL_PRIZE_POOL_USD,
-    Math.floor((totalStoreRevenue * PRIZE_FUND_PERCENT) / 100)
-  );
+  const fundedUSD = 0; // Funding is not reported until verified store payments are recorded server-side.
 
   const handleClaimAchievement = (id: string, reward: number) => {
     haptic('heavy');
