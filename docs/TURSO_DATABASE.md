@@ -35,6 +35,11 @@ No existing local SQLite data is copied automatically. The old Prisma SQLite wit
 6. Withdrawals stay disabled until wallet balances and the ledger are server-authoritative.
 7. Admin changes must be authenticated and written to `admin_audit_logs`.
 
+## Operational endpoints
+
+- `GET /api/admin/database/overview` returns live aggregate counts from Turso and requires `Authorization: Bearer <ADMIN_TOKEN>`.
+- `postLedgerEntry` in `src/lib/ledger.ts` is the server-only primitive for atomic, idempotent wallet balance changes. It records an immutable ledger row and updates coin-earned time buckets when crediting coins. Gameplay routes must validate the event before calling it.
+
 ## Current implementation boundary
 
 This PR establishes the relational schema and moves withdrawal-history reads/admin status storage from Prisma SQLite to Turso. It does not yet migrate every game action out of Zustand/localStorage, and it does not enable payouts or automatic referral rewards. Those require the server-side game/ledger service and verified payment callbacks.
