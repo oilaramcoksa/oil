@@ -17,6 +17,9 @@ export function StoreScreen() {
   const { haptic, notify } = useTelegram();
 
   const [selected, setSelected] = useState<UpgradePackage | null>(null);
+  const [selectedPart, setSelectedPart] = useState<{ id: 'oil_pump' | 'fuel_station' | 'oil_truck'; name: string; price: number; multiplier: string; icon: string; description: string } | null>(null);
+  const [partVerifying, setPartVerifying] = useState(false);
+  const [partFailed, setPartFailed] = useState(false);
   const [wallet, setWallet] = useState<CryptoWallet | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [paymentFailed, setPaymentFailed] = useState(false);
@@ -123,6 +126,62 @@ export function StoreScreen() {
     }
   };
 
+  const shopParts = [
+    { id: 'oil_pump' as const, name: 'مضخة البترول', price: 0.5, multiplier: '×3', icon: '🛢️', description: 'تضاعف سرعة الإنتاج ثلاث مرات' },
+    { id: 'fuel_station' as const, name: 'محطة الوقود', price: 0.3, multiplier: '×2', icon: '⛽', description: 'تضاعف سرعة الإنتاج مرتين' },
+    { id: 'oil_truck' as const, name: 'شاحنة نقل البترول', price: 0.1, multiplier: '×1.5', icon: '🚛', description: 'ترفع سرعة الإنتاج إلى مرة ونصف' },
+  ];
+
+  const buyPart = async () => {
+    if (!selectedPart || partVerifying) return;
+    const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
+    if (!initData) { toast.error('يجب فتح التطبيق من خلال بوت تيليجرام'); return; }
+    setPartVerifying(true);
+    setPartFailed(false);
+    try {
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+        body: JSON.stringify({ itemId: selectedPart.id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'تعذر إنشاء طلب الدفع');
+      await navigator.clipboard?.writeText(data.payment.destination).catch(() => undefined);
+      toast.info('تم تسجيل طلبك. أرسل المبلغ المحدد إلى عنوان TON الظاهر، وسيستمر التحقق لمدة ساعة');
+      const paymentId = String(data.payment.id);
+      const startedAt = Date.now();
+      const poll = async (): Promise<void> => {
+        try {
+          const res = await fetch('/api/payments?id=' + encodeURIComponent(paymentId), {
+            headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store',
+          });
+          const status = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error('status_unavailable');
+          if (status.payment?.status === 'confirmed') {
+            setPartVerifying(false);
+            toast.success('تم تأكيد الدفع');
+            return;
+          }
+          if (status.payment?.status === 'expired' || status.payment?.status === 'rejected' || Date.now() - startedAt >= 3605000) {
+            setPartVerifying(false); setPartFailed(true); notify('error');
+            toast.error('فشل الدفع: لم يتم التحقق من وصول التحويل خلال ساعة');
+            return;
+          }
+          window.setTimeout(() => { void poll(); }, 15000);
+        } catch {
+          if (Date.now() - startedAt >= 3605000) {
+            setPartVerifying(false); setPartFailed(true);
+            toast.error('انتهت مهلة التحقق دون تأكيد الدفع');
+          } else window.setTimeout(() => { void poll(); }, 15000);
+        }
+      };
+      void poll();
+    } catch (e) {
+      setPartVerifying(false);
+      toast.error(e instanceof Error ? e.message : 'تعذر بدء التحقق');
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto w-full px-3 pt-2 pb-6 aram-scroll" style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
       {/* Title */}
@@ -146,6 +205,23 @@ export function StoreScreen() {
           ⓘ {t(lang, 'aboutText').split('.').slice(0, 2).join('.')}
         </p>
       </motion.div>
+
+      {/* Speed parts shop */}
+      <div className="mb-3">
+        <h3 className="text-sm font-black text-[#2a1c0a] mb-2">قطع زيادة السرعة</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {shopParts.map((part) => (
+            <motion.button key={part.id} whileTap={{ scale: 0.97 }} onClick={() => { setSelectedPart(part); setPartFailed(false); setPartVerifying(false); }}
+              className="aram-card rounded-2xl p-2 text-center border border-amber-300">
+              <div className="text-4xl mb-1">{part.icon}</div>
+              <div className="text-[11px] font-black text-[#2a1c0a] leading-tight">{part.name}</div>
+              <div className="text-lg font-black text-emerald-700 my-1">{part.multiplier}</div>
+              <div className="text-[11px] font-bold text-amber-900">{part.price} TON</div>
+              <div className="text-[9px] text-amber-900/60 mt-1">شراء القطعة</div>
+            </motion.button>
+          ))}
+        </div>
+      </div>
 
       {/* Package cards */}
       <div className="space-y-2 mb-3">
@@ -269,6 +345,36 @@ export function StoreScreen() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {selectedPart && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center"
+            onClick={() => { if (!partVerifying) setSelectedPart(null); }}>
+            <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-gradient-to-b from-[#2a1c0a] to-[#0c0703] p-5 text-center">
+              <div className="text-6xl mb-2">{selectedPart.icon}</div>
+              <h3 className="text-amber-100 font-black text-lg">{selectedPart.name}</h3>
+              <div className="text-3xl font-black text-emerald-300 my-2">{selectedPart.multiplier}</div>
+              <p className="text-amber-200/70 text-xs mb-3">{selectedPart.description}</p>
+              <div className="rounded-xl bg-black/30 p-3 text-left mb-3">
+                <div className="text-amber-200/60 text-[10px] mb-1">أرسل المبلغ إلى محفظة TON الحالية</div>
+                <div className="text-amber-100 text-xs break-all font-mono">{WALLETS.find((w) => w.code === 'gram')?.address}</div>
+                <div className="text-emerald-300 font-black text-xl mt-2">{selectedPart.price} TON</div>
+              </div>
+              {partVerifying ? (
+                <div className="text-amber-100 text-sm font-bold py-3"><Loader2 className="inline w-4 h-4 animate-spin mr-2" />جاري التحقق من الدفع لمدة تصل إلى ساعة...</div>
+              ) : (
+                <Button disabled={partFailed} onClick={buyPart} className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black">
+                  {partFailed ? 'فشل الدفع - لم يتم تفعيل القطعة' : 'تأكيد الدفع'}
+                </Button>
+              )}
+              <button disabled={partVerifying} onClick={() => setSelectedPart(null)} className="text-amber-200/60 text-xs mt-3 disabled:opacity-30">إغلاق</button>
+              <p className="text-[9px] text-amber-200/40 mt-2">لن تُضاف القطعة إلى حسابك إلا بعد تأكيد التحويل من الخادم.</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Purchase modal */}
       <AnimatePresence>
