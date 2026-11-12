@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
@@ -11,16 +11,34 @@ import { toast } from 'sonner';
 
 export function FriendsScreen() {
   const lang = useGame((s) => s.lang);
-  const userId = useGame((s) => s.userId);
-  const referrals = useGame((s) => s.referrals);
-  const { tg, haptic, notify } = useTelegram();
+  const { tg, haptic, notify, initData } = useTelegram();
   const [copied, setCopied] = useState(false);
+  const [referralCode, setReferralCode] = useState('');
+  const [referrals, setReferrals] = useState<{ id: string; name: string; joinedAt: number; earned: number; active: boolean }[]>([]);
 
-  const referralLink = `https://t.me/armcooilbot?start=${userId}`;
+  useEffect(() => {
+    if (!initData) return;
+    let cancelled = false;
+    fetch('/api/players/me', { headers: { 'x-telegram-init-data': initData }, cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('referral_profile_unavailable');
+        return response.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setReferralCode(typeof data.referralCode === 'string' ? data.referralCode : '');
+        setReferrals(Array.isArray(data.referrals) ? data.referrals : []);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [initData]);
+
+  const referralLink = referralCode ? `https://t.me/armcooilbot?start=ref_${referralCode}` : '';
   const totalEarned = referrals.reduce((acc, r) => acc + r.earned, 0);
 
   const handleCopy = async () => {
     try {
+      if (!referralLink) { toast.error(t(lang, 'referralLinkLoading')); return; }
       await navigator.clipboard.writeText(referralLink);
       setCopied(true);
       haptic('medium');
@@ -34,6 +52,7 @@ export function FriendsScreen() {
 
   const handleShare = () => {
     haptic('light');
+    if (!referralLink) { toast.error(t(lang, 'referralLinkLoading')); return; }
     const text = lang === 'ar'
       ? 'تعالى نلعب أرامكو أويل ونستخرج بترول ونجمّع عملات! 🛢️💰'
       : lang === 'ru'
@@ -97,7 +116,7 @@ export function FriendsScreen() {
           <h3 className="text-sm font-black text-[#2a1c0a]">{t(lang, 'inviteLink')}</h3>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 mb-2">
-          <span className="text-xs text-amber-900/80 font-mono truncate flex-1">{referralLink}</span>
+          <span className="text-xs text-amber-900/80 font-mono truncate flex-1">{referralLink || t(lang, 'referralLinkLoading')}</span>
           {copied && <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
         </div>
         <div className="grid grid-cols-2 gap-2">
