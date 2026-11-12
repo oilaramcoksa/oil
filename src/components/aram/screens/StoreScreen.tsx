@@ -17,7 +17,7 @@ export function StoreScreen() {
   const { haptic, notify } = useTelegram();
 
   const [selected, setSelected] = useState<UpgradePackage | null>(null);
-  const [selectedPart, setSelectedPart] = useState<{ id: 'oil_pump' | 'fuel_station' | 'oil_truck'; name: string; price: number; multiplier: string; image: string; description: string } | null>(null);
+  const [selectedPart, setSelectedPart] = useState<{ id: 'oil_pump' | 'fuel_station' | 'oil_truck'; nameKey: string; price: number; multiplier: string; image: string; descriptionKey: string } | null>(null);
   const [partVerifying, setPartVerifying] = useState(false);
   const [partFailed, setPartFailed] = useState(false);
   const [partCopied, setPartCopied] = useState(false);
@@ -64,7 +64,7 @@ export function StoreScreen() {
     if (!selected || !wallet || verifying) return;
     const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
     if (!initData) {
-      toast.error('يجب فتح التطبيق من خلال بوت تيليجرام');
+      toast.error(t(lang, 'telegramRequired'));
       return;
     }
     setVerifying(true);
@@ -128,9 +128,9 @@ export function StoreScreen() {
   };
 
   const shopParts = [
-    { id: 'oil_pump' as const, name: 'مضخة البترول', price: 0.5, multiplier: '×3', image: '/images/shop/oil-pump.png', description: 'تضاعف سرعة الإنتاج ثلاث مرات' },
-    { id: 'fuel_station' as const, name: 'محطة الوقود', price: 0.3, multiplier: '×2', image: '/images/shop/fuel-station.png', description: 'تضاعف سرعة الإنتاج مرتين' },
-    { id: 'oil_truck' as const, name: 'شاحنة نقل البترول', price: 0.1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', description: 'ترفع سرعة الإنتاج إلى مرة ونصف' },
+    { id: 'oil_pump' as const, nameKey: 'oilPumpPart', price: 0.5, multiplier: '×3', image: '/images/shop/oil-pump.png', descriptionKey: 'oilPumpDescription' },
+    { id: 'fuel_station' as const, nameKey: 'fuelStationPart', price: 0.3, multiplier: '×2', image: '/images/shop/fuel-station.png', descriptionKey: 'fuelStationDescription' },
+    { id: 'oil_truck' as const, nameKey: 'oilTruckPart', price: 0.1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
   ];
 
   const copyPartWallet = async () => {
@@ -140,10 +140,10 @@ export function StoreScreen() {
       await navigator.clipboard.writeText(address);
       setPartCopied(true);
       haptic('medium');
-      toast.success('تم نسخ عنوان محفظة TON');
+      toast.success(t(lang, 'addressCopied'));
       window.setTimeout(() => setPartCopied(false), 2200);
     } catch {
-      toast.error('تعذر نسخ العنوان، يمكنك تحديده ونسخه يدويًا');
+      toast.error(t(lang, 'copyAddressFailed'));
     }
   };
 
@@ -162,7 +162,7 @@ export function StoreScreen() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'تعذر إنشاء طلب الدفع');
       await navigator.clipboard?.writeText(data.payment.destination).catch(() => undefined);
-      toast.info('تم تسجيل طلبك. أرسل المبلغ المحدد إلى عنوان TON الظاهر، وسيستمر التحقق لمدة ساعة');
+      toast.info(t(lang, 'paymentRequestCreated'));
       const paymentId = String(data.payment.id);
       const startedAt = Date.now();
       const poll = async (): Promise<void> => {
@@ -174,26 +174,26 @@ export function StoreScreen() {
           if (!res.ok) throw new Error('status_unavailable');
           if (status.payment?.status === 'confirmed') {
             setPartVerifying(false);
-            toast.success('تم تأكيد الدفع');
+            toast.success(t(lang, 'paymentConfirmed'));
             return;
           }
           if (status.payment?.status === 'expired' || status.payment?.status === 'rejected' || Date.now() - startedAt >= 3605000) {
             setPartVerifying(false); setPartFailed(true); notify('error');
-            toast.error('فشل الدفع: لم يتم التحقق من وصول التحويل خلال ساعة');
+            toast.error(t(lang, 'paymentTimeout'));
             return;
           }
           window.setTimeout(() => { void poll(); }, 15000);
         } catch {
           if (Date.now() - startedAt >= 3605000) {
             setPartVerifying(false); setPartFailed(true);
-            toast.error('انتهت مهلة التحقق دون تأكيد الدفع');
+            toast.error(t(lang, 'paymentTimeout'));
           } else window.setTimeout(() => { void poll(); }, 15000);
         }
       };
       void poll();
     } catch (e) {
       setPartVerifying(false);
-      toast.error(e instanceof Error ? e.message : 'تعذر بدء التحقق');
+      toast.error(e instanceof Error ? e.message : t(lang, 'paymentStatusUnavailable'));
     }
   };
 
@@ -223,22 +223,22 @@ export function StoreScreen() {
 
       {/* Speed parts shop */}
       <div className="mb-3">
-        <h3 className="text-sm font-black text-[#2a1c0a] mb-2">قطع زيادة السرعة</h3>
+        <h3 className="text-sm font-black text-[#2a1c0a] mb-2">{t(lang, 'speedPartsTitle')}</h3>
         <div className="grid grid-cols-3 gap-2">
           {shopParts.map((part) => (
             <motion.button key={part.id} whileTap={{ scale: 0.97 }} onClick={() => { setSelectedPart(part); setPartFailed(false); setPartVerifying(false); }}
               className="aram-card rounded-2xl p-2 text-center border border-amber-300">
-              <div className="h-20 flex items-center justify-center mb-1"><img src={part.image} alt={part.name} className="max-h-20 max-w-full object-contain" /></div>
+              <div className="h-20 flex items-center justify-center mb-1"><img src={part.image} alt={t(lang, part.nameKey)} className="max-h-20 max-w-full object-contain" /></div>
               <div className="text-[11px] font-black text-[#2a1c0a] leading-tight">{part.name}</div>
               <div className="text-lg font-black text-emerald-700 my-1">{part.multiplier}</div>
               <div className="text-[11px] font-bold text-amber-900">{part.price} TON</div>
-              <div className="text-[9px] text-amber-900/60 mt-1">شراء القطعة</div>
+              <div className="text-[9px] text-amber-900/60 mt-1">{t(lang, 'buyPart')}</div>
             </motion.button>
           ))}
         </div>
       </div>
 
-      <div className="my-5 flex items-center gap-3" aria-label="شراء باقة لتسريع التعدين">
+      <div className="my-5 flex items-center gap-3" aria-label={t(lang, 'buyMiningPackage')}>
         <span className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-700/40 to-amber-700/40" />
         <h3 className="shrink-0 rounded-full border border-amber-500/30 bg-amber-100/70 px-4 py-2 text-xs font-black text-[#6b3d12] shadow-sm">
           شراء باقة لتسريع التعدين
@@ -278,7 +278,7 @@ export function StoreScreen() {
                   <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
                     p.badge === 'best' ? 'bg-fuchsia-500/15 text-fuchsia-700' : 'bg-amber-500/15 text-amber-700'
                   }`}>
-                    {p.badge === 'best' ? '★ BEST' : '★ POPULAR'}
+                    {p.badge === 'best' ? `★ ${t(lang, p.badge === 'best' ? 'sectionBest' : 'sectionPopular')}`}
                   </span>
                 )}
               </div>
@@ -387,7 +387,7 @@ export function StoreScreen() {
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                   className="h-36 flex items-center justify-center mb-2"
                 >
-                  <img src={selectedPart.image} alt={selectedPart.name} className="max-h-36 max-w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.45)]" />
+                  <img src={selectedPart.image} alt={t(lang, selectedPart.nameKey)} className="max-h-36 max-w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.45)]" />
                 </motion.div>
                 <h3 className="text-amber-100 font-black text-lg">{selectedPart.name}</h3>
                 <motion.div
@@ -395,16 +395,16 @@ export function StoreScreen() {
                   transition={{ duration: 2.2, repeat: Infinity }}
                   className="text-4xl font-black text-emerald-300 my-2"
                 >{selectedPart.multiplier}</motion.div>
-                <p className="text-amber-200/70 text-xs mb-4">{selectedPart.description}</p>
+                <p className="text-amber-200/70 text-xs mb-4">{t(lang, selectedPart.descriptionKey)}</p>
               </motion.div>
 
               <motion.div layout className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-white/[0.09] to-white/[0.03] p-3 text-left mb-3 shadow-inner">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 text-amber-200/80 text-xs font-bold">
                     <span className="text-lg">💎</span>
-                    <span>محفظة TON لاستلام الدفع</span>
+                    <span>{t(lang, 'tonWalletReceive')}</span>
                   </div>
-                  <span className="text-[9px] rounded-full bg-emerald-400/10 text-emerald-300 px-2 py-1">TON Network</span>
+                  <span className="text-[9px] rounded-full bg-emerald-400/10 text-emerald-300 px-2 py-1">{t(lang, 'tonNetwork')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="min-w-0 flex-1 rounded-xl bg-black/35 border border-white/10 px-3 py-3 text-[11px] leading-5 text-amber-50 font-mono break-all select-all">
@@ -413,11 +413,11 @@ export function StoreScreen() {
                   <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.04 }} onClick={copyPartWallet}
                     className="shrink-0 h-12 min-w-[76px] rounded-xl border border-cyan-300/30 bg-cyan-400/10 px-3 flex flex-col items-center justify-center gap-1 text-cyan-200 text-[10px] font-black">
                     {partCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {partCopied ? 'تم النسخ' : 'نسخ'}
+                    {partCopied ? t(lang, 'copied') : t(lang, 'copy')}
                   </motion.button>
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
-                  <span className="text-amber-200/70 text-xs">المبلغ المطلوب</span>
+                  <span className="text-amber-200/70 text-xs">{t(lang, 'requiredAmount')}</span>
                   <motion.span key={selectedPart.price} initial={{ scale: 1.2 }} animate={{ scale: 1 }} className="text-emerald-300 font-black text-2xl">{selectedPart.price} TON</motion.span>
                 </div>
               </motion.div>
@@ -427,7 +427,7 @@ export function StoreScreen() {
                   <motion.div key="checking" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                     className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-amber-100 text-sm font-bold">
                     <Loader2 className="inline w-5 h-5 animate-spin mr-2 text-emerald-300" />
-                    جاري التحقق من الدفع لمدة تصل إلى ساعة...
+                    {t(lang, 'paymentCheckingHour')}
                   </motion.div>
                 ) : (
                   <motion.div key="buy" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
@@ -436,14 +436,14 @@ export function StoreScreen() {
                       <motion.span aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                         animate={{ x: ['-120%', '120%'] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }} />
                       <span className="relative flex items-center justify-center gap-2">
-                        {partFailed ? 'فشل الدفع - لم يتم تفعيل القطعة' : <><Zap className="w-5 h-5" /> اشتريت القطعة - تحقق من الدفع</>}
+                        {partFailed ? t(lang, 'paymentFailedNoActivation') : <><Zap className="w-5 h-5" /> اشتريت القطعة - تحقق من الدفع</>}
                       </span>
                     </Button>
                   </motion.div>
                 )}
               </AnimatePresence>
               <button disabled={partVerifying} onClick={() => setSelectedPart(null)} className="text-amber-200/60 text-xs mt-4 disabled:opacity-30">إغلاق</button>
-              <p className="text-[9px] text-amber-200/40 mt-2">لن تُضاف القطعة إلا بعد تأكيد التحويل من الخادم.</p>
+              <p className="text-[9px] text-amber-200/40 mt-2">{t(lang, 'paymentNotActivated')}</p>
             </motion.div>
           </motion.div>
         )}
