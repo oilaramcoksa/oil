@@ -657,7 +657,11 @@ export const useGame = create<GameState>()(
       syncWithdrawals: async () => {
         const s = get();
         try {
-          const res = await fetch(`/api/withdrawals?userId=${encodeURIComponent(s.userId)}`);
+          const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
+          const res = await fetch('/api/withdrawals', {
+            headers: { 'X-Telegram-Init-Data': initData },
+            cache: 'no-store',
+          });
           if (!res.ok) return;
           const data = (await res.json()) as { withdrawals: WithdrawalRecord[] };
           const cur = get();
