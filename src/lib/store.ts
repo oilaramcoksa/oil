@@ -657,10 +657,10 @@ export const useGame = create<GameState>()(
           });
           if (!res.ok) return;
           const data = (await res.json()) as { withdrawals: WithdrawalRecord[]; wallet?: { coins: number } | null };
-          set({
-            withdrawals: data.withdrawals,
-            ...(data.wallet ? { coins: data.wallet.coins } : {}),
-          });
+          // Withdrawal history is authoritative here, but the legacy gameplay
+          // balance is not yet ledger-backed. Never overwrite it with a stale
+          // zero wallet returned by the withdrawal endpoint.
+          set({ withdrawals: data.withdrawals });
         } catch {
           /* offline — try again next time */
         }
