@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest) {
     if (Number(result.rowsAffected) === 0) return NextResponse.json({ error: 'not_pending_or_missing' }, { status: 409 });
     await db.execute({
       sql: 'INSERT INTO admin_audit_logs(id, admin_id, action, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?, ?)',
-      args: [randomUUID(), 'env:ADMIN_TOKEN', `withdrawal_${status}`, 'withdrawal', id, JSON.stringify({ txHash, adminNote })],
+      args: [randomUUID(), 'admin_token', `withdrawal_${status}`, 'withdrawal', id, JSON.stringify({ txHash, adminNote })],
     });
     return NextResponse.json({ ok: true });
   } catch (error) {
