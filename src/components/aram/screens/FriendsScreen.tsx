@@ -13,8 +13,6 @@ export function FriendsScreen() {
   const lang = useGame((s) => s.lang);
   const userId = useGame((s) => s.userId);
   const referrals = useGame((s) => s.referrals);
-  const addReferral = useGame((s) => s.addReferral);
-  const coins = useGame((s) => s.coins);
   const { tg, haptic, notify } = useTelegram();
   const [copied, setCopied] = useState(false);
 
@@ -47,14 +45,6 @@ export function FriendsScreen() {
     } else {
       window.open(url, '_blank');
     }
-  };
-
-  // Simulate a referral join (demo button so the user can see the flow)
-  const handleSimulate = () => {
-    haptic('medium');
-    const name = ['Ahmed', 'Sara', 'Omar', 'Layla', 'Yusuf', 'Mariam', 'Khaled', 'Noor'][Math.floor(Math.random() * 8)];
-    addReferral(name);
-    notify('success');
   };
 
   return (
@@ -126,13 +116,6 @@ export function FriendsScreen() {
             {t(lang, 'shareLink')}
           </Button>
         </div>
-        {/* Demo button — simulate a friend joining (remove in production) */}
-        <button
-          onClick={handleSimulate}
-          className="mt-2 w-full text-[10px] text-amber-700/70 font-bold py-1 hover:text-amber-700"
-        >
-          + {t(lang, 'active')} (demo)
-        </button>
       </motion.div>
 
       {/* Referral list */}
