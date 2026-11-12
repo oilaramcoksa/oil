@@ -20,6 +20,34 @@ function snapshot(state: ReturnType<typeof useGame.getState>) {
   return value;
 }
 
+type RemoteGameState = {
+  exists?: boolean;
+  state?: Record<string, unknown> | null;
+  wallet?: { coins?: number; oil?: number; locked?: number } | null;
+};
+
+function authoritativeState(remote: RemoteGameState, userId: number, userName: string) {
+  const current = useGame.getState();
+  const restored = remote.exists && remote.state && typeof remote.state === 'object'
+    ? remote.state
+    : {};
+  const merged: Record<string, unknown> = {
+    ...restored,
+    userId: String(userId),
+    userName: userName || current.userName,
+  };
+
+  // Wallet balances from the relational Turso wallet override any older
+  // denormalized values in the game snapshot. Never coerce missing balances to 0.
+  if (remote.wallet && Number.isSafeInteger(remote.wallet.coins) && Number(remote.wallet.coins) >= 0) {
+    merged.coins = Number(remote.wallet.coins);
+  }
+  if (remote.wallet && Number.isSafeInteger(remote.wallet.oil) && Number(remote.wallet.oil) >= 0) {
+    merged.oil = Number(remote.wallet.oil);
+  }
+  return merged;
+}
+
 export function GameCloudSync({ initData, userId, userName }: { initData: string; userId: number; userName: string }) {
   useEffect(() => {
     if (!initData || !userId) return;
@@ -43,19 +71,14 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
       try {
         const response = await fetch('/api/game/state', { headers, cache: 'no-store' });
         if (!response.ok) throw new Error('game_state_load_failed');
-        const remote = await response.json();
+        const remote = await response.json() as RemoteGameState;
         if (disposed) return;
 
-        const current = useGame.getState();
-        if (remote.exists && remote.state && typeof remote.state === 'object') {
-          useGame.setState({
-            ...remote.state,
-            userId: String(userId),
-            userName: userName || current.userName,
-          } as Partial<ReturnType<typeof useGame.getState>>);
-        } else {
-          // One-time migration: preserve this device's legacy local save in Turso.
-          useGame.setState({ userId: String(userId), userName: userName || current.userName });
+        useGame.setState(authoritativeState(remote, userId, userName) as Partial<ReturnType<typeof useGame.getState>>);
+
+        if (!remote.exists) {
+          // Preserve legacy non-ledger state during first-time snapshot creation.
+          // The API independently protects ledger-backed wallet balances.
           await save(useGame.getState());
         }
 
