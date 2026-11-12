@@ -18,7 +18,7 @@ export function FriendsScreen() {
   const { tg, haptic, notify } = useTelegram();
   const [copied, setCopied] = useState(false);
 
-  const referralLink = `https://t.me/aramcooil_bot?start=${userId}`;
+  const referralLink = `https://t.me/armcooilbot?start=${userId}`;
   const totalEarned = referrals.reduce((acc, r) => acc + r.earned, 0);
 
   const handleCopy = async () => {
