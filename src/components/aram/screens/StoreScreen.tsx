@@ -229,7 +229,7 @@ export function StoreScreen() {
             <motion.button key={part.id} whileTap={{ scale: 0.97 }} onClick={() => { setSelectedPart(part); setPartFailed(false); setPartVerifying(false); }}
               className="aram-card rounded-2xl p-2 text-center border border-amber-300">
               <div className="h-20 flex items-center justify-center mb-1"><img src={part.image} alt={t(lang, part.nameKey)} className="max-h-20 max-w-full object-contain" /></div>
-              <div className="text-[11px] font-black text-[#2a1c0a] leading-tight">{part.name}</div>
+              <div className="text-[11px] font-black text-[#2a1c0a] leading-tight">{t(lang, part.nameKey)}</div>
               <div className="text-lg font-black text-emerald-700 my-1">{part.multiplier}</div>
               <div className="text-[11px] font-bold text-amber-900">{part.price} TON</div>
               <div className="text-[9px] text-amber-900/60 mt-1">{t(lang, 'buyPart')}</div>
@@ -278,7 +278,7 @@ export function StoreScreen() {
                   <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
                     p.badge === 'best' ? 'bg-fuchsia-500/15 text-fuchsia-700' : 'bg-amber-500/15 text-amber-700'
                   }`}>
-                    {p.badge === 'best' ? `★ ${t(lang, p.badge === 'best' ? 'sectionBest' : 'sectionPopular')}`}
+                    {p.badge ? `★ ${t(lang, p.badge === 'best' ? 'sectionBest' : 'sectionPopular')}` : null}
                   </span>
                 )}
               </div>
