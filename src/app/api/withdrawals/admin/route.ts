@@ -1,65 +1,64 @@
+import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 
-// Reviewer endpoint. Protected by the ADMIN_TOKEN environment variable:
-//   curl -H "Authorization: Bearer $ADMIN_TOKEN" /api/withdrawals/admin
-//   curl -X PATCH -H "Authorization: Bearer $ADMIN_TOKEN" \
-//        -d '{"id":"...","status":"paid","txHash":"<TON tx hash>"}' /api/withdrawals/admin
-//   curl -X PATCH ... -d '{"id":"...","status":"rejected","adminNote":"reason"}'
-// A rejected request is refunded to the player's in-game balance automatically
-// the next time their app syncs.
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 function authorized(req: NextRequest): boolean | 'unconfigured' {
   const token = process.env.ADMIN_TOKEN;
-  if (!token || token.length < 16) return 'unconfigured';
-  const header = req.headers.get('authorization') ?? '';
-  return header === `Bearer ${token}`;
+  if (!token || token.length < 32) return 'unconfigured';
+  return req.headers.get('authorization') === `Bearer ${token}`;
 }
 
 export async function GET(req: NextRequest) {
   const ok = authorized(req);
   if (ok === 'unconfigured') return NextResponse.json({ error: 'admin_disabled' }, { status: 503 });
   if (!ok) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-  const status = req.nextUrl.searchParams.get('status') ?? 'pending';
-  const rows = await db.withdrawalRequest.findMany({
-    where: status === 'all' ? {} : { status },
-    orderBy: { createdAt: 'asc' },
-    take: 200,
-  });
-  return NextResponse.json({ withdrawals: rows });
+  try {
+    await ensureDatabaseSchema();
+    const status = req.nextUrl.searchParams.get('status') ?? 'pending';
+    const result = status === 'all'
+      ? await getTurso().execute('SELECT * FROM withdrawal_requests ORDER BY created_at ASC LIMIT 200')
+      : await getTurso().execute({ sql: 'SELECT * FROM withdrawal_requests WHERE status = ? ORDER BY created_at ASC LIMIT 200', args: [status] });
+    return NextResponse.json({ withdrawals: result.rows }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('admin_withdrawal_list_failed', error);
+    return NextResponse.json({ error: 'database_unavailable' }, { status: 503 });
+  }
 }
 
 export async function PATCH(req: NextRequest) {
   const ok = authorized(req);
   if (ok === 'unconfigured') return NextResponse.json({ error: 'admin_disabled' }, { status: 503 });
   if (!ok) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
   let body: Record<string, unknown>;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
-  }
-  const id = String(body.id ?? '');
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid_body' }, { status: 400 }); }
+
+  const id = String(body.id ?? '').slice(0, 128);
   const status = String(body.status ?? '');
   const txHash = body.txHash ? String(body.txHash).slice(0, 128) : null;
   const adminNote = body.adminNote ? String(body.adminNote).slice(0, 500) : null;
+  if (!id || (status !== 'paid' && status !== 'rejected')) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
+  if (status === 'paid' && !txHash) return NextResponse.json({ error: 'txhash_required' }, { status: 400 });
 
-  if (status !== 'paid' && status !== 'rejected') {
-    return NextResponse.json({ error: 'invalid_status' }, { status: 400 });
+  try {
+    await ensureDatabaseSchema();
+    const db = getTurso();
+    const result = await db.execute({
+      sql: `UPDATE withdrawal_requests
+            SET status = ?, tx_hash = ?, admin_note = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND status = 'pending'`,
+      args: [status, txHash, adminNote, id],
+    });
+    if (Number(result.rowsAffected) === 0) return NextResponse.json({ error: 'not_pending_or_missing' }, { status: 409 });
+    await db.execute({
+      sql: 'INSERT INTO admin_audit_logs(id, admin_id, action, target_type, target_id, details_json) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [randomUUID(), 'admin_token', `withdrawal_${status}`, 'withdrawal', id, JSON.stringify({ txHash, adminNote })],
+    });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('admin_withdrawal_update_failed', error);
+    return NextResponse.json({ error: 'database_unavailable' }, { status: 503 });
   }
-  if (status === 'paid' && !txHash) {
-    return NextResponse.json({ error: 'txhash_required' }, { status: 400 });
-  }
-
-  // Only a pending request can be resolved (atomic guard against double updates).
-  const result = await db.withdrawalRequest.updateMany({
-    where: { id, status: 'pending' },
-    data: { status, txHash, adminNote },
-  });
-  if (result.count === 0) {
-    return NextResponse.json({ error: 'not_pending_or_missing' }, { status: 409 });
-  }
-  return NextResponse.json({ ok: true });
 }

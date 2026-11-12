@@ -1,22 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { getVerifiedTelegramUser } from '@/lib/telegram-auth';
-import { type WithdrawalRecord, type WithdrawalStatus } from '@/lib/withdraw';
 
-function serialize(r: { id: string; units: number; coins: number; tonAddress: string; status: string; txHash: string | null; adminNote: string | null; createdAt: Date; updatedAt: Date; }): WithdrawalRecord {
-  return { id: r.id, units: r.units, coins: r.coins, usd: r.units, tonAddress: r.tonAddress, status: r.status as WithdrawalStatus, txHash: r.txHash, adminNote: r.adminNote, createdAt: r.createdAt.getTime(), updatedAt: r.updatedAt.getTime() };
-}
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-// Account identity is derived exclusively from Telegram-signed initData.
+// Withdrawal history is read from the same Turso database as player profiles.
+// New requests remain disabled until server-authoritative balances are implemented.
 export async function GET(req: NextRequest) {
   const user = getVerifiedTelegramUser(req);
   if (!user) return NextResponse.json({ error: 'telegram_auth_required' }, { status: 401 });
-  const rows = await db.withdrawalRequest.findMany({ where: { userId: 'tg_' + user.id }, orderBy: { createdAt: 'desc' }, take: 50 });
-  return NextResponse.json({ withdrawals: rows.map(serialize) }, { headers: { 'Cache-Control': 'no-store, private' } });
+  try {
+    await ensureDatabaseSchema();
+    const result = await getTurso().execute({
+      sql: `SELECT id, units, coins, ton_address, status, tx_hash, admin_note, created_at, updated_at
+            FROM withdrawal_requests WHERE telegram_id = ? ORDER BY created_at DESC LIMIT 50`,
+      args: [String(user.id)],
+    });
+    const withdrawals = result.rows.map((row) => ({
+      id: String(row.id),
+      units: Number(row.units),
+      coins: Number(row.coins),
+      usd: Number(row.units),
+      tonAddress: String(row.ton_address),
+      status: String(row.status),
+      txHash: row.tx_hash ? String(row.tx_hash) : null,
+      adminNote: row.admin_note ? String(row.admin_note) : null,
+      createdAt: Date.parse(String(row.created_at)) || 0,
+      updatedAt: Date.parse(String(row.updated_at)) || 0,
+    }));
+    return NextResponse.json({ withdrawals }, { headers: { 'Cache-Control': 'no-store, private' } });
+  } catch (error) {
+    console.error('withdrawal_history_failed', error);
+    return NextResponse.json({ error: 'withdrawal_history_unavailable' }, { status: 503 });
+  }
 }
 
-// Real-value payouts stay disabled until balances and rewards are server-authoritative.
-// Browser localStorage and client-supplied balances are never proof of funds.
 export async function POST() {
-  return NextResponse.json({ error: 'withdrawals_temporarily_disabled', message: 'السحب متوقف مؤقتًا حتى تفعيل دفتر أرصدة موثوق على الخادم.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  return NextResponse.json(
+    { error: 'withdrawals_temporarily_disabled', message: 'السحب متوقف مؤقتًا حتى تفعيل دفتر أرصدة موثوق على الخادم.' },
+    { status: 503, headers: { 'Cache-Control': 'no-store' } },
+  );
 }
