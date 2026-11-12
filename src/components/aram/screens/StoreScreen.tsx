@@ -373,9 +373,17 @@ export function StoreScreen() {
         {selectedPart && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center"
-            onClick={() => { if (!partVerifying) setSelectedPart(null); }}>
+            onClick={() => setSelectedPart(null)}>
             <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-gradient-to-b from-[#2a1c0a] to-[#0c0703] p-5 text-center">
+              onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-gradient-to-b from-[#2a1c0a] to-[#0c0703] p-5 pt-4 text-center max-h-[92vh] overflow-y-auto aram-scroll">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-amber-200/50">{t(lang, 'storeTitle')}</span>
+                <motion.button whileTap={{ scale: 0.94 }} onClick={() => setSelectedPart(null)}
+                  className="flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-100/10 px-4 py-2 text-amber-100 text-xs font-black shadow-lg">
+                  <ChevronLeft className="w-4 h-4" />
+                  {t(lang, 'backToStore')}
+                </motion.button>
+              </div>
               <motion.div
                 initial={{ y: 14, opacity: 0, scale: 0.94 }}
                 animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -389,7 +397,7 @@ export function StoreScreen() {
                 >
                   <img src={selectedPart.image} alt={t(lang, selectedPart.nameKey)} className="max-h-36 max-w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.45)]" />
                 </motion.div>
-                <h3 className="text-amber-100 font-black text-lg">{selectedPart.name}</h3>
+                <h3 className="text-amber-100 font-black text-lg">{t(lang, selectedPart.nameKey)}</h3>
                 <motion.div
                   animate={{ scale: [1, 1.07, 1], textShadow: ['0 0 8px rgba(52,211,153,.15)', '0 0 22px rgba(52,211,153,.65)', '0 0 8px rgba(52,211,153,.15)'] }}
                   transition={{ duration: 2.2, repeat: Infinity }}
@@ -442,7 +450,7 @@ export function StoreScreen() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              <button disabled={partVerifying} onClick={() => setSelectedPart(null)} className="text-amber-200/60 text-xs mt-4 disabled:opacity-30">{t(lang, 'close')}</button>
+              <button onClick={() => setSelectedPart(null)} className="mt-4 inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/25 px-5 py-2 text-amber-100/80 text-xs font-bold hover:bg-white/5"><ChevronLeft className="w-3.5 h-3.5" />{t(lang, 'backToStore')}</button>
               <p className="text-[9px] text-amber-200/40 mt-2">{t(lang, 'paymentNotActivated')}</p>
             </motion.div>
           </motion.div>
