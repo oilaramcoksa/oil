@@ -29,6 +29,13 @@ export async function GET(req: NextRequest) {
       args: [telegramId, new Date().toISOString().slice(0, 7)],
     });
 
+    await db.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES (?)', args: [telegramId] });
+    await db.execute({ sql: 'INSERT OR IGNORE INTO player_game_state(telegram_id) VALUES (?)', args: [telegramId] });
+    await db.execute({
+      sql: 'INSERT OR IGNORE INTO player_monthly_stats(telegram_id, month_key) VALUES (?, ?)',
+      args: [telegramId, new Date().toISOString().slice(0, 7)],
+    });
+
     const startParam = getStartParam(req);
     if (startParam?.startsWith('ref_')) {
       const code = startParam.slice(4).slice(0, 64);
