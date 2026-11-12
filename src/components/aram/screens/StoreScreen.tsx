@@ -17,9 +17,10 @@ export function StoreScreen() {
   const { haptic, notify } = useTelegram();
 
   const [selected, setSelected] = useState<UpgradePackage | null>(null);
-  const [selectedPart, setSelectedPart] = useState<{ id: 'oil_pump' | 'fuel_station' | 'oil_truck'; name: string; price: number; multiplier: string; icon: string; description: string } | null>(null);
+  const [selectedPart, setSelectedPart] = useState<{ id: 'oil_pump' | 'fuel_station' | 'oil_truck'; name: string; price: number; multiplier: string; image: string; description: string } | null>(null);
   const [partVerifying, setPartVerifying] = useState(false);
   const [partFailed, setPartFailed] = useState(false);
+  const [partCopied, setPartCopied] = useState(false);
   const [wallet, setWallet] = useState<CryptoWallet | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [paymentFailed, setPaymentFailed] = useState(false);
@@ -131,6 +132,20 @@ export function StoreScreen() {
     { id: 'fuel_station' as const, name: 'محطة الوقود', price: 0.3, multiplier: '×2', image: '/images/shop/fuel-station.png', description: 'تضاعف سرعة الإنتاج مرتين' },
     { id: 'oil_truck' as const, name: 'شاحنة نقل البترول', price: 0.1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', description: 'ترفع سرعة الإنتاج إلى مرة ونصف' },
   ];
+
+  const copyPartWallet = async () => {
+    const address = WALLETS.find((w) => w.code === 'gram')?.address;
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+      setPartCopied(true);
+      haptic('medium');
+      toast.success('تم نسخ عنوان محفظة TON');
+      window.setTimeout(() => setPartCopied(false), 2200);
+    } catch {
+      toast.error('تعذر نسخ العنوان، يمكنك تحديده ونسخه يدويًا');
+    }
+  };
 
   const buyPart = async () => {
     if (!selectedPart || partVerifying) return;
@@ -353,24 +368,74 @@ export function StoreScreen() {
             onClick={() => { if (!partVerifying) setSelectedPart(null); }}>
             <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
               onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-gradient-to-b from-[#2a1c0a] to-[#0c0703] p-5 text-center">
-              <div className="h-36 flex items-center justify-center mb-2"><img src={selectedPart.image} alt={selectedPart.name} className="max-h-36 max-w-full object-contain" /></div>
-              <h3 className="text-amber-100 font-black text-lg">{selectedPart.name}</h3>
-              <div className="text-3xl font-black text-emerald-300 my-2">{selectedPart.multiplier}</div>
-              <p className="text-amber-200/70 text-xs mb-3">{selectedPart.description}</p>
-              <div className="rounded-xl bg-black/30 p-3 text-left mb-3">
-                <div className="text-amber-200/60 text-[10px] mb-1">أرسل المبلغ إلى محفظة TON الحالية</div>
-                <div className="text-amber-100 text-xs break-all font-mono">{WALLETS.find((w) => w.code === 'gram')?.address}</div>
-                <div className="text-emerald-300 font-black text-xl mt-2">{selectedPart.price} TON</div>
-              </div>
-              {partVerifying ? (
-                <div className="text-amber-100 text-sm font-bold py-3"><Loader2 className="inline w-4 h-4 animate-spin mr-2" />جاري التحقق من الدفع لمدة تصل إلى ساعة...</div>
-              ) : (
-                <Button disabled={partFailed} onClick={buyPart} className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black">
-                  {partFailed ? 'فشل الدفع - لم يتم تفعيل القطعة' : 'تأكيد الدفع'}
-                </Button>
-              )}
-              <button disabled={partVerifying} onClick={() => setSelectedPart(null)} className="text-amber-200/60 text-xs mt-3 disabled:opacity-30">إغلاق</button>
-              <p className="text-[9px] text-amber-200/40 mt-2">لن تُضاف القطعة إلى حسابك إلا بعد تأكيد التحويل من الخادم.</p>
+              <motion.div
+                initial={{ y: 14, opacity: 0, scale: 0.94 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                className="relative"
+              >
+                <motion.div
+                  animate={{ y: [0, -7, 0], rotate: [0, -1, 1, 0] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                  className="h-36 flex items-center justify-center mb-2"
+                >
+                  <img src={selectedPart.image} alt={selectedPart.name} className="max-h-36 max-w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.45)]" />
+                </motion.div>
+                <h3 className="text-amber-100 font-black text-lg">{selectedPart.name}</h3>
+                <motion.div
+                  animate={{ scale: [1, 1.07, 1], textShadow: ['0 0 8px rgba(52,211,153,.15)', '0 0 22px rgba(52,211,153,.65)', '0 0 8px rgba(52,211,153,.15)'] }}
+                  transition={{ duration: 2.2, repeat: Infinity }}
+                  className="text-4xl font-black text-emerald-300 my-2"
+                >{selectedPart.multiplier}</motion.div>
+                <p className="text-amber-200/70 text-xs mb-4">{selectedPart.description}</p>
+              </motion.div>
+
+              <motion.div layout className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-white/[0.09] to-white/[0.03] p-3 text-left mb-3 shadow-inner">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 text-amber-200/80 text-xs font-bold">
+                    <span className="text-lg">💎</span>
+                    <span>محفظة TON لاستلام الدفع</span>
+                  </div>
+                  <span className="text-[9px] rounded-full bg-emerald-400/10 text-emerald-300 px-2 py-1">TON Network</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 rounded-xl bg-black/35 border border-white/10 px-3 py-3 text-[11px] leading-5 text-amber-50 font-mono break-all select-all">
+                    {WALLETS.find((w) => w.code === 'gram')?.address}
+                  </div>
+                  <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.04 }} onClick={copyPartWallet}
+                    className="shrink-0 h-12 min-w-[76px] rounded-xl border border-cyan-300/30 bg-cyan-400/10 px-3 flex flex-col items-center justify-center gap-1 text-cyan-200 text-[10px] font-black">
+                    {partCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {partCopied ? 'تم النسخ' : 'نسخ'}
+                  </motion.button>
+                </div>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
+                  <span className="text-amber-200/70 text-xs">المبلغ المطلوب</span>
+                  <motion.span key={selectedPart.price} initial={{ scale: 1.2 }} animate={{ scale: 1 }} className="text-emerald-300 font-black text-2xl">{selectedPart.price} TON</motion.span>
+                </div>
+              </motion.div>
+
+              <AnimatePresence mode="wait">
+                {partVerifying ? (
+                  <motion.div key="checking" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                    className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-amber-100 text-sm font-bold">
+                    <Loader2 className="inline w-5 h-5 animate-spin mr-2 text-emerald-300" />
+                    جاري التحقق من الدفع لمدة تصل إلى ساعة...
+                  </motion.div>
+                ) : (
+                  <motion.div key="buy" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                    <Button disabled={partFailed} onClick={buyPart}
+                      className="relative overflow-hidden w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:brightness-110 text-white font-black text-base shadow-[0_10px_30px_rgba(16,185,129,.22)]">
+                      <motion.span aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                        animate={{ x: ['-120%', '120%'] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }} />
+                      <span className="relative flex items-center justify-center gap-2">
+                        {partFailed ? 'فشل الدفع - لم يتم تفعيل القطعة' : <><Zap className="w-5 h-5" /> اشتريت القطعة - تحقق من الدفع</>}
+                      </span>
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <button disabled={partVerifying} onClick={() => setSelectedPart(null)} className="text-amber-200/60 text-xs mt-4 disabled:opacity-30">إغلاق</button>
+              <p className="text-[9px] text-amber-200/40 mt-2">لن تُضاف القطعة إلا بعد تأكيد التحويل من الخادم.</p>
             </motion.div>
           </motion.div>
         )}
