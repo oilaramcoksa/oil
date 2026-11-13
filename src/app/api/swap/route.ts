@@ -46,6 +46,14 @@ export async function POST(req: NextRequest) {
         sql: 'INSERT INTO coin_swaps(id, telegram_id, coins, usd_micros, idempotency_key) VALUES(?,?,?,?,?)',
         args: [swapId, id, coins, usdMicros, key],
       });
+      // Record the debit in the immutable ledger so cloud snapshot sync
+      // can never restore these already-converted coins.
+      await tx.execute({
+        sql: `INSERT INTO ledger_entries
+          (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
+          VALUES (?, ?, 'coins', 'coin_swap', ?, ?, 'coin_swap', ?, ?, ?)`,
+        args: [randomUUID(), id, -coins, Number((await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [id] })).rows[0].coins_balance), swapId, `coin_swap:${swapId}`, JSON.stringify({ coins, usdMicros })],
+      });
       const wallet = await tx.execute({ sql: 'SELECT coins_balance, usd_micros FROM player_wallets WHERE telegram_id=?', args: [id] });
       await tx.commit();
       const w = wallet.rows[0];
