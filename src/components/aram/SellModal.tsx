@@ -487,6 +487,56 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                   </g>
                 </motion.g>
 
+                {/* Animated suction hose: visibly deploys from the tanker to the wellhead. */}
+                {(phase === 'connecting' || phase === 'pumping' || phase === 'counting') && (
+                  <g>
+                    <motion.path
+                      d="M 205 319 C 205 270 238 270 241 317"
+                      fill="none"
+                      stroke="#111827"
+                      strokeWidth="10"
+                      strokeLinecap="round"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 1 }}
+                      transition={{ duration: 0.9, ease: 'easeOut' }}
+                    />
+                    <motion.path
+                      d="M 205 319 C 205 270 238 270 241 317"
+                      fill="none"
+                      stroke="#D4D4D8"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 1 }}
+                      transition={{ duration: 0.9, ease: 'easeOut' }}
+                    />
+                    <circle cx="205" cy="319" r="5" fill="#FBBF24" stroke="#78350F" strokeWidth="2" />
+                    <circle cx="241" cy="317" r="5" fill="#FBBF24" stroke="#78350F" strokeWidth="2" />
+                    {(phase === 'pumping' || phase === 'counting') && (
+                      <>
+                        <motion.path
+                          d="M 205 319 C 205 270 238 270 241 317"
+                          fill="none"
+                          stroke="#F59E0B"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeDasharray="5 9"
+                          animate={{ strokeDashoffset: [0, -28], opacity: [0.55, 1, 0.55] }}
+                          transition={{ duration: 0.55, repeat: Infinity, ease: 'linear' }}
+                        />
+                        <motion.circle
+                          cx="223"
+                          cy="283"
+                          r="3.5"
+                          fill="#FDE68A"
+                          animate={{ cy: [283, 295, 307], opacity: [1, 0.8, 0] }}
+                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        />
+                      </>
+                    )}
+                  </g>
+                )}
+
                 {/* Dust particles near truck when arriving */}
                 {phase === 'arriving' && (
                   <g opacity="0.5">
