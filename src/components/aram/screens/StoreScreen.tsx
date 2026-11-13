@@ -12,10 +12,23 @@ import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
 import { TadsAd } from '@/components/aram/TadsAd';
 
-export function StoreScreen() {
+export function StoreScreen({ initData, isVerified }: { initData: string; isVerified: boolean }) {
   const lang = useGame((s) => s.lang);
   const upgrades = useGame((s) => s.upgrades);
   const { haptic, notify } = useTelegram();
+  const applyServerAdReward = useGame((s) => s.applyServerAdReward);
+  const handleStoreAdRewarded = (reward: number, walletCoins: number) => {
+    applyServerAdReward(reward, walletCoins);
+    haptic('medium');
+    notify('success');
+    toast.success(`${t(lang, 'tadsRewardSuccess')} +${reward} ${t(lang, 'coins')}`);
+  };
+  const handleStoreAdError = (error: string) => {
+    if (error === 'reward_cooldown') toast.error(t(lang, 'tadsRewardCooldown'));
+    else if (error === 'daily_reward_limit_reached') toast.error(t(lang, 'tadsRewardLimit'));
+    else if (error === 'telegram_auth_required') toast.error(t(lang, 'telegramRequired'));
+    else toast.error(t(lang, 'tadsUnavailable'));
+  };
 
   const [selected, setSelected] = useState<UpgradePackage | null>(null);
   const [selectedPart, setSelectedPart] = useState<{ id: 'oil_pump' | 'fuel_station' | 'oil_truck'; nameKey: string; price: number; multiplier: string; image: string; descriptionKey: string } | null>(null);
@@ -228,8 +241,15 @@ export function StoreScreen() {
           <TadsAd
             widgetId={Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID || '13284')}
             mode="static"
+            rewardWidgetId={Number(process.env.NEXT_PUBLIC_TADS_FULLSCREEN_WIDGET_ID || '13283')}
             title={t(lang, 'tadsSponsored')}
             description={t(lang, 'tadsUnavailable')}
+            actionLabel={t(lang, 'tadsWatchAdReward')}
+            loadingLabel={t(lang, 'tadsRewardLoading')}
+            initData={initData}
+            isVerified={isVerified}
+            onRewarded={handleStoreAdRewarded}
+            onRewardError={handleStoreAdError}
           />
         </div>
       )}
