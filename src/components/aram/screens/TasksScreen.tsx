@@ -9,7 +9,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
 
-type AdProgress = { used: number; limit: number; remaining: number; milestones: { views: number; bonus: number; completed: boolean }[] };\n\nexport function TasksScreen({ initData, isVerified }: { initData: string; isVerified: boolean }) {
+type AdProgress = { used: number; limit: number; remaining: number; milestones: { views: number; bonus: number; completed: boolean }[] };
+
+export function TasksScreen({ initData, isVerified }: { initData: string; isVerified: boolean }) {
   const lang = useGame((s) => s.lang);
   const tasks = useGame((s) => s.tasks);
   const claimTask = useGame((s) => s.claimTask);
