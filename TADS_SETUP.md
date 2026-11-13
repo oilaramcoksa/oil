@@ -1,46 +1,44 @@
 # TADS setup for Aramco Oil
 
-## Current configured widget
+## Active widgets
 
-- Fullscreen widget ID: 13283
-- Format in TADS dashboard: FULLSCREEN
-- Placement: optional user-triggered button on the Pump screen
-- SDK: https://w.tads.me/widget.js
-- Production mode: debug=false
+| Widget ID | Dashboard format | App placement |
+|---|---|---|
+| 13283 | FULLSCREEN | Optional "Watch an ad" action on the Pump screen |
+| 13284 | TGB | Native text-graphic ad block in the Store screen |
 
-## Required additional widget for all placements
-
-Create a second widget in TADS Publisher > Widgets using the same registered Site:
-
-- Name: aramcoil-tgb
-- Type: TGB (STATIC) / Text-Graphic Block
-- Suggested ads amount: 1–2
-- Keep the app's domain exactly the same as the Site registered in TADS.
-
-Then add this environment variable in Vercel:
+Both IDs are configured as defaults in the app. They can be overridden through Vercel environment variables if needed:
 
 ```env
 NEXT_PUBLIC_TADS_FULLSCREEN_WIDGET_ID=13283
-NEXT_PUBLIC_TADS_TGB_WIDGET_ID=YOUR_NEW_TGB_WIDGET_ID
+NEXT_PUBLIC_TADS_TGB_WIDGET_ID=13284
 ```
 
-Set it for Production (and Preview only if you want ads in preview deployments), then redeploy.
+## Official integration
 
-The TGB placement appears in the Store screen only after the second widget ID is configured. The existing FULLSCREEN widget is not interchangeable with a TGB widget; do not put ID 13283 in the TGB variable.
+The app uses the official `react-tads-widget` package and `TadsWidgetProvider`.
 
-## Rewarded-ad safety
+- Static TGB: `<TadsWidget id="13284" type="static" debug={false} />`
+- Fullscreen: `renderTadsWidget({ id: "13283", type: "fullscreen" })`
 
-TADS show/click callbacks are handled as client-side events for UI/diagnostics only. They do not credit oil, coins, USD, or any transferable wallet balance. A browser callback can be forged. Before adding a reward, configure a server-to-server TADS webhook and verify its documented authentication/signature and event payload, then make reward grants idempotent in the database. The webhook contract must be confirmed with TADS documentation/support before any wallet credit is enabled.
+The provider is initialized at the application root. Keep `debug={false}` in production.
+
+## Reward and wallet safety
+
+TADS show/click callbacks are used for diagnostics only. They do not credit oil, coins, USD, or any transferable wallet balance. Client-side callbacks are not trusted proof of a billable event. Do not add wallet rewards based on these callbacks.
+
+TADS terms state that publisher webhooks are technical event notifications, may be delivered best-effort, and are not confirmation of billability. Any future reward system must be separately designed with server-side validation, idempotency, and a clear budget funded by the publisher.
 
 ## Operational checks
 
-1. Open the game inside Telegram using the exact registered domain.
-2. Open the Pump tab and press "Watch an ad" to test the FULLSCREEN widget.
-3. Open Store and confirm the TGB ad block appears.
-4. If no ad is returned, check that the widget is active, the site domain matches, debug is false, and the network has eligible inventory for that user.
+1. Open the game inside Telegram using the exact domain registered as the TADS Site.
+2. Open the Pump tab and press "Watch an ad" to test widget 13283.
+3. Open Store and confirm the TGB block from widget 13284 is visible.
+4. If no ad is returned, check that both widgets are active, the registered Site matches the Mini App domain, and there is eligible inventory for the user.
 5. Check widget views/clicks in the TADS Publisher dashboard; reporting may be delayed.
 
-Official docs:
-- https://tads.me/publisher-doc
-- https://tads.gitbook.io/docs/getting-started/publishers/embed-widget/vanilla-js
-- https://tads.gitbook.io/docs/getting-started/publishers/faq-publishers/faq-en
+## References
+
+- TADS Publisher integration guide: https://tads.me/publisher-doc
+- Official React SDK: https://www.npmjs.com/package/react-tads-widget
+- TADS terms and webhook notes: https://tads.me/terms
