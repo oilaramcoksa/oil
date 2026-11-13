@@ -300,8 +300,8 @@ const ar: Dict = {
   arenaWaiting: 'بانتظار لاعب آخر',
   arenaPlayers: 'اللاعبون المشاركون',
   arenaPot: 'إجمالي المشاركات',
-  arenaAdminSlice: 'حصة الإدارة · حرق نهائي',
-  arenaAdminNote: 'إذا تجاوز مجموع المشاركات 10,000 عملة تفوز الإدارة وتُحرق كل المشاركات نهائياً.',
+  arenaAdminSlice: 'حرق العملات',
+  arenaAdminNote: 'ربع مساحة العجلة مخصص لحرق العملات نهائياً. إذا توقفت المؤشرة عليه تُحرق المشاركات، وإلا يفوز أحد اللاعبين حسب مساحة مشاركته.',
   arenaCountdown: 'تبدأ الجولة خلال',
   arenaSpinning: 'العجلة تدور...',
   arenaWinner: 'الفائز',
@@ -322,6 +322,10 @@ const ar: Dict = {
   arenaInsufficient: 'رصيدك لا يكفي لهذه المشاركة',
   arenaJoinedAlready: 'لقد شاركت بالفعل في هذه الجولة',
   arenaRoundStarted: 'بدأ العد التنازلي أو الدوران؛ انتظر الجولة التالية',
+  arenaRoundLabel: 'الجولة الحالية',
+  arenaReady: 'جاهزة للمشاركة',
+  arenaBurnSlice: 'مساحة حرق العملات',
+  arenaMaxHint: 'زر الحد الأقصى يشارك برصيدك كاملاً مباشرةً',
 };
 
 const en: Dict = {
@@ -600,8 +604,8 @@ const en: Dict = {
   arenaWaiting: 'Waiting for another player',
   arenaPlayers: 'Players in this round',
   arenaPot: 'Total entries',
-  arenaAdminSlice: 'House share · permanently burned',
-  arenaAdminNote: 'If total player entries exceed 10,000 coins, the house wins and all entries are permanently burned.',
+  arenaAdminSlice: 'Coin burn',
+  arenaAdminNote: 'One quarter of the wheel is reserved for permanently burning coins. If the pointer lands there, entries are burned; otherwise a player wins according to their share.',
   arenaCountdown: 'Round starts in',
   arenaSpinning: 'Wheel spinning...',
   arenaWinner: 'Winner',
@@ -622,6 +626,10 @@ const en: Dict = {
   arenaInsufficient: 'Your balance is too low for this entry',
   arenaJoinedAlready: 'You have already joined this round',
   arenaRoundStarted: 'The countdown or spin has started. Join the next round.',
+  arenaRoundLabel: 'Current round',
+  arenaReady: 'Ready to join',
+  arenaBurnSlice: 'Coin burn segment',
+  arenaMaxHint: 'MAX enters the round using your full available balance',
 };
 
 const ru: Dict = {
@@ -900,8 +908,8 @@ const ru: Dict = {
   arenaWaiting: 'Ожидание другого игрока',
   arenaPlayers: 'Участники раунда',
   arenaPot: 'Общая сумма',
-  arenaAdminSlice: 'Доля платформы · сжигается навсегда',
-  arenaAdminNote: 'Если сумма ставок превышает 10 000 монет, выигрывает платформа, а все взносы сжигаются безвозвратно.',
+  arenaAdminSlice: 'Сжигание монет',
+  arenaAdminNote: 'Четверть колеса отведена для безвозвратного сжигания монет. Если указатель остановится на этом секторе, взносы сгорают; иначе выигрывает игрок пропорционально своей доле.',
   arenaCountdown: 'Раунд начнётся через',
   arenaSpinning: 'Колесо вращается...',
   arenaWinner: 'Победитель',
@@ -922,6 +930,10 @@ const ru: Dict = {
   arenaInsufficient: 'Недостаточно монет для участия',
   arenaJoinedAlready: 'Вы уже участвуете в этом раунде',
   arenaRoundStarted: 'Отсчёт или вращение уже начались. Дождитесь следующего раунда.',
+  arenaRoundLabel: 'Текущий раунд',
+  arenaReady: 'Готов к участию',
+  arenaBurnSlice: 'Сектор сжигания монет',
+  arenaMaxHint: 'Кнопка MAX сразу использует весь доступный баланс',
 };
 
 export const dictionaries: Record<Lang, Dict> = { ar, en, ru };
