@@ -62,7 +62,9 @@ async function getController(widgetId: number, type: TadsType, onShowReward?: (r
     widgetId,
     type,
     debug: false,
-    onShowReward,
+    // These callbacks are analytics signals only. They must never credit wallet value.
+    onShowReward: (result) => { console.info('TADS rewarded-show callback', result); onShowReward?.(result); },
+    onClickReward: (result) => { console.info('TADS rewarded-click callback', result); },
     onAdsNotFound: () => undefined,
   }));
 }
