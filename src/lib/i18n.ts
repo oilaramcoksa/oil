@@ -15,6 +15,7 @@ const ar: Dict = {
 
   navSwap: 'تبديل',
   swapTitle: 'تبديل العملات',
+  swapWalletLoadError: 'تعذر تحميل المحفظة من الخادم. أعد فتح اللعبة وحاول مرة أخرى.',
   swapRate: '100,000 عملة = 1 دولار',
   swapConvert: 'تحويل العملات إلى دولار',
   swapCoinsInput: 'عدد العملات المراد تحويلها',
@@ -414,6 +415,7 @@ const en: Dict = {
 
   navSwap: 'Swap',
   swapTitle: 'Coin Exchange',
+  swapWalletLoadError: 'Could not load your wallet from the server. Reopen the game and try again.',
   swapRate: '100,000 coins = $1',
   swapConvert: 'Convert coins to dollars',
   swapCoinsInput: 'Coins to convert',
@@ -755,6 +757,7 @@ const ru: Dict = {
 
   navSwap: 'Обмен',
   swapTitle: 'Обмен валют',
+  swapWalletLoadError: 'Не удалось загрузить кошелёк с сервера. Перезапустите игру и попробуйте снова.',
   swapRate: '100 000 монет = 1 $',
   swapConvert: 'Обменять монеты на доллары',
   swapCoinsInput: 'Количество монет для обмена',
