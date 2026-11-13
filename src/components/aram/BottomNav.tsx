@@ -27,8 +27,8 @@ export function BottomNav({ active, onChange }: Props) {
   ];
 
   return (
-    <nav className="aram-safe-bottom sticky bottom-0 z-30 bg-[#2a1c0a]/95 backdrop-blur-md border-t border-amber-500/20">
-      <div className="grid grid-cols-6 max-w-md mx-auto">
+    <nav className="aram-safe-bottom relative z-30 shrink-0 bg-[#2a1c0a]/95 backdrop-blur-md border-t border-amber-500/20">
+      <div className="mx-auto grid min-h-[58px] w-full max-w-md grid-cols-6">
         {items.map((it) => {
           const isActive = active === it.key;
           const isCenter = it.key === 'pump';
