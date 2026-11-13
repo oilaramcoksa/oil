@@ -280,7 +280,7 @@ export function ArenaScreen({
             <div className="mb-1 grid h-7 w-7 place-items-center rounded-full border border-amber-700/20 bg-amber-100 text-amber-800">
               {isSpinning ? <Zap size={15}/> : <Users size={15}/>}
             </div>
-            <div className="text-center text-lg font-black tabular-nums leading-none">
+            <div className={replaying ? "text-center text-[10px] font-black leading-tight" : "text-center text-lg font-black tabular-nums leading-none"}>
               {replaying
                 ? t(lang, 'arenaReplayPlaying')
                 : round?.status === 'countdown'
