@@ -90,6 +90,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
     let saveQueue: Promise<void> = Promise.resolve();
     let lastRevision = 0;
     let last = '';
+    const onFocus = () => void pull(false);
 
     const headers = { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData };
 
@@ -98,7 +99,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
       applyingRemote = true;
       useGame.setState(authoritativeState(remote, userId, userName, current, includeSnapshot) as Partial<ReturnType<typeof useGame.getState>>);
       applyingRemote = false;
-      if (includeSnapshot) last = JSON.stringify(snapshot(useGame.getState()));
+      last = JSON.stringify(snapshot(useGame.getState()));
     };
 
     const pull = async (initial = false) => {
@@ -170,19 +171,16 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
       // Cross-device near-real-time refresh. Financial balances and ledger history
       // are read from Turso, never trusted from a stale localStorage snapshot.
       pollTimer = setInterval(() => void pull(false), PULL_INTERVAL_MS);
-      const onFocus = () => void pull(false);
       window.addEventListener('focus', onFocus);
       window.addEventListener('online', onFocus);
-      return () => {
-        window.removeEventListener('focus', onFocus);
-        window.removeEventListener('online', onFocus);
-      };
     })();
 
     return () => {
       disposed = true;
       if (saveTimer) clearTimeout(saveTimer);
       if (pollTimer) clearInterval(pollTimer);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onFocus);
       unsubscribe?.();
     };
   }, [initData, userId, userName]);
