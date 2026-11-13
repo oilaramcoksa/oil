@@ -301,7 +301,7 @@ const ar: Dict = {
   arenaPlayers: 'اللاعبون المشاركون',
   arenaPot: 'إجمالي المشاركات',
   arenaAdminSlice: 'حصة الإدارة · حرق نهائي',
-  arenaAdminNote: 'ربع العجلة مخصص لحرق العملات نهائياً',
+  arenaAdminNote: 'إذا تجاوز مجموع المشاركات 10,000 عملة تفوز الإدارة وتُحرق كل المشاركات نهائياً.',
   arenaCountdown: 'تبدأ الجولة خلال',
   arenaSpinning: 'العجلة تدور...',
   arenaWinner: 'الفائز',
@@ -319,6 +319,9 @@ const ar: Dict = {
   arenaRefunded: 'تم رد المشاركة',
   arenaTryAgain: 'حاول مرة أخرى',
   arenaRules: 'تبدأ الجولة بعد انضمام لاعبين، مع عدّ تنازلي 30 ثانية.',
+  arenaInsufficient: 'رصيدك لا يكفي لهذه المشاركة',
+  arenaJoinedAlready: 'لقد شاركت بالفعل في هذه الجولة',
+  arenaRoundStarted: 'بدأ العد التنازلي أو الدوران؛ انتظر الجولة التالية',
 };
 
 const en: Dict = {
@@ -598,7 +601,7 @@ const en: Dict = {
   arenaPlayers: 'Players in this round',
   arenaPot: 'Total entries',
   arenaAdminSlice: 'House share · permanently burned',
-  arenaAdminNote: 'One quarter of the wheel is reserved for permanent coin burn',
+  arenaAdminNote: 'If total player entries exceed 10,000 coins, the house wins and all entries are permanently burned.',
   arenaCountdown: 'Round starts in',
   arenaSpinning: 'Wheel spinning...',
   arenaWinner: 'Winner',
@@ -616,6 +619,9 @@ const en: Dict = {
   arenaRefunded: 'Entry refunded',
   arenaTryAgain: 'Try again',
   arenaRules: 'The round starts with a 30-second countdown after two players join.',
+  arenaInsufficient: 'Your balance is too low for this entry',
+  arenaJoinedAlready: 'You have already joined this round',
+  arenaRoundStarted: 'The countdown or spin has started. Join the next round.',
 };
 
 const ru: Dict = {
@@ -895,7 +901,7 @@ const ru: Dict = {
   arenaPlayers: 'Участники раунда',
   arenaPot: 'Общая сумма',
   arenaAdminSlice: 'Доля платформы · сжигается навсегда',
-  arenaAdminNote: 'Четверть колеса зарезервирована для безвозвратного сжигания монет',
+  arenaAdminNote: 'Если сумма ставок превышает 10 000 монет, выигрывает платформа, а все взносы сжигаются безвозвратно.',
   arenaCountdown: 'Раунд начнётся через',
   arenaSpinning: 'Колесо вращается...',
   arenaWinner: 'Победитель',
@@ -913,6 +919,9 @@ const ru: Dict = {
   arenaRefunded: 'Взнос возвращён',
   arenaTryAgain: 'Повторить',
   arenaRules: 'После входа двух игроков запускается отсчёт 30 секунд.',
+  arenaInsufficient: 'Недостаточно монет для участия',
+  arenaJoinedAlready: 'Вы уже участвуете в этом раунде',
+  arenaRoundStarted: 'Отсчёт или вращение уже начались. Дождитесь следующего раунда.',
 };
 
 export const dictionaries: Record<Lang, Dict> = { ar, en, ru };
