@@ -24,7 +24,7 @@ interface Props {
   isVerified: boolean;
 }
 
-type Phase = 'arriving' | 'connecting' | 'pumping' | 'counting' | 'done';
+type Phase = 'arriving' | 'connecting' | 'pumping' | 'counting' | 'departing' | 'done';
 
 export function SellModal({ open, onClose, initData, isVerified }: Props) {
   const lang = useGame((s) => s.lang);
@@ -56,13 +56,13 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
     timers.push(setTimeout(() => {
       setPhase('connecting');
       haptic('light');
-    }, 1700));
+    }, 3600));
 
     // After pipe connects → pump
     timers.push(setTimeout(() => {
       setPhase('pumping');
       haptic('medium');
-    }, 2400));
+    }, 4700));
 
     // After pumping → count + execute sell
     timers.push(setTimeout(() => {
@@ -96,18 +96,21 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
             if (progress < 1) requestAnimationFrame(animate);
             else {
               setResult(sale);
-              setPhase('done');
               notify('success');
+              // Keep the completed sale visible briefly, then retract the hose and drive away.
+              timers.push(setTimeout(() => setPhase('departing'), 1800));
+              timers.push(setTimeout(() => setPhase('done'), 3300));
             }
           };
           requestAnimationFrame(animate);
         } catch (error) {
           console.error('oil_sale_ui_failed', error);
           toast.error(t(lang, 'sellError'));
-          setPhase('done');
+          timers.push(setTimeout(() => setPhase('departing'), 900));
+          timers.push(setTimeout(() => setPhase('done'), 2400));
         }
       })();
-    }, 4200));
+    }, 5900));
 
     return () => timers.forEach(clearTimeout);
   }, [open, initData, isVerified, applyServerSale, lang, notify]);
@@ -346,8 +349,8 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                 {/* === Oil truck (right) === */}
                 <motion.g
                   initial={{ x: 380 }}
-                  animate={{ x: phase === 'arriving' ? 0 : 0 }}
-                  transition={{ duration: 1.6, ease: [0.2, 0.7, 0.2, 1] }}
+                  animate={{ x: phase === 'arriving' ? 0 : phase === 'departing' || phase === 'done' ? 520 : 0 }}
+                  transition={{ duration: phase === 'departing' || phase === 'done' ? 1.4 : 1.6, ease: [0.2, 0.7, 0.2, 1] }}
                 >
                   <g transform="translate(180,300)" filter="url(#m-softShadow)">
                     {/* Ground shadow */}
@@ -487,50 +490,38 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                   </g>
                 </motion.g>
 
-                {/* Animated suction hose: visibly deploys from the tanker to the wellhead. */}
+                {/* Hose drops from the tanker and connects to the wellhead. */}
                 {(phase === 'connecting' || phase === 'pumping' || phase === 'counting') && (
                   <g>
                     <motion.path
-                      d="M 205 319 C 205 270 238 270 241 317"
-                      fill="none"
-                      stroke="#111827"
-                      strokeWidth="10"
-                      strokeLinecap="round"
+                      d="M 187 340 C 170 316 183 291 207 292 C 226 293 232 305 241 317"
+                      fill="none" stroke="#111827" strokeWidth="11" strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: 1, opacity: 1 }}
-                      transition={{ duration: 0.9, ease: 'easeOut' }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
                     />
                     <motion.path
-                      d="M 205 319 C 205 270 238 270 241 317"
-                      fill="none"
-                      stroke="#D4D4D8"
-                      strokeWidth="5"
-                      strokeLinecap="round"
+                      d="M 187 340 C 170 316 183 291 207 292 C 226 293 232 305 241 317"
+                      fill="none" stroke="#D4D4D8" strokeWidth="5" strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: 1, opacity: 1 }}
-                      transition={{ duration: 0.9, ease: 'easeOut' }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
                     />
-                    <circle cx="205" cy="319" r="5" fill="#FBBF24" stroke="#78350F" strokeWidth="2" />
-                    <circle cx="241" cy="317" r="5" fill="#FBBF24" stroke="#78350F" strokeWidth="2" />
+                    <circle cx="187" cy="340" r="6" fill="#FBBF24" stroke="#78350F" strokeWidth="2" />
+                    <circle cx="241" cy="317" r="6" fill="#FBBF24" stroke="#78350F" strokeWidth="2" />
                     {(phase === 'pumping' || phase === 'counting') && (
                       <>
                         <motion.path
-                          d="M 205 319 C 205 270 238 270 241 317"
-                          fill="none"
-                          stroke="#F59E0B"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeDasharray="5 9"
-                          animate={{ strokeDashoffset: [0, -28], opacity: [0.55, 1, 0.55] }}
+                          d="M 187 340 C 170 316 183 291 207 292 C 226 293 232 305 241 317"
+                          fill="none" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"
+                          strokeDasharray="6 10"
+                          animate={{ strokeDashoffset: [0, -32], opacity: [0.5, 1, 0.5] }}
                           transition={{ duration: 0.55, repeat: Infinity, ease: 'linear' }}
                         />
                         <motion.circle
-                          cx="223"
-                          cy="283"
-                          r="3.5"
-                          fill="#FDE68A"
-                          animate={{ cy: [283, 295, 307], opacity: [1, 0.8, 0] }}
-                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                          cx="207" cy="292" r="4" fill="#FDE68A"
+                          animate={{ cy: [292, 303, 315], opacity: [1, 0.8, 0] }}
+                          transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
                         />
                       </>
                     )}
@@ -581,13 +572,13 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                       {t(lang, 'pumping')}
                     </span>
                   )}
-                  {phase === 'counting' && (
+                  {(phase === 'counting' || phase === 'departing') && (
                     <span className="flex items-center gap-2">
                       <Droplet className="w-4 h-4" />
                       {t(lang, 'counting')}
                     </span>
                   )}
-                  {phase === 'done' && (
+                  {(phase === 'departing' || phase === 'done') && (
                     <span className="flex items-center gap-2 text-emerald-300">
                       <Check className="w-4 h-4" />
                       {t(lang, 'done')}
@@ -597,7 +588,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
               </div>
 
               {/* Counter (oil collected) */}
-              {(phase === 'counting' || phase === 'done') && (
+              {(phase === 'counting' || phase === 'departing' || phase === 'done') && (
                 <motion.div
                   initial={{ scale: 0.6, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -612,7 +603,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
               )}
 
               {/* Final coins earned popup */}
-              {phase === 'done' && result && (
+              {(phase === 'departing' || phase === 'done') && result && (
                 <motion.div
                   initial={{ y: 30, opacity: 0, scale: 0.8 }}
                   animate={{ y: 0, opacity: 1, scale: 1 }}
