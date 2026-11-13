@@ -512,7 +512,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                 </motion.g>
 
                 {/* Hose drops from the tanker and connects to the wellhead. */}
-                {(phase === 'connecting' || phase === 'pumping' || phase === 'counting') && (
+                {(phase === 'connecting' || phase === 'pumping' || phase === 'counting' || phase === 'retracting') && (
                   <g>
                     <motion.path
                       d="M 187 340 C 170 316 183 291 207 292 C 226 293 232 305 241 317"
@@ -592,6 +592,9 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                       <Droplet className="w-4 h-4 animate-bounce" />
                       {t(lang, 'pumping')}
                     </span>
+                  )}
+                  {phase === 'retracting' && (
+                    <span className="flex items-center gap-2">🔧 جاري سحب الخرطوم...</span>
                   )}
                   {(phase === 'counting' || phase === 'departing') && (
                     <span className="flex items-center gap-2">
