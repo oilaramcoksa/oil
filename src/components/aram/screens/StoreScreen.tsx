@@ -27,7 +27,9 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     if (error === 'reward_cooldown') toast.error(t(lang, 'tadsRewardCooldown'));
     else if (error === 'daily_reward_limit_reached') toast.error(t(lang, 'tadsRewardLimit'));
     else if (error === 'telegram_auth_required') toast.error(t(lang, 'telegramRequired'));
-    else toast.error(t(lang, 'tadsUnavailable'));
+    else if (error === 'no_ad_available' || error === 'ad_timeout') {
+      // No-fill is intentionally silent; do not show "no ads available" below the button.
+    } else toast.error(t(lang, 'tadsUnavailable'));
   };
 
   const [selected, setSelected] = useState<UpgradePackage | null>(null);
@@ -243,7 +245,6 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
             mode="static"
             rewardWidgetId={Number(process.env.NEXT_PUBLIC_TADS_FULLSCREEN_WIDGET_ID || '13283')}
             title={t(lang, 'tadsSponsored')}
-            description={t(lang, 'tadsUnavailable')}
             actionLabel={t(lang, 'tadsWatchAdReward')}
             loadingLabel={t(lang, 'tadsRewardLoading')}
             initData={initData}
