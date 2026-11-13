@@ -7,7 +7,7 @@ import { postLedgerEntry } from '@/lib/ledger';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const MIN_ENTRY = 1_000;
+const MIN_ENTRY = 100;
 const MAX_ENTRY = 1_000_000_000;
 const COUNTDOWN_MS = 30_000;
 const SPIN_MS = 7_000;
@@ -324,7 +324,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return jsonError('invalid_body');
   }
-  if (!validAmount(body.amount)) return jsonError('minimum_1000_required');
+  if (!validAmount(body.amount)) return jsonError('minimum_100_required');
 
   try {
     await ensureDatabaseSchema();
