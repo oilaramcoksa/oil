@@ -11,7 +11,6 @@ const MIN_ENTRY = 1_000;
 const MAX_ENTRY = 1_000_000_000;
 const COUNTDOWN_MS = 30_000;
 const SPIN_MS = 7_000;
-const HOUSE_THRESHOLD = 10_000;
 const HOUSE_SLICE = 0.25;
 
 type ArenaEntryRow = {
@@ -49,12 +48,6 @@ async function readEntries(db: ReturnType<typeof getTurso>, roundId: string): Pr
 
 function chooseOutcome(entries: ArenaEntryRow[], total: number) {
   const seed = randomBytes(32).toString('hex');
-
-  // This threshold is an explicit house rule: once total player entries exceed
-  // 10,000 coins, the house segment wins and all entries are burned.
-  if (total > HOUSE_THRESHOLD) {
-    return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 315 };
-  }
 
   const roll = randomInt(0, 1_000_000);
   if (roll < HOUSE_SLICE * 1_000_000) {
