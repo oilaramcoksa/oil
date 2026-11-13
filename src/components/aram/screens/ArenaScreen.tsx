@@ -274,7 +274,7 @@ export function ArenaScreen({
         <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
           <div className="mb-2 flex items-center justify-between text-xs text-[#8f6b4d]">
             <span className="flex items-center gap-1"><Coins size={13} /> {t(lang, 'arenaPot')}</span>
-            <strong className="text-base text-amber-400">{total.toLocaleString()}</strong>
+            <strong className="text-base font-black text-amber-800">{total.toLocaleString()}</strong>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-amber-900/10">
             <div className="h-full w-1/4 bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500" />
@@ -287,7 +287,7 @@ export function ArenaScreen({
 
         <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
           <div className="mb-2 flex justify-between text-xs text-[#8f6b4d]">
-            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaBalance')}: <b className="text-amber-400">{balance.toLocaleString()}</b></span>
+            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaBalance')}: <b className="font-black text-amber-800">{balance.toLocaleString()}</b></span>
           </div>
           <div className="flex gap-2">
             <input
@@ -299,12 +299,12 @@ export function ArenaScreen({
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               disabled={ownEntry || isRoundClosed}
-              className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#25262a] p-3 font-black outline-none focus:border-blue-500"
+              className="min-w-0 flex-1 rounded-lg border border-[#6b3b19] bg-[#25262a] p-3 font-black text-white caret-white outline-none placeholder:text-white/50 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
             />
             <button
               onClick={() => void join(balance)}
               disabled={loading || !isVerified || ownEntry || isRoundClosed || balance < 1000}
-              className="rounded-xl border border-amber-300/20 bg-gradient-to-b from-amber-400/20 to-orange-500/10 px-4 text-xs font-black text-amber-200 shadow-inner disabled:opacity-40"
+              className="rounded-xl border border-amber-600 bg-gradient-to-b from-amber-400 to-orange-500 px-4 text-xs font-black text-[#3b210c] shadow-md disabled:opacity-40"
             >
               {t(lang, 'arenaMax')}
             </button>
@@ -338,8 +338,8 @@ export function ArenaScreen({
                 </span>
               </div>
               <div className="text-end">
-                <b className="text-xs text-amber-400">{entry.amount.toLocaleString()}</b>
-                <div className="text-[9px] text-[#9a7659]">{(75 * entry.amount / Math.max(total, 1)).toFixed(1)}%</div>
+                <b className="text-xs font-black text-amber-800">{entry.amount.toLocaleString()}</b>
+                <div className="text-[9px] font-semibold text-[#805b3c]">{(75 * entry.amount / Math.max(total, 1)).toFixed(1)}%</div>
               </div>
             </div>
           ))}
