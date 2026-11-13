@@ -88,7 +88,7 @@ export default function Home() {
         {tab === 'tasks' && <TasksScreen />}
         {tab === 'friends' && <FriendsScreen />}
         {tab === 'store' && <StoreScreen />}
-        {tab === 'arena' && <ArenaScreen initData={initData} isVerified={isVerified} />}
+        {tab === 'arena' && <ArenaScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} />}
       </main>
 
       <BottomNav active={tab} onChange={setTab} />
