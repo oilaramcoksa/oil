@@ -23,11 +23,11 @@ The app uses the official `react-tads-widget` package and `TadsWidgetProvider`.
 
 The provider is initialized at the application root. Keep `debug={false}` in production.
 
-## Reward and wallet safety
+## Rewarded ads and wallet safety
 
-TADS show/click callbacks are used for diagnostics only. They do not credit oil, coins, USD, or any transferable wallet balance. Client-side callbacks are not trusted proof of a billable event. Do not add wallet rewards based on these callbacks.
+The fullscreen widget (13283) is used for rewarded views. Its SDK completion callback asks the authenticated server endpoint `POST /api/ads/reward` to credit 100 game coins, plus any daily ad-mission milestone bonus. The endpoint applies a 20-claim daily cap, a 30-second cooldown, unique claim IDs, and records each credit in Turso wallet, ledger, player events, and daily/weekly/monthly stats. The Store's static TGB widget (13284) remains a native ad placement; its separate button launches the rewarded fullscreen widget.
 
-TADS terms state that publisher webhooks are technical event notifications, may be delivered best-effort, and are not confirmation of billability. Any future reward system must be separately designed with server-side validation, idempotency, and a clear budget funded by the publisher.
+Important verification limitation: the SDK callback is a client-side completion signal, not cryptographic proof that TADS billed or fully served an impression. TADS publisher webhooks are technical/best-effort notifications and are not confirmation of billability. The current reward flow therefore enforces authentication, rate limits, and idempotency, but cannot guarantee provider-verified completion. Do not describe these rewards as verified billable impressions. For stronger fraud resistance, obtain a provider-supported signed completion/verification mechanism before increasing reward limits or treating views as payable inventory.
 
 ## Operational checks
 
