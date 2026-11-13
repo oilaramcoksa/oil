@@ -113,7 +113,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
           {history.length === 0 ? <p className="py-4 text-center text-xs text-amber-900/50">{t(lang, 'swapNoHistory')}</p> : <div className="space-y-2">
             {history.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl bg-amber-50/80 p-2.5">
               <div className="min-w-0"><div className="font-black text-[#633715]">$ {fmtUsd(item.usdMicros)}</div><div className="truncate text-[10px] text-amber-900/60">{item.tronAddress}</div><div className="text-[10px] text-amber-900/50">{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ''}</div></div>
-              <span className={\`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold \${item.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : item.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}\`}>{statusLabel(item.status)}</span>
+              <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${item.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : item.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>{statusLabel(item.status)}</span>
             </div>)}
           </div>}
         </section>
