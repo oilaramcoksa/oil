@@ -194,46 +194,78 @@ export function ArenaScreen({
           </div>
         </section>
 
-        <div className="relative mx-auto my-5 aspect-square w-[min(82vw,370px)]">
-          <div className="absolute -top-2 left-1/2 z-20 -translate-x-1/2 drop-shadow-[0_3px_8px_rgba(0,0,0,.7)]"><div className="h-0 w-0 border-x-[16px] border-t-[27px] border-x-transparent border-t-white"/></div>
+        <div className="relative mx-auto my-7 aspect-square w-[min(84vw,390px)] [perspective:1000px]">
+          {/* Floating pointer with a metallic highlight */}
+          <motion.div
+            animate={isSpinning ? { y: [0, 5, 0], scale: [1, 0.96, 1] } : { y: [0, -2, 0] }}
+            transition={isSpinning ? { duration: 0.45, repeat: Infinity, ease: 'easeInOut' } : { duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute -top-3 left-1/2 z-30 -translate-x-1/2 drop-shadow-[0_5px_5px_rgba(0,0,0,.8)]"
+          >
+            <div className="h-0 w-0 border-x-[18px] border-t-[31px] border-x-transparent border-t-[#fff7df]" />
+            <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-white shadow-[0_0_9px_3px_rgba(255,255,255,.65)]" />
+          </motion.div>
+
+          {/* Deep 3D base, machined metal rim and inner light ring */}
+          <div className="absolute inset-0 translate-y-[10px] rounded-full bg-[#080a10] shadow-[0_22px_25px_rgba(0,0,0,.72)]" />
+          <div className="absolute inset-0 rounded-full border-[10px] border-[#343947] bg-gradient-to-br from-[#737b8d] via-[#151923] to-[#080a10] shadow-[inset_0_3px_5px_rgba(255,255,255,.35),0_0_0_2px_rgba(0,0,0,.8)]" />
+          <div className="absolute inset-[7px] rounded-full border border-white/35 shadow-[inset_0_0_0_2px_rgba(255,255,255,.1),0_0_16px_rgba(255,255,255,.12)]" />
+
           <motion.div
             initial={false}
             animate={{ rotate: isSpinning ? 2_880 + displayStop : !round && state.lastResult ? 2_880 + displayStop : displayStop }}
-            transition={isSpinning ? { duration: spinRemaining, ease: [0.12, 0.75, 0.12, 1] } : { duration: 0.35 }}
-            className="absolute inset-0 rounded-full border-[8px] border-[#2c2f3a] shadow-[inset_0_0_0_2px_rgba(255,255,255,.22),0_0_0_3px_rgba(0,0,0,.55),0_24px_55px_rgba(0,0,0,.65)]"
-            style={{ background: wheelGradient }}
+            transition={isSpinning ? { duration: spinRemaining, ease: [0.08, 0.72, 0.12, 1] } : { duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+            className="absolute inset-[11px] overflow-hidden rounded-full border-[3px] border-[#aeb7ca]/80 shadow-[inset_0_0_18px_rgba(0,0,0,.48),0_4px_12px_rgba(0,0,0,.6)]"
+            style={{ background: wheelGradient, transformStyle: 'preserve-3d', backfaceVisibility: 'hidden' }}
           >
+            {/* Radial depth, glass reflection and engraved segment separators */}
+            <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_32%_18%,rgba(255,255,255,.34),transparent_36%),radial-gradient(ellipse_at_50%_50%,transparent_48%,rgba(0,0,0,.28)_100%)]" />
+            <div className="pointer-events-none absolute inset-[3px] rounded-full border border-white/25 shadow-[inset_0_2px_8px_rgba(255,255,255,.22),inset_0_-12px_22px_rgba(0,0,0,.22)]" />
             {wheelEntries.map((entry, index) => {
               const angle = wheelEntries.slice(0, index).reduce((sum, item) => sum + item.weight, 0) + entry.weight / 2 - 90;
               return (
                 <div
                   key={entry.id}
-                  className="absolute left-1/2 top-1/2 z-[2] grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center"
-                  style={{ transform: `rotate(${angle}deg) translateY(-112px) rotate(-${angle}deg)` }}
+                  className="absolute left-1/2 top-1/2 z-[2] grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center"
+                  style={{ transform: `rotate(${angle}deg) translateY(-116px) rotate(-${angle}deg)` }}
                   title={entry.house ? entry.label : `${entry.label} · ${entry.weight.toFixed(1)}%`}
                 >
                   {entry.house ? (
-                    <span className="grid h-10 w-10 place-items-center rounded-full border-[3px] border-white bg-amber-300 text-xl text-amber-950 shadow-[0_3px_12px_rgba(0,0,0,.5)]">🔥</span>
+                    <span className="grid h-10 w-10 place-items-center rounded-full border-[3px] border-amber-100 bg-gradient-to-br from-yellow-200 via-amber-400 to-orange-600 text-xl text-amber-950 shadow-[0_4px_12px_rgba(0,0,0,.55),inset_0_2px_3px_rgba(255,255,255,.8)]">🔥</span>
                   ) : entry.photoUrl ? (
-                    <img src={entry.photoUrl} alt={entry.label} referrerPolicy="no-referrer" className="h-11 w-11 rounded-full border-[3px] border-white object-cover shadow-[0_3px_12px_rgba(0,0,0,.55)]" />
+                    <span className="rounded-full bg-gradient-to-br from-white via-slate-300 to-slate-600 p-[3px] shadow-[0_5px_12px_rgba(0,0,0,.65)]">
+                      <img src={entry.photoUrl} alt={entry.label} referrerPolicy="no-referrer" className="h-[38px] w-[38px] rounded-full border border-white/80 object-cover" />
+                    </span>
                   ) : (
-                    <span className="grid h-11 w-11 place-items-center rounded-full border-[3px] border-white bg-[#17191f] text-sm font-black text-white shadow-[0_3px_12px_rgba(0,0,0,.55)]">{entry.label.slice(0, 1).toUpperCase()}</span>
+                    <span className="grid h-11 w-11 place-items-center rounded-full border-[3px] border-white/90 bg-gradient-to-br from-slate-500 via-[#242936] to-black text-sm font-black text-white shadow-[0_5px_12px_rgba(0,0,0,.65)]">{entry.label.slice(0, 1).toUpperCase()}</span>
                   )}
                 </div>
               );
             })}
+            {/* Soft moving sheen, visible while spinning */}
+            {isSpinning && <motion.div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-[-30%] z-[3] rounded-full bg-[linear-gradient(115deg,transparent_38%,rgba(255,255,255,.17)_49%,transparent_60%)]"
+              animate={{ x: ['-35%', '35%'] }}
+              transition={{ duration: 1.1, repeat: Infinity, repeatType: 'mirror', ease: 'linear' }}
+            />}
           </motion.div>
 
-          <div className="absolute inset-[34%] z-10 flex flex-col items-center justify-center rounded-full border-[5px] border-white/90 bg-[radial-gradient(circle_at_35%_25%,#343746,#15171d_72%)] shadow-[0_0_0_7px_rgba(0,0,0,.22),0_8px_30px_rgba(0,0,0,.7)]">
-            <div className="mb-1 grid h-8 w-8 place-items-center rounded-full bg-white/10 text-amber-300">{isSpinning ? <Zap size={17}/> : <Users size={17}/>}</div>
-            <div className="text-center text-xl font-black tabular-nums">
+          {/* Raised center cap: compact countdown and participant count */}
+          <div className="absolute inset-[35%] z-20 flex flex-col items-center justify-center rounded-full border-[5px] border-[#d8deeb] bg-[radial-gradient(circle_at_32%_22%,#454c5c,#171b25_58%,#080a10)] shadow-[0_0_0_5px_rgba(8,10,16,.8),inset_0_3px_7px_rgba(255,255,255,.24),0_9px_22px_rgba(0,0,0,.8)]">
+            <div className="mb-1 grid h-7 w-7 place-items-center rounded-full border border-amber-200/40 bg-amber-300/10 text-amber-300">
+              {isSpinning ? <Zap size={15}/> : <Users size={15}/>}
+            </div>
+            <div className="text-center text-lg font-black tabular-nums leading-none">
               {round?.status === 'countdown'
                 ? `00:${String(countdown ?? 0).padStart(2, '0')}`
                 : isSpinning
                   ? t(lang, 'arenaSpinning')
                   : t(lang, 'arenaReady')}
             </div>
-            <div className="mt-1 text-[9px] text-zinc-400">{displayedEntries.length} · {t(lang, 'arenaPlayers')}</div>
+            <div className="mt-2 flex items-center justify-center gap-1 text-[11px] font-bold leading-none text-slate-300">
+              <span>{displayedEntries.length}</span>
+              <Users size={12} className="shrink-0 text-amber-300" />
+            </div>
           </div>
         </div>
 
