@@ -171,9 +171,10 @@ export async function POST(req: NextRequest) {
 
       const completedViews = used + 1;
       const completesCycle = completedViews === CYCLE_LIMIT;
+      const claimRowId = randomUUID();
       await tx.execute({
         sql: 'INSERT INTO ad_reward_claims(id, telegram_id, claim_id, widget_id, reward_coins) VALUES (?, ?, ?, ?, ?)',
-        args: [randomUUID(), telegramId, claimId, REWARDED_WIDGET_ID, REWARD_COINS],
+        args: [claimRowId, telegramId, claimId, REWARDED_WIDGET_ID, REWARD_COINS],
       });
       await tx.execute({
         sql: `UPDATE ad_reward_cycles SET views=?,
@@ -186,22 +187,15 @@ export async function POST(req: NextRequest) {
         args: [newCoins, REWARD_COINS, telegramId],
       });
 
-      const claimRowId = randomUUID();
       const metadata = JSON.stringify({
         widgetId: REWARDED_WIDGET_ID, claimId, reward: REWARD_COINS,
         cycleView: completedViews, cycleLimit: CYCLE_LIMIT, cycleHours: CYCLE_HOURS,
       });
-      // The reward claim row above is uniquely keyed by claim_id. Link the ledger to this claim.
-      const claim = await tx.execute({
-        sql: 'SELECT id FROM ad_reward_claims WHERE telegram_id=? AND claim_id=?',
-        args: [telegramId, claimId],
-      });
-      const savedClaimId = String(claim.rows[0]?.id ?? claimRowId);
       await tx.execute({
         sql: `INSERT INTO ledger_entries
           (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'coins', 'tads_ad_reward', ?, ?, 'tads_ad', ?, ?, ?)`,
-        args: [randomUUID(), telegramId, REWARD_COINS, newCoins, savedClaimId, `tads_ad_reward:${telegramId}:${claimId}`, metadata],
+        args: [randomUUID(), telegramId, REWARD_COINS, newCoins, claimRowId, `tads_ad_reward:${telegramId}:${claimId}`, metadata],
       });
       await tx.execute({
         sql: `INSERT INTO player_events(id, telegram_id, event_type, amount, metadata_json, idempotency_key)
