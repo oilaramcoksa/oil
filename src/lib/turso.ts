@@ -282,8 +282,7 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       'CREATE INDEX IF NOT EXISTS idx_usdt_withdrawals_player ON usdt_withdrawal_requests(telegram_id, created_at)',
       'CREATE INDEX IF NOT EXISTS idx_usdt_withdrawals_status ON usdt_withdrawal_requests(status, created_at)',
     ],
-  },  },
-
+  },
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {
