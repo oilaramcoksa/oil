@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame, type TaskState } from '@/lib/store';
 import { t } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
 
-export function TasksScreen() {
+type AdProgress = { used: number; limit: number; remaining: number; milestones: { views: number; bonus: number; completed: boolean }[] };\n\nexport function TasksScreen({ initData, isVerified }: { initData: string; isVerified: boolean }) {
   const lang = useGame((s) => s.lang);
   const tasks = useGame((s) => s.tasks);
   const claimTask = useGame((s) => s.claimTask);
@@ -18,6 +18,37 @@ export function TasksScreen() {
   const openLuckyBox = useGame((s) => s.openLuckyBox);
   const { haptic, notify } = useTelegram();
   const [luckyReward, setLuckyReward] = useState<number | null>(null);
+  const [adProgress, setAdProgress] = useState<AdProgress | null>(null);
+
+  useEffect(() => {
+    if (!isVerified || !initData) {
+      setAdProgress(null);
+      return;
+    }
+    let stopped = false;
+    const loadProgress = async () => {
+      try {
+        const response = await fetch('/api/ads/reward', {
+          headers: { 'X-Telegram-Init-Data': initData },
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const data = await response.json() as AdProgress;
+        if (!stopped) setAdProgress(data);
+      } catch (error) {
+        console.error('ad_missions_load_failed', error);
+      }
+    };
+    void loadProgress();
+    const timer = window.setInterval(() => void loadProgress(), 5000);
+    const onFocus = () => void loadProgress();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [initData, isVerified]);
 
   const daily = tasks.filter((t_) => t_.period === 'daily');
   const weekly = tasks.filter((t_) => t_.period === 'weekly');
@@ -159,6 +190,41 @@ export function TasksScreen() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* === Rewarded ad missions === */}
+      {isVerified && adProgress && (
+        <div className="aram-card rounded-2xl p-3 mb-3 border border-amber-300/70">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-[#2a1c0a]">{t(lang, 'adMissionsTitle')}</h3>
+                <p className="text-[10px] text-amber-900/60 font-bold">{t(lang, 'adMissionsDesc')}</p>
+              </div>
+            </div>
+            <span className="text-xs font-black text-amber-800 tabular-nums">{adProgress.used}/{adProgress.limit}</span>
+          </div>
+          <div className="h-2 rounded-full bg-amber-900/10 overflow-hidden my-2">
+            <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${Math.min(100, adProgress.used / Math.max(1, adProgress.limit) * 100)}%` }} />
+          </div>
+          <div className="space-y-1.5 mt-3">
+            {adProgress.milestones.map((mission) => (
+              <div key={mission.views} className="flex items-center justify-between gap-2 rounded-xl bg-amber-50/80 border border-amber-900/5 px-2.5 py-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-black text-[#56351b]">{t(lang, 'adMissionWatch')} {mission.views} {t(lang, 'adMissionViews')}</div>
+                  <div className="text-[10px] font-bold text-amber-800/70">{t(lang, 'adMissionBonus')} +{mission.bonus} {t(lang, 'coins')}</div>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${mission.completed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-200/60 text-amber-800'}`}>
+                  {mission.completed ? t(lang, 'adMissionDone') : `${Math.min(adProgress.used, mission.views)}/${mission.views}`}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[9px] leading-relaxed text-amber-900/55">{t(lang, 'adMissionDailyLimit')} {adProgress.remaining}</p>
+        </div>
+      )}
 
       {/* Daily */}
       <div className="mb-3">
