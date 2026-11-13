@@ -29,6 +29,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
       const data = await res.json();
       if (!data.wallet || !Number.isSafeInteger(Number(data.wallet.coins)) || !Number.isSafeInteger(Number(data.wallet.usdMicros))) throw new Error('wallet_data_invalid');
       setWallet({ coins: Number(data.wallet.coins), usdMicros: Number(data.wallet.usdMicros), usdLockedMicros: Number(data.wallet.usdLockedMicros ?? 0) });
+      useGame.setState({ coins: Number(data.wallet.coins) });
       setHistory(data.withdrawals ?? []);
       setWalletError(false);
     } catch (error) {
