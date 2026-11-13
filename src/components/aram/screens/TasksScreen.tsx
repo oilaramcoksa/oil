@@ -216,13 +216,13 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
             </div>
             <div>
               <h3 className="text-sm font-black text-[#2a1c0a]">{t(lang, 'adMissionsTitle')}</h3>
-              <p className="text-[10px] text-amber-900/60 font-bold">10 إعلانات كل 12 ساعة · 100 عملة لكل إعلان</p>
+              <p className="text-[10px] text-amber-900/60 font-bold">30 إعلانًا كل 12 ساعة · AdsGram: 20 / TADS: 10</p>
             </div>
           </div>
-          <span className="text-xs font-black text-amber-800 tabular-nums">{adProgress ? `${adProgress.used}/10` : (adProgressLoading ? '…/10' : '0/10')}</span>
+          <span className="text-xs font-black text-amber-800 tabular-nums">{adProgress ? `${adProgress.used}/30` : (adProgressLoading ? '…/30' : '0/30')}</span>
         </div>
         <div className="h-2 rounded-full bg-amber-900/10 overflow-hidden mb-3">
-          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${Math.min(100, (adProgress?.used ?? 0) / 10 * 100)}%` }} />
+          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${Math.min(100, (adProgress?.used ?? 0) / 30 * 100)}%` }} />
         </div>
         <div className="flex items-center justify-between rounded-xl bg-amber-50/80 border border-amber-900/5 px-3 py-2 mb-3">
           <span className="text-xs font-black text-[#56351b]">المكافأة لكل إعلان</span>
@@ -288,7 +288,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
           />
         )}
         <p className="mt-2 text-center text-[10px] font-bold text-amber-900/60">
-          {adProgress?.locked ? 'اكتملت 10/10 مشاهدات، وسيُعاد تفعيل المشاهدة بعد انتهاء 12 ساعة.' : `المتبقي: ${adProgress?.remaining ?? 10} إعلانات · إجمالي الدورة: 1,000 عملة`}
+          {adProgress?.locked ? 'اكتملت 30/30 مشاهدة، وسيُعاد تفعيل المشاهدة بعد انتهاء 12 ساعة.' : `المتبقي: ${adProgress?.remaining ?? 30} إعلانًا · المكافأة: Reward/Task 100 وInterstitial 50`}
         </p>
       </div>
 
