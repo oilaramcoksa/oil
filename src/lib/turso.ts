@@ -224,7 +224,39 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       )`,
       'CREATE INDEX IF NOT EXISTS idx_game_snapshots_updated ON player_game_snapshots(updated_at)',
     ],
+  },,
+
+  {
+    version: 4,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS arena_rounds (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL CHECK(status IN ('open','countdown','spinning','completed','cancelled')),
+        starts_at INTEGER,
+        spin_started_at INTEGER,
+        ends_at INTEGER,
+        total_entries INTEGER NOT NULL DEFAULT 0,
+        winner_telegram_id TEXT,
+        winner_type TEXT CHECK(winner_type IN ('player','house')),
+        winning_amount INTEGER NOT NULL DEFAULT 0,
+        outcome_seed TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_at TEXT
+      )`,
+      `CREATE TABLE IF NOT EXISTS arena_entries (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL REFERENCES arena_rounds(id),
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id),
+        amount INTEGER NOT NULL CHECK(amount >= 1000),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(round_id, telegram_id)
+      )`,
+      'CREATE INDEX IF NOT EXISTS idx_arena_round_status ON arena_rounds(status, created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_arena_entries_round ON arena_entries(round_id, created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_arena_entries_player ON arena_entries(telegram_id, created_at)',
+    ],
   },
+
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {
