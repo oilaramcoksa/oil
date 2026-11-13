@@ -80,25 +80,31 @@ export async function POST(req: NextRequest) {
       const day = now.toISOString().slice(0, 10);
       const month = day.slice(0, 7);
       const week = weekKey(now);
-      await tx.batch([
-        { sql: `INSERT INTO player_daily_stats(telegram_id, day_key, sells, oil_sold, coins_earned)
-                VALUES (?, ?, 1, ?, ?) ON CONFLICT(telegram_id, day_key) DO UPDATE SET
-                sells=sells+1, oil_sold=oil_sold+excluded.oil_sold,
-                coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`,
-          args: [id, day, sold, coinsEarned] },
-        { sql: `INSERT INTO player_monthly_stats(telegram_id, month_key, sells, oil_sold, coins_earned)
-                VALUES (?, ?, 1, ?, ?) ON CONFLICT(telegram_id, month_key) DO UPDATE SET
-                sells=sells+1, oil_sold=oil_sold+excluded.oil_sold,
-                coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`,
-          args: [id, month, sold, coinsEarned] },
-        { sql: `INSERT INTO player_weekly_stats(telegram_id, week_key, sells, oil_sold)
-                VALUES (?, ?, 1, ?) ON CONFLICT(telegram_id, week_key) DO UPDATE SET
-                sells=sells+1, oil_sold=oil_sold+excluded.oil_sold, updated_at=CURRENT_TIMESTAMP`,
-          args: [id, week, sold] },
-        { sql: `INSERT INTO player_events(id, telegram_id, event_type, amount, metadata_json, idempotency_key)
-                VALUES (?, ?, 'oil_sale', ?, ?, ?)`,
-          args: [randomUUID(), id, coinsEarned, metadata, `event:oil_sale:${key}`] },
-      ], 'write');
+      await tx.execute({
+        sql: `INSERT INTO player_daily_stats(telegram_id, day_key, sells, oil_sold, coins_earned)
+              VALUES (?, ?, 1, ?, ?) ON CONFLICT(telegram_id, day_key) DO UPDATE SET
+              sells=sells+1, oil_sold=oil_sold+excluded.oil_sold,
+              coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`,
+        args: [id, day, sold, coinsEarned],
+      });
+      await tx.execute({
+        sql: `INSERT INTO player_monthly_stats(telegram_id, month_key, sells, oil_sold, coins_earned)
+              VALUES (?, ?, 1, ?, ?) ON CONFLICT(telegram_id, month_key) DO UPDATE SET
+              sells=sells+1, oil_sold=oil_sold+excluded.oil_sold,
+              coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`,
+        args: [id, month, sold, coinsEarned],
+      });
+      await tx.execute({
+        sql: `INSERT INTO player_weekly_stats(telegram_id, week_key, sells, oil_sold)
+              VALUES (?, ?, 1, ?) ON CONFLICT(telegram_id, week_key) DO UPDATE SET
+              sells=sells+1, oil_sold=oil_sold+excluded.oil_sold, updated_at=CURRENT_TIMESTAMP`,
+        args: [id, week, sold],
+      });
+      await tx.execute({
+        sql: `INSERT INTO player_events(id, telegram_id, event_type, amount, metadata_json, idempotency_key)
+              VALUES (?, ?, 'oil_sale', ?, ?, ?)`,
+        args: [randomUUID(), id, coinsEarned, metadata, `event:oil_sale:${key}`],
+      });
 
       await tx.commit();
       return NextResponse.json({ ok: true, saleId, sold, coinsEarned, wallet: { oil: 0, coins: newCoins } }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
