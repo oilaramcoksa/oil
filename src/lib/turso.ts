@@ -281,6 +281,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
       const legacyColumns: Array<[string, string, string]> = [
         ['players', 'status', "TEXT NOT NULL DEFAULT 'active'"],
         ['players', 'locale', 'TEXT'],
+        ['players', 'photo_url', 'TEXT'],
         ['player_events', 'metadata_json', 'TEXT'],
         ['player_events', 'idempotency_key', 'TEXT'],
         ['player_monthly_stats', 'oil_sold', 'INTEGER NOT NULL DEFAULT 0'],
