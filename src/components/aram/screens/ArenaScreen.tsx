@@ -109,6 +109,8 @@ export function ArenaScreen({
     })),
   ];
 
+  const avatarSize = Math.max(24, Math.min(40, 360 / Math.max(wheelEntries.length, 1)));
+
   const wheelGradient = useMemo(() => {
     let cursor = 0;
     const stops = wheelEntries.map((entry) => {
@@ -225,18 +227,18 @@ export function ArenaScreen({
               return (
                 <div
                   key={entry.id}
-                  className="absolute z-[5] grid h-10 w-10 place-items-center"
-                  style={{ left: `${50 + Math.cos(angle * Math.PI / 180) * 37}%`, top: `${50 + Math.sin(angle * Math.PI / 180) * 37}%`, transform: 'translate(-50%, -50%)' }}
+                  className="absolute z-[5] grid place-items-center"
+                  style={{ left: `${50 + Math.cos(angle * Math.PI / 180) * 37}%`, top: `${50 + Math.sin(angle * Math.PI / 180) * 37}%`, width: avatarSize, height: avatarSize, transform: 'translate(-50%, -50%)' }}
                   title={entry.house ? entry.label : `${entry.label} · ${entry.weight.toFixed(1)}%`}
                 >
                   {entry.house ? (
                     <span className="grid h-10 w-10 place-items-center rounded-full border-[3px] border-amber-100 bg-gradient-to-br from-yellow-200 via-amber-400 to-orange-600 text-xl text-amber-950 shadow-[0_4px_12px_rgba(0,0,0,.55),inset_0_2px_3px_rgba(255,255,255,.8)]">🔥</span>
                   ) : entry.photoUrl ? (
                     <span className="rounded-full bg-gradient-to-br from-white via-amber-100 to-amber-700 p-[3px] shadow-[0_4px_12px_rgba(92,48,15,.35)] ring-2 ring-white/70">
-                      <img src={entry.photoUrl} alt={entry.label} referrerPolicy="no-referrer" className="h-[34px] w-[34px] rounded-full border border-white/90 object-cover" />
+                      <img src={entry.photoUrl} alt={entry.label} referrerPolicy="no-referrer" className="rounded-full border border-white/90 object-cover" style={{ width: Math.max(18, avatarSize - 6), height: Math.max(18, avatarSize - 6) }} />
                     </span>
                   ) : (
-                    <span className="grid h-11 w-11 place-items-center rounded-full border-[3px] border-white/90 bg-gradient-to-br from-slate-500 via-[#242936] to-black text-sm font-black text-[#542b12] shadow-[0_5px_12px_rgba(0,0,0,.65)]">{entry.label.slice(0, 1).toUpperCase()}</span>
+                    <span className="grid place-items-center rounded-full border-[3px] border-white/90 bg-gradient-to-br from-[#fff3d6] via-[#e8a64f] to-[#a95720] font-black text-[#542b12] shadow-[0_4px_12px_rgba(92,48,15,.35)]" style={{ width: avatarSize, height: avatarSize, fontSize: Math.max(10, avatarSize * 0.38) }}>{entry.label.slice(0, 1).toUpperCase()}</span>
                   )}
                 </div>
               );
