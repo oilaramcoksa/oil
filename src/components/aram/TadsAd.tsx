@@ -117,6 +117,17 @@ export function TadsAd({
           debug={false}
           onAdsNotFound={handleNotFound}
         />
+        {rewardWidgetId && (
+          <div className="h-0 overflow-hidden" aria-hidden="true">
+            <TadsWidget
+              id={fullscreenId}
+              type="fullscreen"
+              debug={false}
+              onShowReward={handleShow}
+              onAdsNotFound={handleNotFound}
+            />
+          </div>
+        )}
         {description && <p className="sr-only">{description}</p>}
         {rewardWidgetId && (
           <div className="mt-2">
