@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PumpScene } from '../PumpScene';
 import { SellModal } from '../SellModal';
 import { Button } from '@/components/ui/button';
-import { Coins, Droplet, Gauge, ArrowUpRight, Clock, Zap, Power, Package } from 'lucide-react';
+import { Coins, Droplet, Gauge, ArrowUpRight, Clock, Zap, Power, Package, Dices, Sparkles } from 'lucide-react';
 import {
   useGame,
   effectiveCapacity,
@@ -23,9 +23,10 @@ import { useTelegram } from '@/hooks/use-telegram';
 
 interface Props {
   onGoToStore: () => void;
+  onGoToArena: () => void;
 }
 
-export function PumpScreen({ onGoToStore }: Props) {
+export function PumpScreen({ onGoToStore, onGoToArena }: Props) {
   const lang = useGame((s) => s.lang);
   const oil = useGame((s) => s.oil);
   const coins = useGame((s) => s.coins);
@@ -149,6 +150,50 @@ export function PumpScreen({ onGoToStore }: Props) {
             </div>
           </motion.div>
         )}
+      </div>
+
+      {/* Lucky Arena entry banner */}
+      <div className="mx-auto mt-3 w-full max-w-md px-3">
+        <motion.button
+          type="button"
+          onClick={() => { haptic('medium'); onGoToArena(); }}
+          whileTap={{ scale: 0.985 }}
+          whileHover={{ y: -2 }}
+          className="group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-amber-300/35 bg-gradient-to-r from-[#211a31] via-[#302044] to-[#4b2b28] p-3 text-start shadow-[0_8px_24px_rgba(0,0,0,.28)]"
+          aria-label={t(lang, 'arenaPromoTitle')}
+        >
+          <div className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-amber-400/15 blur-2xl" />
+          <div className="relative h-[76px] w-[76px] shrink-0">
+            <motion.div
+              aria-hidden="true"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 16, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-0 rounded-full border-[5px] border-[#30233d] shadow-[0_0_0_2px_rgba(255,220,150,.35),0_5px_16px_rgba(0,0,0,.4)]"
+              style={{ background: 'conic-gradient(from -20deg, #f59e0b 0deg 90deg, #2457f5 90deg 180deg, #8b5cf6 180deg 270deg, #10b981 270deg 360deg)' }}
+            >
+              <span className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-amber-200 shadow" />
+              <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/90 shadow" />
+            </motion.div>
+            <div className="absolute inset-[27%] grid place-items-center rounded-full border-2 border-amber-100/80 bg-[#211a31] text-amber-200 shadow-lg">
+              <Dices className="h-5 w-5" />
+            </div>
+            <span className="absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full border border-white/50 bg-gradient-to-br from-amber-300 to-orange-500 text-[#3a2108] shadow-md">
+              <Sparkles className="h-3.5 w-3.5" />
+            </span>
+          </div>
+          <div className="relative min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-1.5">
+              <span className="text-[15px] font-black text-white">{t(lang, 'arenaPromoTitle')}</span>
+              <span className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[9px] font-black text-emerald-200">{t(lang, 'arenaPromoBadge')}</span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-amber-50/75">{t(lang, 'arenaPromoDesc')}</p>
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-300 to-orange-400 px-3 py-1.5 text-[11px] font-black text-[#3b220d] shadow">
+              {t(lang, 'arenaPromoAction')}
+              <span aria-hidden="true" className="text-sm">←</span>
+            </div>
+          </div>
+          <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5 transition group-hover:ring-amber-200/30" />
+        </motion.button>
       </div>
 
       {/* === Cycle timer + speed display === */}
