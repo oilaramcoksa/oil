@@ -16,6 +16,7 @@ import { TournamentsSheet } from '@/components/aram/TournamentsSheet';
 import { useTelegram } from '@/hooks/use-telegram';
 import { Toaster } from 'sonner';
 import { GameCloudSync } from '@/components/aram/GameCloudSync';
+import { ArenaScreen } from '@/components/aram/screens/ArenaScreen';
 
 export default function Home() {
   const lang = useGame((s) => s.lang);
@@ -87,6 +88,7 @@ export default function Home() {
         {tab === 'tasks' && <TasksScreen />}
         {tab === 'friends' && <FriendsScreen />}
         {tab === 'store' && <StoreScreen />}
+        {tab === 'arena' && <ArenaScreen initData={initData} isVerified={isVerified} />}
       </main>
 
       <BottomNav active={tab} onChange={setTab} />
