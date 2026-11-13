@@ -36,7 +36,13 @@ function mergeTransactions(local: Transaction[], remote: Transaction[] = []) {
     if (tx && typeof tx.id === 'string') byId.set(tx.id, tx);
   }
   for (const tx of local) {
-    if (tx && typeof tx.id === 'string' && !byId.has(tx.id)) byId.set(tx.id, tx);
+    if (!tx || typeof tx.id !== 'string' || byId.has(tx.id)) continue;
+    const mirroredByLedger = [...byId.values()].some((remoteTx) =>
+      remoteTx.type === tx.type &&
+      remoteTx.amount === tx.amount &&
+      Math.abs(remoteTx.createdAt - tx.createdAt) <= 10_000
+    );
+    if (!mirroredByLedger) byId.set(tx.id, tx);
   }
   return [...byId.values()]
     .sort((a, b) => b.createdAt - a.createdAt)
@@ -90,7 +96,6 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
     let saveQueue: Promise<void> = Promise.resolve();
     let lastRevision = 0;
     let last = '';
-    const onFocus = () => void pull(false);
 
     const headers = { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData };
 
@@ -128,6 +133,8 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
         pulling = false;
       }
     };
+
+    const onFocus = () => void pull(false);
 
     const save = async (state: ReturnType<typeof useGame.getState>) => {
       const sent = JSON.stringify(snapshot(state));
