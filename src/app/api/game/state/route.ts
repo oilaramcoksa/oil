@@ -37,13 +37,19 @@ export async function GET(req: NextRequest) {
     await ensureDatabaseSchema();
     const db = getTurso();
     const id = String(identity.id);
-    const [result, wallet] = await Promise.all([
+    const [result, wallet, ledger] = await Promise.all([
       db.execute({
         sql: 'SELECT state_json, revision, updated_at FROM player_game_snapshots WHERE telegram_id = ?',
         args: [id],
       }),
       db.execute({
         sql: 'SELECT oil_balance, coins_balance, coins_locked FROM player_wallets WHERE telegram_id = ?',
+        args: [id],
+      }),
+      db.execute({
+        sql: `SELECT id, asset, entry_type, amount, created_at, metadata_json
+              FROM ledger_entries WHERE telegram_id = ?
+              ORDER BY created_at DESC LIMIT 50`,
         args: [id],
       }),
     ]);
@@ -67,6 +73,32 @@ export async function GET(req: NextRequest) {
       updatedAt: row?.updated_at?.toString() ?? null,
       state,
       wallet: w ? { ...walletState, locked: Number(w.coins_locked) } : null,
+      ledgerTransactions: ledger.rows.map((entry) => {
+        const entryType = String(entry.entry_type);
+        const labelByType: Record<string, string> = {
+          arena_entry: 'txArenaEntry',
+          arena_prize: 'txArenaPrize',
+          arena_refund: 'txArenaRefund',
+          tads_ad_reward: 'txAdReward',
+          sell: 'txSell',
+          withdraw: 'txWithdraw',
+          refund: 'txRefund',
+        };
+        const createdAt = Date.parse(String(entry.created_at ?? '')) || Date.now();
+        let meta: Record<string, string | number> = {};
+        try {
+          const parsed = entry.metadata_json ? JSON.parse(String(entry.metadata_json)) : {};
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) meta = parsed;
+        } catch { /* Keep malformed legacy metadata empty. */ }
+        return {
+          id: String(entry.id),
+          type: entryType.startsWith('arena_') ? 'arena' : entryType === 'tads_ad_reward' ? 'ad' : 'sell',
+          amount: Number(entry.amount),
+          label: labelByType[entryType] ?? 'txLedger',
+          createdAt,
+          meta: { ...meta, asset: String(entry.asset), entryType },
+        };
+      }),
       source: 'turso',
     }, { headers: { 'Cache-Control': 'no-store, private' } });
   } catch (error) {
