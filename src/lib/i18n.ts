@@ -326,6 +326,7 @@ const ar: Dict = {
   arenaReady: 'جاهزة للمشاركة',
   arenaBurnSlice: 'مساحة حرق العملات',
   arenaMaxHint: 'زر الحد الأقصى يشارك برصيدك كاملاً مباشرةً',
+  arenaTimeoutRefund: 'إذا لم ينضم لاعب آخر خلال ساعة، تُلغى الجولة ويُعاد رصيدك تلقائياً إلى محفظتك.',
 };
 
 const en: Dict = {
@@ -630,6 +631,7 @@ const en: Dict = {
   arenaReady: 'Ready to join',
   arenaBurnSlice: 'Coin burn segment',
   arenaMaxHint: 'MAX enters the round using your full available balance',
+  arenaTimeoutRefund: 'If no other player joins within one hour, the round is cancelled and your entry is automatically refunded to your wallet.',
 };
 
 const ru: Dict = {
@@ -934,6 +936,7 @@ const ru: Dict = {
   arenaReady: 'Готов к участию',
   arenaBurnSlice: 'Сектор сжигания монет',
   arenaMaxHint: 'Кнопка MAX сразу использует весь доступный баланс',
+  arenaTimeoutRefund: 'Если в течение часа не присоединится другой игрок, раунд отменяется, а взнос автоматически возвращается в кошелёк.',
 };
 
 export const dictionaries: Record<Lang, Dict> = { ar, en, ru };
