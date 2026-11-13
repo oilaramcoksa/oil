@@ -335,6 +335,23 @@ export async function ensureDatabaseSchema(): Promise<void> {
       // Restore legacy wallet balances from the last cloud snapshot before
       // treating newly backfilled zero-balance wallet rows as authoritative.
       // Never overwrite balances once a ledger entry or swap exists.
+      // Reconcile ledger-backed wallets from their latest immutable balance.
+      // This repairs stale wallet rows without trusting browser state.
+      await db.execute(`
+        UPDATE player_wallets
+        SET coins_balance = COALESCE((
+              SELECT l.balance_after FROM ledger_entries l
+              WHERE l.telegram_id = player_wallets.telegram_id AND l.asset = 'coins'
+              ORDER BY l.rowid DESC LIMIT 1
+            ), coins_balance),
+            oil_balance = COALESCE((
+              SELECT l.balance_after FROM ledger_entries l
+              WHERE l.telegram_id = player_wallets.telegram_id AND l.asset = 'oil'
+              ORDER BY l.rowid DESC LIMIT 1
+            ), oil_balance),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE EXISTS (SELECT 1 FROM ledger_entries l WHERE l.telegram_id = player_wallets.telegram_id)
+      `);
       await db.execute(`
         UPDATE player_wallets
         SET coins_balance = COALESCE((
