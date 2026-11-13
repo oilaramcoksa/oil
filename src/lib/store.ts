@@ -116,6 +116,7 @@ interface GameState {
 
   tapPump: () => { oilAdded: number; newTotal: number; full: boolean; cycleStarted: boolean };
   sellOil: () => { sold: number; coinsEarned: number };
+  applyServerSale: (sold: number, coinsEarned: number, walletCoins: number) => void;
   buyUpgrade: (pkg: UpgradePackage['id'], wallet: CryptoWallet['code'], txHash: string) => void;
   claimTask: (taskId: string) => { ok: boolean; reward?: number };
   addReferral: (name: string) => void;
@@ -330,6 +331,32 @@ export const useGame = create<GameState>()(
         }
         set({ oil: newOil, lastTickAt: now });
         return { litersAdded: actualAdded, cycleEnded: false };
+      },
+
+      applyServerSale: (sold, coinsEarned, walletCoins) => {
+        const s = get();
+        const qualifies = coinsEarned >= 300;
+        const tx: Transaction = {
+          id: makeId(),
+          type: 'sell',
+          amount: coinsEarned,
+          label: 'txSell',
+          createdAt: Date.now(),
+          meta: { oil: sold, barrels: Math.floor(sold / 20), qualified: qualifies },
+        };
+        set({
+          oil: 0,
+          coins: walletCoins,
+          sellsToday: s.sellsToday + 1,
+          sellsThisWeek: s.sellsThisWeek + 1,
+          sellsTotal: s.sellsTotal + 1,
+          qualifiedSellsToday: s.qualifiedSellsToday + (qualifies ? 1 : 0),
+          coinsEarnedThisMonth: s.coinsEarnedThisMonth + coinsEarned,
+          transactions: [tx, ...s.transactions].slice(0, 50),
+          ...(qualifies ? { tasks: bumpTasks(s.tasks, [
+            { kind: 'sell', by: 1 }, { kind: 'weekSell', by: 1 },
+          ]) } : {}),
+        });
       },
 
       sellOil: () => {
