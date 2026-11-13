@@ -153,7 +153,9 @@
 }
 
 html, body {
+  width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -290,11 +292,36 @@ body {
 
 /* Telegram-style compact body */
 .aram-app {
+  width: 100%;
   max-width: 480px;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
   margin: 0 auto;
-  min-height: 100vh;
-  min-height: 100dvh;
   position: relative;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Keep the game shell fixed to the visible screen: only the active tab scrolls. */
+.aram-app > main {
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 0%;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.aram-app > header,
+.aram-app > nav {
+  flex: 0 0 auto;
+}
+
+/* Respect Telegram's safe areas without pushing the bottom navigation off-screen. */
+.aram-safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
 }
 
