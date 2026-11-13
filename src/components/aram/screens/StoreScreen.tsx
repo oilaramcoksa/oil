@@ -223,10 +223,10 @@ export function StoreScreen() {
       </motion.div>
 
       {/* TADS native text-graphic ad. Configure its separate TGB widget ID in Vercel. */}
-      {Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID || 0) > 0 && (
+      {Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID || '13284') > 0 && (
         <div className="mb-3">
           <TadsAd
-            widgetId={Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID)}
+            widgetId={Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID || '13284')}
             mode="static"
             title={t(lang, 'tadsSponsored')}
             description={t(lang, 'tadsUnavailable')}
