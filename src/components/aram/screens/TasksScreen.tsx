@@ -21,10 +21,12 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const { haptic, notify } = useTelegram();
   const [luckyReward, setLuckyReward] = useState<number | null>(null);
   const [adProgress, setAdProgress] = useState<AdProgress | null>(null);
+  const [adProgressLoading, setAdProgressLoading] = useState(true);
 
   useEffect(() => {
     if (!isVerified || !initData) {
       setAdProgress(null);
+      setAdProgressLoading(false);
       return;
     }
     let stopped = false;
@@ -34,13 +36,21 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
           headers: { 'X-Telegram-Init-Data': initData },
           cache: 'no-store',
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!stopped) setAdProgressLoading(false);
+          return;
+        }
         const data = await response.json() as AdProgress;
-        if (!stopped) setAdProgress(data);
+        if (!stopped) {
+          setAdProgress(data);
+          setAdProgressLoading(false);
+        }
       } catch (error) {
         console.error('ad_missions_load_failed', error);
+        if (!stopped) setAdProgressLoading(false);
       }
     };
+    setAdProgressLoading(true);
     void loadProgress();
     const timer = window.setInterval(() => void loadProgress(), 5000);
     const onFocus = () => void loadProgress();
@@ -193,9 +203,8 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         </AnimatePresence>
       </div>
 
-      {/* === Rewarded ad missions === */}
-      {isVerified && adProgress && (
-        <div className="aram-card rounded-2xl p-3 mb-3 border border-amber-300/70">
+      {/* === Rewarded ad missions: always visible, even if progress cannot load === */}
+      <div className="aram-card rounded-2xl p-3 mb-3 border border-amber-300/70">
           <div className="flex items-center justify-between gap-2 mb-1">
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow">
@@ -206,27 +215,37 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
                 <p className="text-[10px] text-amber-900/60 font-bold">{t(lang, 'adMissionsDesc')}</p>
               </div>
             </div>
-            <span className="text-xs font-black text-amber-800 tabular-nums">{adProgress.used}/{adProgress.limit}</span>
+            <span className="text-xs font-black text-amber-800 tabular-nums">{adProgress ? `${adProgress.used}/${adProgress.limit}` : (adProgressLoading ? '…/20' : '—/20')}</span>
           </div>
           <div className="h-2 rounded-full bg-amber-900/10 overflow-hidden my-2">
-            <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${Math.min(100, adProgress.used / Math.max(1, adProgress.limit) * 100)}%` }} />
+            <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${adProgress ? Math.min(100, adProgress.used / Math.max(1, adProgress.limit) * 100) : 0}%` }} />
           </div>
           <div className="space-y-1.5 mt-3">
-            {adProgress.milestones.map((mission) => (
+            {(adProgress?.milestones ?? [
+              { views: 1, bonus: 25, completed: false },
+              { views: 3, bonus: 50, completed: false },
+              { views: 5, bonus: 75, completed: false },
+              { views: 10, bonus: 150, completed: false },
+              { views: 15, bonus: 200, completed: false },
+              { views: 20, bonus: 300, completed: false },
+            ]).map((mission) => (
               <div key={mission.views} className="flex items-center justify-between gap-2 rounded-xl bg-amber-50/80 border border-amber-900/5 px-2.5 py-2">
                 <div className="min-w-0">
                   <div className="text-xs font-black text-[#56351b]">{t(lang, 'adMissionWatch')} {mission.views} {t(lang, 'adMissionViews')}</div>
                   <div className="text-[10px] font-bold text-amber-800/70">{t(lang, 'adMissionBonus')} +{mission.bonus} {t(lang, 'coins')}</div>
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${mission.completed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-200/60 text-amber-800'}`}>
-                  {mission.completed ? t(lang, 'adMissionDone') : `${Math.min(adProgress.used, mission.views)}/${mission.views}`}
+                  {adProgress ? (mission.completed ? t(lang, 'adMissionDone') : `${Math.min(adProgress.used, mission.views)}/${mission.views}`) : '—'}
                 </span>
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[9px] leading-relaxed text-amber-900/55">{t(lang, 'adMissionDailyLimit')} {adProgress.remaining}</p>
+          <p className="mt-2 text-[9px] leading-relaxed text-amber-900/55">
+            {isVerified
+              ? (adProgress ? `${t(lang, 'adMissionDailyLimit')} ${adProgress.remaining}` : (adProgressLoading ? t(lang, 'progress') : t(lang, 'tadsUnavailable')))
+              : t(lang, 'telegramRequired')}
+          </p>
         </div>
-      )}
 
       {/* Daily */}
       <div className="mb-3">
