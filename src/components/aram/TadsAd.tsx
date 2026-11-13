@@ -6,6 +6,7 @@ import { Megaphone, Play, Loader2 } from 'lucide-react';
 
 type Props = {
   widgetId: number;
+  rewardWidgetId?: number;
   mode: 'static' | 'fullscreen';
   title: string;
   description?: string;
@@ -19,10 +20,12 @@ type Props = {
 };
 
 export function TadsAd({
-  widgetId, mode, title, description, actionLabel, loadingLabel,
+  widgetId, rewardWidgetId, mode, title, description, actionLabel, loadingLabel,
   className = '', initData = '', isVerified = false, onRewarded, onRewardError,
 }: Props) {
   const id = String(widgetId);
+  const fullscreenId = String(rewardWidgetId ?? widgetId);
+  const claimWidgetId = rewardWidgetId ?? widgetId;
   const [adPending, setAdPending] = useState(false);
   const [rewarding, setRewarding] = useState(false);
   const pendingRef = useRef(false);
@@ -52,7 +55,7 @@ export function TadsAd({
           'Content-Type': 'application/json',
           'X-Telegram-Init-Data': initData,
         },
-        body: JSON.stringify({ widgetId, claimId: crypto.randomUUID() }),
+        body: JSON.stringify({ widgetId: claimWidgetId, claimId: crypto.randomUUID() }),
         cache: 'no-store',
       });
       const data = await response.json().catch(() => ({})) as {
@@ -74,7 +77,7 @@ export function TadsAd({
       rewardInFlightRef.current = false;
       setRewarding(false);
     }
-  }, [clearPending, initData, isVerified, onRewarded, onRewardError, widgetId]);
+  }, [clearPending, initData, isVerified, onRewarded, onRewardError, claimWidgetId]);
 
   const handleNotFound = useCallback(() => {
     clearPending();
@@ -94,13 +97,13 @@ export function TadsAd({
       onRewardError?.('ad_timeout');
     }, 120000);
     try {
-      renderTadsWidget({ id, type: 'fullscreen' });
+      renderTadsWidget({ id: fullscreenId, type: 'fullscreen' });
     } catch (error) {
       clearPending();
       console.warn('TADS fullscreen could not be opened', error);
       onRewardError?.('ad_unavailable');
     }
-  }, [adPending, clearPending, id, initData, isVerified, onRewardError, rewarding]);
+  }, [adPending, clearPending, fullscreenId, initData, isVerified, onRewardError, rewarding]);
 
   if (mode === 'static') {
     return (
@@ -115,6 +118,19 @@ export function TadsAd({
           onAdsNotFound={handleNotFound}
         />
         {description && <p className="sr-only">{description}</p>}
+        {rewardWidgetId && (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={showFullscreen}
+              disabled={!isVerified || !initData || adPending || rewarding}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-2 text-xs font-black text-[#3b210c] shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {adPending || rewarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+              {rewarding ? (loadingLabel ?? 'جاري إضافة المكافأة...') : (actionLabel ?? title)}
+            </button>
+          </div>
+        )}
       </section>
     );
   }
