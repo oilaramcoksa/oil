@@ -17,15 +17,24 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
   const [usdInput, setUsdInput] = useState('1');
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
+  const [walletLoading, setWalletLoading] = useState(true);
+  const [walletError, setWalletError] = useState(false);
   const [busy, setBusy] = useState(false);
   const headers = useMemo(() => ({ 'X-Telegram-Init-Data': initData }), [initData]);
   const refresh = useCallback(async () => {
-    if (!isVerified || !initData) return;
-    const res = await fetch('/api/usdt-withdrawals', { headers, cache: 'no-store' });
-    if (!res.ok) return;
-    const data = await res.json();
-    setWallet(data.wallet ?? { coins: 0, usdMicros: 0 });
-    setHistory(data.withdrawals ?? []);
+    if (!isVerified || !initData) { setWalletLoading(false); setWalletError(true); return; }
+    try {
+      const res = await fetch('/api/usdt-withdrawals', { headers, cache: 'no-store' });
+      if (!res.ok) throw new Error('wallet_load_failed');
+      const data = await res.json();
+      if (!data.wallet || !Number.isSafeInteger(Number(data.wallet.coins)) || !Number.isSafeInteger(Number(data.wallet.usdMicros))) throw new Error('wallet_data_invalid');
+      setWallet({ coins: Number(data.wallet.coins), usdMicros: Number(data.wallet.usdMicros), usdLockedMicros: Number(data.wallet.usdLockedMicros ?? 0) });
+      setHistory(data.withdrawals ?? []);
+      setWalletError(false);
+    } catch (error) {
+      console.error('swap_wallet_load_failed', error);
+      setWalletError(true);
+    } finally { setWalletLoading(false); }
   }, [headers, initData, isVerified]);
   useEffect(() => { void refresh(); const id = window.setInterval(() => void refresh(), 20000); return () => window.clearInterval(id); }, [refresh]);
 
@@ -83,11 +92,12 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
           <div className="flex gap-2"><input inputMode="numeric" type="number" min="1" step="1" value={coinsInput} onChange={(e) => setCoinsInput(e.target.value)} placeholder="100000" className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-3 text-lg font-black text-[#542b12] outline-none focus:border-amber-500"/><button type="button" onClick={() => setCoinsInput(String(wallet.coins))} className="rounded-xl bg-amber-100 px-3 text-xs font-black text-amber-900">{t(lang, 'swapMax')}</button></div>
           <div className="my-3 flex items-center justify-center gap-2 text-amber-700"><ArrowDownToLine size={16}/><span className="text-xs font-bold">{t(lang, 'swapYouReceive')}</span></div>
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3"><div className="text-[10px] font-bold text-emerald-800">{t(lang, 'swapDollar')}</div><div className="text-2xl font-black tabular-nums text-emerald-800">$ {fmtUsd(convertedMicros)}</div></div>
-          <button disabled={!canSwap} onClick={() => void swap()} className="mt-3 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 font-black text-white shadow-md disabled:opacity-40">{busy ? t(lang, 'swapProcessing') : t(lang, 'swapButton')}</button>
+          <button disabled={!canSwap || walletLoading || walletError} onClick={() => void swap()} className="mt-3 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 font-black text-white shadow-md disabled:opacity-40">{busy ? t(lang, 'swapProcessing') : t(lang, 'swapButton')}</button>
         </section>
+        {walletError && <div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs font-bold text-red-800">{t(lang, 'swapWalletLoadError')}</div>}
         <section className="grid grid-cols-2 gap-2">
-          <div className="aram-card rounded-2xl p-3"><div className="mb-2 flex items-center gap-2 text-amber-800"><Coins size={17}/><span className="text-xs font-bold">{t(lang, 'swapOilCoins')}</span></div><div className="break-all text-xl font-black tabular-nums text-[#633715]">{wallet.coins.toLocaleString()}</div></div>
-          <div className="aram-card rounded-2xl p-3"><div className="mb-2 flex items-center gap-2 text-emerald-700"><DollarSign size={17}/><span className="text-xs font-bold">{t(lang, 'swapDollar')}</span></div><div className="break-all text-xl font-black tabular-nums text-emerald-800">$ {fmtUsd(wallet.usdMicros)}</div></div>
+          <div className="aram-card rounded-2xl p-3"><div className="mb-2 flex items-center gap-2 text-amber-800"><Coins size={17}/><span className="text-xs font-bold">{t(lang, 'swapOilCoins')}</span></div><div className="break-all text-xl font-black tabular-nums text-[#633715]">{walletLoading ? t(lang, 'swapProcessing') : wallet.coins.toLocaleString()}</div></div>
+          <div className="aram-card rounded-2xl p-3"><div className="mb-2 flex items-center gap-2 text-emerald-700"><DollarSign size={17}/><span className="text-xs font-bold">{t(lang, 'swapDollar')}</span></div><div className="break-all text-xl font-black tabular-nums text-emerald-800">$ {walletLoading ? '—' : fmtUsd(wallet.usdMicros)}</div></div>
         </section>
         <section className="aram-card rounded-2xl p-3">
           <div className="mb-3 flex items-center gap-2"><div className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><Wallet size={18}/></div><div><h3 className="font-black text-[#633715]">{t(lang, 'swapWithdraw')}</h3><p className="text-[10px] font-bold text-amber-900/60">{t(lang, 'swapUsdtNetwork')}</p></div></div>
@@ -96,7 +106,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
           <label className="mb-1 block text-xs font-bold text-amber-900/70">{t(lang, 'swapTronAddress')}</label>
           <input type="text" dir="ltr" autoCapitalize="off" autoCorrect="off" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="T..." className="w-full rounded-xl border border-amber-200 bg-white px-3 py-3 font-mono text-sm text-[#542b12] outline-none focus:border-amber-500"/>
           <p className="mt-2 text-[10px] leading-relaxed text-amber-900/60">{t(lang, 'swapMinWithdrawHint')}</p>
-          <button disabled={!canWithdraw} onClick={() => void withdraw()} className="mt-3 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 font-black text-white shadow-md disabled:opacity-40">{loading ? t(lang, 'swapProcessing') : t(lang, 'swapWithdrawButton')}</button>
+          <button disabled={!canWithdraw || walletLoading || walletError} onClick={() => void withdraw()} className="mt-3 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 font-black text-white shadow-md disabled:opacity-40">{loading ? t(lang, 'swapProcessing') : t(lang, 'swapWithdrawButton')}</button>
         </section>
         <section className="aram-card rounded-2xl p-3">
           <div className="mb-3 flex items-center justify-between"><h3 className="font-black text-[#633715]">{t(lang, 'swapHistory')}</h3><RefreshCw size={15} className="text-amber-700"/></div>
