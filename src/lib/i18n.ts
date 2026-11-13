@@ -136,6 +136,7 @@ const ar: Dict = {
   // Sell animation
   sellTitle: 'بيع البترول',
   truckArriving: 'العربة قادمة...',
+  truckParked: 'وصلت العربة... تجهيز الخرطوم',
   truckConnecting: 'تركيب الأنابيب...',
   pumping: 'شفط البترول...',
   counting: 'عدّ الكمية...',
@@ -500,6 +501,7 @@ const en: Dict = {
   txTournament: 'Tournament prize',
   sellTitle: 'Sell Oil',
   truckArriving: 'Truck arriving...',
+  truckParked: 'Truck parked... preparing the hose',
   truckConnecting: 'Connecting pipes...',
   pumping: 'Pumping oil...',
   counting: 'Counting...',
@@ -856,6 +858,7 @@ const ru: Dict = {
   txTournament: 'Приз турнира',
   sellTitle: 'Продажа нефти',
   truckArriving: 'Машина едет...',
+  truckParked: 'Машина остановилась... подготовка шланга',
   truckConnecting: 'Подсоединение труб...',
   pumping: 'Качаю нефть...',
   counting: 'Подсчёт...',
