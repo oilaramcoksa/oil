@@ -497,38 +497,56 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                   </g>
                 </motion.g>
 
-                {/* Hose drops from the tanker and connects to the wellhead. */}
+                {/* Transfer hose: physically joins the storage pump to the rear inlet of the tanker. */}
                 {(phase === 'connecting' || phase === 'pumping' || phase === 'counting' || phase === 'retracting') && (
                   <g>
+                    {/* Heavy flexible hose, routed across the gap behind the tanker. */}
                     <motion.path
-                      d="M 187 340 C 170 316 183 291 207 292 C 226 293 232 305 241 317"
-                      fill="none" stroke="#111827" strokeWidth="11" strokeLinecap="round"
+                      d="M 94 344 C 112 344 116 332 132 332 C 151 332 160 345 184 340"
+                      fill="none" stroke="#090D16" strokeWidth="12" strokeLinecap="round"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: phase === 'retracting' ? 0 : 1, opacity: phase === 'retracting' ? 0 : 1 }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                    />
+                    {/* Metallic outer braid and subtle highlights. */}
+                    <motion.path
+                      d="M 94 344 C 112 344 116 332 132 332 C 151 332 160 345 184 340"
+                      fill="none" stroke="#64748B" strokeWidth="7" strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: phase === 'retracting' ? 0 : 1, opacity: phase === 'retracting' ? 0 : 1 }}
                       transition={{ duration: 1, ease: 'easeOut' }}
                     />
                     <motion.path
-                      d="M 187 340 C 170 316 183 291 207 292 C 226 293 232 305 241 317"
-                      fill="none" stroke="#D4D4D8" strokeWidth="5" strokeLinecap="round"
+                      d="M 94 344 C 112 344 116 332 132 332 C 151 332 160 345 184 340"
+                      fill="none" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: phase === 'retracting' ? 0 : 1, opacity: phase === 'retracting' ? 0 : 1 }}
                       transition={{ duration: 1, ease: 'easeOut' }}
                     />
-                    <circle cx="187" cy="340" r="6" fill="#FBBF24" stroke="#78350F" strokeWidth="2" />
-                    <circle cx="241" cy="317" r="6" fill="#FBBF24" stroke="#78350F" strokeWidth="2" />
+                    {/* Pump outlet coupling and tanker rear inlet coupling. */}
+                    <rect x="88" y="338" width="10" height="12" rx="2" fill="#475569" stroke="#CBD5E1" strokeWidth="1" />
+                    <circle cx="94" cy="344" r="4" fill="#FBBF24" stroke="#78350F" strokeWidth="1.5" />
+                    <rect x="179" y="334" width="9" height="12" rx="2" fill="#475569" stroke="#CBD5E1" strokeWidth="1" />
+                    <circle cx="184" cy="340" r="4" fill="#FBBF24" stroke="#78350F" strokeWidth="1.5" />
+                    {/* Oil visibly travels from the pump into the tanker only while pumping. */}
                     {(phase === 'pumping' || phase === 'counting') && (
                       <>
                         <motion.path
-                          d="M 187 340 C 170 316 183 291 207 292 C 226 293 232 305 241 317"
-                          fill="none" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round"
-                          strokeDasharray="6 10"
-                          animate={{ strokeDashoffset: [0, -32], opacity: [0.5, 1, 0.5] }}
-                          transition={{ duration: 0.55, repeat: Infinity, ease: 'linear' }}
+                          d="M 96 344 C 112 344 116 332 132 332 C 151 332 160 345 182 340"
+                          fill="none" stroke="#F59E0B" strokeWidth="4" strokeLinecap="round"
+                          strokeDasharray="7 11"
+                          animate={{ strokeDashoffset: [0, -36], opacity: [0.55, 1, 0.55] }}
+                          transition={{ duration: 0.48, repeat: Infinity, ease: 'linear' }}
                         />
                         <motion.circle
-                          cx="207" cy="292" r="4" fill="#FDE68A"
-                          animate={{ cy: [292, 303, 315], opacity: [1, 0.8, 0] }}
-                          transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
+                          r="3.2" fill="#FDE68A" stroke="#B45309" strokeWidth="0.8"
+                          animate={{ cx: [98, 116, 134, 153, 181], cy: [343, 340, 332, 337, 340], opacity: [0, 1, 1, 1, 0] }}
+                          transition={{ duration: 1.15, repeat: Infinity, ease: 'linear' }}
+                        />
+                        <motion.circle
+                          r="2" fill="#FFF7CC"
+                          animate={{ cx: [98, 116, 134, 153, 181], cy: [345, 342, 334, 339, 342], opacity: [0, 0.9, 0.9, 0.9, 0] }}
+                          transition={{ duration: 0.85, repeat: Infinity, ease: 'linear', delay: 0.35 }}
                         />
                       </>
                     )}
