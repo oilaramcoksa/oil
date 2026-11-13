@@ -254,7 +254,34 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       'CREATE INDEX IF NOT EXISTS idx_arena_round_status ON arena_rounds(status, created_at)',
       'CREATE INDEX IF NOT EXISTS idx_arena_entries_round ON arena_entries(round_id, created_at)',
       'CREATE INDEX IF NOT EXISTS idx_arena_entries_player ON arena_entries(telegram_id, created_at)',
+    ],,
+  {
+    version: 5,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS coin_swaps (
+        id TEXT PRIMARY KEY,
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id),
+        coins INTEGER NOT NULL CHECK(coins > 0),
+        usd_micros INTEGER NOT NULL CHECK(usd_micros > 0),
+        idempotency_key TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS usdt_withdrawal_requests (
+        id TEXT PRIMARY KEY,
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id),
+        usd_micros INTEGER NOT NULL CHECK(usd_micros >= 1000000),
+        tron_address TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','paid','rejected')),
+        tx_hash TEXT,
+        admin_note TEXT,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      'CREATE INDEX IF NOT EXISTS idx_usdt_withdrawals_player ON usdt_withdrawal_requests(telegram_id, created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_usdt_withdrawals_status ON usdt_withdrawal_requests(status, created_at)',
     ],
+  }
   },
 
 ];
@@ -279,6 +306,8 @@ export async function ensureDatabaseSchema(): Promise<void> {
         });
       }
       const legacyColumns: Array<[string, string, string]> = [
+        ['player_wallets', 'usd_micros', 'INTEGER NOT NULL DEFAULT 0'],
+        ['player_wallets', 'usd_locked_micros', 'INTEGER NOT NULL DEFAULT 0'],
         ['players', 'status', "TEXT NOT NULL DEFAULT 'active'"],
         ['players', 'locale', 'TEXT'],
         ['players', 'photo_url', 'TEXT'],
