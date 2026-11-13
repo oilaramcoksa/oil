@@ -63,12 +63,9 @@ export async function POST(req: NextRequest) {
       });
       const saleId = randomUUID();
       const metadata = JSON.stringify({ saleId, sold, coinsEarned });
-      await tx.execute({
-        sql: `INSERT INTO ledger_entries
-          (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
-          VALUES (?, ?, 'oil', 'oil_sale', ?, 0, 'oil_sale', ?, ?, ?)`,
-        args: [randomUUID(), id, -sold, saleId, `oil_sale:${key}:oil`, metadata],
-      });
+      // Oil production is still synchronized through the game snapshot until
+      // it has a dedicated server-side pump ledger. The sale is recorded in
+      // player_events; only the newly earned coins enter the immutable ledger.
       await tx.execute({
         sql: `INSERT INTO ledger_entries
           (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
