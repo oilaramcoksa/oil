@@ -25,6 +25,12 @@ function secretMatches(received: string | null, expected: string | undefined) {
 
 async function ensureCycleTable() {
   const db = getTurso();
+  await db.execute(`CREATE TABLE IF NOT EXISTS ad_reward_cycles (
+    telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+    views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 10),
+    cooldown_until TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
   await db.execute(`CREATE TABLE IF NOT EXISTS ${CYCLE_TABLE} (
     telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
     views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 30),
