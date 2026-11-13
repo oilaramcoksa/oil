@@ -202,11 +202,11 @@ export function TadsAd({
       <button
         type="button"
         onClick={showFullscreen}
-        disabled={!isVerified || !initData || adPending || rewarding}
+        disabled={!isVerified || !initData || adPending || rewarding || locked}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-[#33213b] to-[#563126] px-4 py-3 text-sm font-black text-amber-50 shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {adPending || rewarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-        {rewarding ? (loadingLabel ?? 'جاري إضافة المكافأة...') : (actionLabel ?? title)}
+        {locked ? `اكتملت 10/10 · إعادة التفعيل ${countdown}` : (rewarding ? (loadingLabel ?? 'جاري إضافة المكافأة...') : (actionLabel ?? title))}
       </button>
       {description && <p className="mt-1 text-center text-[10px] font-bold text-amber-900/55">{description}</p>}
     </div>
