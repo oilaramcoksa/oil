@@ -97,7 +97,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
     applyServerAdReward(reward, walletCoins);
     haptic('medium');
     notify('success');
-    toast.success(t(lang, 'tadsRewardSuccess'));
+    toast.success(`${t(lang, 'tadsRewardSuccess')} +${reward} ${t(lang, 'coins')}`);
   }, [applyServerAdReward, haptic, lang, notify]);
 
   const handleAdRewardError = useCallback((error: string) => {
