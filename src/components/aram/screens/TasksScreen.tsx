@@ -242,7 +242,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
           </div>
           <p className="mt-2 text-[9px] leading-relaxed text-amber-900/55">
             {isVerified
-              ? (adProgress ? `${t(lang, 'adMissionDailyLimit')} ${adProgress.remaining}` : (adProgressLoading ? t(lang, 'progress') : t(lang, 'tadsUnavailable')))
+              ? (adProgress ? `${t(lang, 'adMissionDailyLimit')} ${adProgress.remaining}` : (adProgressLoading ? t(lang, 'progress') : ''))
               : t(lang, 'telegramRequired')}
           </p>
         </div>
