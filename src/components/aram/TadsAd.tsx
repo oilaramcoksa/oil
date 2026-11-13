@@ -29,7 +29,6 @@ export function TadsAd({
   const [adPending, setAdPending] = useState(false);
   const [rewarding, setRewarding] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
-  const [cycleUsed, setCycleUsed] = useState(0);
   const [countdownNow, setCountdownNow] = useState(Date.now());
   const pendingRef = useRef(false);
   const rewardInFlightRef = useRef(false);
@@ -44,7 +43,6 @@ export function TadsAd({
         if (!response.ok) return;
         const data = await response.json() as { used?: number; cooldownUntil?: number | null };
         if (!stopped) {
-          setCycleUsed(Number(data.used ?? 0));
           setCooldownUntil(data.cooldownUntil ? Number(data.cooldownUntil) : null);
         }
       } catch (error) { console.error('TADS cycle status failed:', error); }
@@ -101,7 +99,6 @@ export function TadsAd({
         throw new Error(data.error || 'ad_reward_failed');
       }
       if (data.cycle) {
-        setCycleUsed(Number(data.cycle.used ?? 0));
         setCooldownUntil(data.cycle.cooldownUntil ? Number(data.cycle.cooldownUntil) : null);
       }
       onRewarded?.(Number(data.reward), Number(data.wallet?.coins));
