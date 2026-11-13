@@ -50,6 +50,8 @@ export function ArenaScreen({
   const [amount, setAmount] = useState('1000');
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [replaying, setReplaying] = useState(false);
+  const [replayNonce, setReplayNonce] = useState(0);
   const headers = useMemo(() => ({ 'X-Telegram-Init-Data': initData }), [initData]);
 
   const refresh = useCallback(async () => {
@@ -85,17 +87,19 @@ export function ArenaScreen({
 
   const round = state.round;
   const activeEntries = state.entries;
-  const displayedEntries = round ? activeEntries : (state.lastResult?.entries ?? []);
+  const displayedEntries = replaying && state.lastResult
+    ? state.lastResult.entries
+    : round ? activeEntries : (state.lastResult?.entries ?? []);
   const total = displayedEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const balance = state.balance;
   const ownEntry = activeEntries.some((entry) => entry.telegramId === telegramUserId);
   const countdown = round?.startsAt
     ? Math.max(0, Math.ceil((round.startsAt - now) / 1000))
     : null;
-  const isSpinning = round?.status === 'spinning';
-  const displayStop = round
-    ? (round.wheelStopDegrees ?? 0)
-    : (state.lastResult?.wheelStopDegrees ?? 0);
+  const isSpinning = round?.status === 'spinning' || replaying;
+  const displayStop = replaying
+    ? (state.lastResult?.wheelStopDegrees ?? 0)
+    : round ? (round.wheelStopDegrees ?? 0) : (state.lastResult?.wheelStopDegrees ?? 0);
   const wheelColors = ['#2457f5', '#8b5cf6', '#0ea5e9', '#10b981', '#ec4899', '#ef4444', '#14b8a6', '#6366f1'];
   const wheelEntries = [
     { id: 'house', label: t(lang, 'arenaAdminSlice'), weight: 25, house: true, photoUrl: null, color: '#f59e0b' },
@@ -161,7 +165,7 @@ export function ArenaScreen({
   };
 
   const isRoundClosed = Boolean(round && (round.status === 'spinning' || (round.startsAt !== null && round.startsAt <= now)));
-  const spinRemaining = round?.spinStartedAt
+  const spinRemaining = replaying ? 7 : round?.spinStartedAt
     ? Math.max(0.2, (round.spinStartedAt + 7_000 - now) / 1_000)
     : 7;
 
@@ -173,13 +177,29 @@ export function ArenaScreen({
             <h2 className="text-xl font-black tracking-tight">{t(lang, 'arenaTitle')}</h2>
             <p className="mt-1 text-xs text-[#8f6b4d]">{t(lang, 'arenaSubtitle')}</p>
           </div>
-          <button
-            onClick={() => void refresh()}
-            className="grid h-10 w-10 place-items-center rounded-xl border border-amber-700/15 bg-white/55 text-amber-900 shadow-sm"
-            aria-label={t(lang, 'arenaRecent')}
-          >
-            <History size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {state.lastResult && !replaying && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReplayNonce((value) => value + 1);
+                  setReplaying(true);
+                  window.setTimeout(() => setReplaying(false), 7_600);
+                }}
+                className="flex h-10 items-center gap-1.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-100 to-orange-100 px-3 text-[11px] font-black text-amber-900 shadow-sm"
+              >
+                <History size={15} />
+                {t(lang, 'arenaReplay')}
+              </button>
+            )}
+            <button
+              onClick={() => void refresh()}
+              className="grid h-10 w-10 place-items-center rounded-xl border border-amber-700/15 bg-white/55 text-amber-900 shadow-sm"
+              aria-label={t(lang, 'arenaRecent')}
+            >
+              <History size={18} />
+            </button>
+          </div>
         </header>
 
         <section className="mb-4 overflow-hidden rounded-2xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.12)] backdrop-blur-md">
@@ -188,7 +208,7 @@ export function ArenaScreen({
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-700"><Users size={18}/></span>
               <div><div className="text-sm font-extrabold">{t(lang, 'arenaRoundLabel')}</div><div className="mt-0.5 text-[10px] text-[#9a7659]">{t(lang, 'arenaPlayers')}: {displayedEntries.length}</div></div>
             </div>
-            <span className="rounded-full border border-emerald-700/15 bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-800">{round?.status === 'countdown' ? t(lang, 'arenaCountdown') : isSpinning ? t(lang, 'arenaSpinning') : t(lang, 'arenaReady')}</span>
+            <span className="rounded-full border border-emerald-700/15 bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-800">{replaying ? t(lang, 'arenaReplayPlaying') : round?.status === 'countdown' ? t(lang, 'arenaCountdown') : isSpinning ? t(lang, 'arenaSpinning') : t(lang, 'arenaReady')}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="rounded-xl border border-amber-900/5 bg-[#fff7e9]/85 p-2.5"><div className="text-[10px] text-[#987354]">{t(lang, 'arenaPot')}</div><div className="mt-1 text-lg font-black tabular-nums text-amber-800">{total.toLocaleString()}</div></div>
@@ -213,7 +233,8 @@ export function ArenaScreen({
           <div className="absolute inset-[7px] rounded-full border border-[#fff0cb]/80 shadow-[inset_0_0_0_2px_rgba(255,255,255,.28),0_0_16px_rgba(255,205,120,.3)]" />
 
           <motion.div
-            initial={false}
+            key={replaying ? `replay-${replayNonce}` : round?.id ?? state.lastResult?.id ?? 'wheel'}
+            initial={replaying ? { rotate: 0 } : false}
             animate={{ rotate: isSpinning ? 2_880 + displayStop : !round && state.lastResult ? 2_880 + displayStop : displayStop }}
             transition={isSpinning ? { duration: spinRemaining, ease: [0.08, 0.72, 0.12, 1] } : { duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
             className="absolute inset-[11px] overflow-hidden rounded-full border-[3px] border-[#f8dba5]/90 shadow-[inset_0_0_18px_rgba(107,57,15,.18),0_4px_12px_rgba(120,53,15,.2)]"
@@ -260,7 +281,9 @@ export function ArenaScreen({
               {isSpinning ? <Zap size={15}/> : <Users size={15}/>}
             </div>
             <div className="text-center text-lg font-black tabular-nums leading-none">
-              {round?.status === 'countdown'
+              {replaying
+                ? t(lang, 'arenaReplayPlaying')
+                : round?.status === 'countdown'
                 ? `00:${String(countdown ?? 0).padStart(2, '0')}`
                 : isSpinning
                   ? t(lang, 'arenaSpinning')
@@ -347,14 +370,15 @@ export function ArenaScreen({
           ))}
         </section>
 
-        {!round && state.lastResult && (
+        {state.lastResult && (replaying || !round) && (
           <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-sm font-bold">
-            <div className="mb-1 text-[10px] uppercase text-amber-200/70">{t(lang, 'arenaWinner')}</div>
+            <div className="mb-1 text-[10px] uppercase text-amber-900/60">{replaying ? t(lang, 'arenaReplayWinner') : t(lang, 'arenaWinner')}</div>
             {state.lastResult.winnerType === 'house'
-              ? t(lang, 'arenaAdminWon')
+              ? t(lang, 'arenaReplayHouse')
               : state.lastResult.winnerTelegramId === telegramUserId
                 ? t(lang, 'arenaPlayerWon')
-                : `${t(lang, 'arenaRoundClosed')} · ${state.lastResult.totalEntries.toLocaleString()}`}
+                : `${t(lang, 'arenaReplayPlayer')}: ${state.lastResult.entries.find((entry) => entry.telegramId === state.lastResult?.winnerTelegramId)?.username ?? t(lang, 'arenaRoundClosed')}`}
+            <div className="mt-1 text-[10px] font-semibold text-amber-900/65">{state.lastResult.totalEntries.toLocaleString()}</div>
           </div>
         )}
       </div>
