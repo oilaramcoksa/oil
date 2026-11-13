@@ -20,6 +20,7 @@ import {
 } from '@/lib/store';
 import { t } from '@/lib/i18n';
 import { useTelegram } from '@/hooks/use-telegram';
+import { TadsAd } from '@/components/aram/TadsAd';
 
 interface Props {
   onGoToStore: () => void;
@@ -330,6 +331,16 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
           <ArrowUpRight className="w-5 h-5 mr-1.5" />
           {t(lang, 'upgrade')}
         </Button>
+      </div>
+
+      <div className="mx-auto mt-1 w-full max-w-md px-3 pb-2">
+        <TadsAd
+          widgetId={Number(process.env.NEXT_PUBLIC_TADS_FULLSCREEN_WIDGET_ID || '13283')}
+          mode="fullscreen"
+          title={t(lang, 'tadsFullscreenTitle')}
+          actionLabel={t(lang, 'tadsWatchAd')}
+          description={t(lang, 'tadsUnavailable')}
+        />
       </div>
 
       <SellModal open={sellOpen} onClose={() => setSellOpen(false)} initData={initData} isVerified={isVerified} />
