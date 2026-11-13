@@ -47,7 +47,7 @@ export function ArenaScreen({
 }) {
   const lang = useGame((s) => s.lang);
   const [state, setState] = useState<ArenaState>(EMPTY_STATE);
-  const [amount, setAmount] = useState('1000');
+  const [amount, setAmount] = useState('100');
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [replaying, setReplaying] = useState(false);
@@ -128,7 +128,7 @@ export function ArenaScreen({
 
   const join = async (requestedAmount?: number) => {
     const entryAmount = requestedAmount ?? Number(amount);
-    if (!Number.isSafeInteger(entryAmount) || entryAmount < 1_000) {
+    if (!Number.isSafeInteger(entryAmount) || entryAmount < 100) {
       toast.error(t(lang, 'arenaMin'));
       return;
     }
@@ -147,13 +147,13 @@ export function ArenaScreen({
             ? 'arenaJoinedAlready'
             : data.error === 'round_starting'
               ? 'arenaRoundStarted'
-              : data.error === 'minimum_1000_required'
+              : data.error === 'minimum_100_required'
                 ? 'arenaMin'
                 : 'arenaError';
         toast.error(t(lang, errorKey));
         return;
       }
-      setAmount('1000');
+      setAmount('100');
       await refresh();
       toast.success(t(lang, 'arenaJoined'));
     } catch (error) {
