@@ -284,6 +284,7 @@ export function ArenaScreen({
             {t(lang, 'arenaJoin')} · {Number(amount || 0).toLocaleString()}
           </button>
           <p className="mt-2 text-[10px] text-zinc-500">{t(lang, 'arenaMin')} · {t(lang, 'arenaRules')} · {t(lang, 'arenaMaxHint')}</p>
+          <p className="mt-2 rounded-lg border border-blue-400/15 bg-blue-400/[.06] px-3 py-2 text-[10px] leading-relaxed text-blue-100/75">{t(lang, 'arenaTimeoutRefund')}</p>
         </section>
 
         <section className="rounded-xl border border-white/10 bg-white/[.04] p-3">
