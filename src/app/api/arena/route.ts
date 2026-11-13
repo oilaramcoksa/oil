@@ -240,7 +240,7 @@ export async function GET(req: NextRequest) {
 
     const playerId = String(identity.id);
     await db.execute({
-      sql: 'UPDATE players SET username=?, first_name=?, last_name=?, photo_url=? WHERE telegram_id=?',
+      sql: 'UPDATE players SET username=COALESCE(?, username), first_name=COALESCE(?, first_name), last_name=COALESCE(?, last_name), photo_url=COALESCE(?, photo_url) WHERE telegram_id=?',
       args: [identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, identity.photo_url ?? null, playerId],
     });
     const [walletResult, activeResult] = await Promise.all([
