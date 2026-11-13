@@ -37,6 +37,8 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
   const [result, setResult] = useState<{ sold: number; coinsEarned: number } | null>(null);
   const soldRef = useRef(0);
   const startingOilRef = useRef(0);
+  const oilValueRef = useRef(oilBefore);
+  oilValueRef.current = oilBefore;
 
   useEffect(() => {
     if (!open) {
@@ -51,7 +53,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
     }
 
     // Capture the amount before the server updates the wallet.
-    startingOilRef.current = oilBefore;
+    startingOilRef.current = oilValueRef.current;
 
     // Sequence: drive in (1.6s), pause visibly for 2s, then lower the hose.
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -118,7 +120,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
     }, 5900));
 
     return () => timers.forEach(clearTimeout);
-  }, [open, initData, isVerified, applyServerSale, lang, notify, haptic, oilBefore]);
+  }, [open, initData, isVerified, applyServerSale, lang, notify, haptic]);
 
   // Pre-capture the oil at the moment of opening so the displayed number
   // matches what we sold even though sellOil zeroes it.
