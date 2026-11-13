@@ -83,7 +83,7 @@ export default function Home() {
       />
 
       <main className="flex-1 overflow-hidden">
-        {tab === 'pump' && <PumpScreen onGoToStore={() => setTab('store')} />}
+        {tab === 'pump' && <PumpScreen onGoToStore={() => setTab('store')} onGoToArena={() => setTab('arena')} />}
         {tab === 'wallet' && <WalletScreen />}
         {tab === 'tasks' && <TasksScreen />}
         {tab === 'friends' && <FriendsScreen />}
