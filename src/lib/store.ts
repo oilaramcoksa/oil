@@ -13,7 +13,7 @@ import { COINS_PER_USD, type WithdrawalRecord } from './withdraw';
 
 export interface Transaction {
   id: string;
-  type: 'sell' | 'upgrade' | 'task' | 'referral' | 'daily' | 'withdraw' | 'refund' | 'ad';
+  type: 'sell' | 'upgrade' | 'task' | 'referral' | 'daily' | 'withdraw' | 'refund' | 'ad' | 'arena';
   amount: number;       // game coins (positive = added)
   label: string;        // human-readable label
   createdAt: number;    // ms timestamp
