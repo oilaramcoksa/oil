@@ -224,8 +224,7 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       )`,
       'CREATE INDEX IF NOT EXISTS idx_game_snapshots_updated ON player_game_snapshots(updated_at)',
     ],
-  },,
-
+  },
   {
     version: 4,
     statements: [
@@ -240,6 +239,7 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
         winner_type TEXT CHECK(winner_type IN ('player','house')),
         winning_amount INTEGER NOT NULL DEFAULT 0,
         outcome_seed TEXT,
+        wheel_stop_degrees REAL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         completed_at TEXT
       )`,
