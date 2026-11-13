@@ -327,6 +327,10 @@ const ar: Dict = {
   arenaBurnSlice: 'مساحة حرق العملات',
   arenaMaxHint: 'زر الحد الأقصى يشارك برصيدك كاملاً مباشرةً',
   arenaTimeoutRefund: 'إذا لم ينضم لاعب آخر خلال ساعة، تُلغى الجولة ويُعاد رصيدك تلقائياً إلى محفظتك.',
+  arenaPromoTitle: 'عجلة الحظ',
+  arenaPromoBadge: 'الساحة مفتوحة',
+  arenaPromoDesc: 'أدر العجلة ونافس اللاعبين على الفوز بمجموع الجولة.',
+  arenaPromoAction: 'ادخل الساحة الآن',
 };
 
 const en: Dict = {
@@ -632,6 +636,10 @@ const en: Dict = {
   arenaBurnSlice: 'Coin burn segment',
   arenaMaxHint: 'MAX enters the round using your full available balance',
   arenaTimeoutRefund: 'If no other player joins within one hour, the round is cancelled and your entry is automatically refunded to your wallet.',
+  arenaPromoTitle: 'Lucky Wheel',
+  arenaPromoBadge: 'ARENA OPEN',
+  arenaPromoDesc: 'Spin the wheel and compete with players to win the round pot.',
+  arenaPromoAction: 'Enter the arena',
 };
 
 const ru: Dict = {
@@ -937,6 +945,10 @@ const ru: Dict = {
   arenaBurnSlice: 'Сектор сжигания монет',
   arenaMaxHint: 'Кнопка MAX сразу использует весь доступный баланс',
   arenaTimeoutRefund: 'Если в течение часа не присоединится другой игрок, раунд отменяется, а взнос автоматически возвращается в кошелёк.',
+  arenaPromoTitle: 'Колесо удачи',
+  arenaPromoBadge: 'АРЕНА ОТКРЫТА',
+  arenaPromoDesc: 'Крутите колесо и соревнуйтесь с игроками за общий банк раунда.',
+  arenaPromoAction: 'Войти на арену',
 };
 
 export const dictionaries: Record<Lang, Dict> = { ar, en, ru };
