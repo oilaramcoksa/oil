@@ -86,9 +86,9 @@ export default function Home() {
       <main className="min-h-0 min-w-0 flex-1 overflow-hidden overscroll-contain">
         {tab === 'pump' && <PumpScreen onGoToStore={() => setTab('store')} onGoToArena={() => setTab('arena')} initData={initData} isVerified={isVerified} />}
         {tab === 'wallet' && <WalletScreen />}
-        {tab === 'tasks' && <TasksScreen />}
+        {tab === 'tasks' && <TasksScreen initData={initData} isVerified={isVerified} />}
         {tab === 'friends' && <FriendsScreen />}
-        {tab === 'store' && <StoreScreen />}
+        {tab === 'store' && <StoreScreen initData={initData} isVerified={isVerified} />}
         {tab === 'arena' && <ArenaScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} />}
         {tab === 'swap' && <SwapScreen initData={initData} isVerified={isVerified} />}
       </main>
