@@ -80,9 +80,20 @@ export function TadsAd({
   }, [clearPending, initData, isVerified, onRewarded, onRewardError, claimWidgetId]);
 
   const handleNotFound = useCallback(() => {
+    // The fullscreen widget can report no-fill while it initializes. Only
+    // surface this as the result of a user request while a request is pending.
+    if (!pendingRef.current) {
+      console.info('TADS fullscreen: no ad available during initialization');
+      return;
+    }
     clearPending();
     onRewardError?.('no_ad_available');
   }, [clearPending, onRewardError]);
+
+  const handleStaticNotFound = useCallback(() => {
+    // A missing TGB placement must not cancel or fail a fullscreen reward.
+    console.info('TADS TGB: no ad available');
+  }, []);
 
   const showFullscreen = useCallback(() => {
     if (adPending || rewarding || pendingRef.current || rewardInFlightRef.current) return;
@@ -115,10 +126,10 @@ export function TadsAd({
           id={id}
           type="static"
           debug={false}
-          onAdsNotFound={handleNotFound}
+          onAdsNotFound={handleStaticNotFound}
         />
         {rewardWidgetId && (
-          <div className="h-0 overflow-hidden" aria-hidden="true">
+          <div className="w-full" aria-hidden="true">
             <TadsWidget
               id={fullscreenId}
               type="fullscreen"
