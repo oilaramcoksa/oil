@@ -6,6 +6,7 @@ export interface TelegramPlayerIdentity {
   first_name?: string;
   last_name?: string;
   username?: string;
+  photo_url?: string;
 }
 
 export function verifiedPlayerFromRequest(req: NextRequest): TelegramPlayerIdentity | null {
