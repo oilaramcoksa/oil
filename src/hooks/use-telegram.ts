@@ -1,7 +1,7 @@
 'use client';
 
 // Telegram Mini App bridge. Identity is accepted only after server-side initData validation.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 interface TelegramUser { id: number; first_name?: string; last_name?: string; username?: string; language_code?: string; photo_url?: string; }
 interface TelegramWebApp {
   ready: () => void; expand: () => void; close: () => void; initData: string;
@@ -32,7 +32,13 @@ export function useTelegram() {
       .catch(() => { if (!cancelled) { setUser(null); setIsVerified(false); } });
     return () => { cancelled = true; };
   }, []);
-  const haptic = (kind: 'light' | 'medium' | 'heavy' = 'light') => { try { tg?.HapticFeedback?.impactOccurred(kind); } catch { /* noop */ } };
-  const notify = (type: 'success' | 'warning' | 'error') => { try { tg?.HapticFeedback?.notificationOccurred(type); } catch { /* noop */ } };
+  // Keep bridge callbacks referentially stable. Animation/timer effects depend on these
+  // callbacks and must not restart their entire sequence after every state update.
+  const haptic = useCallback((kind: 'light' | 'medium' | 'heavy' = 'light') => {
+    try { tg?.HapticFeedback?.impactOccurred(kind); } catch { /* noop */ }
+  }, [tg]);
+  const notify = useCallback((type: 'success' | 'warning' | 'error') => {
+    try { tg?.HapticFeedback?.notificationOccurred(type); } catch { /* noop */ }
+  }, [tg]);
   return { tg, user, startParam, haptic, notify, isTelegram, isVerified, initData: tg?.initData ?? '' };
 }
