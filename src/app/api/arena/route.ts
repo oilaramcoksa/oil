@@ -53,12 +53,12 @@ function chooseOutcome(entries: ArenaEntryRow[], total: number) {
   const seed = randomBytes(32).toString('hex');
 
   if (total > 10_000) {
-    return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 315 };
+    return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 45 };
   }
 
   const roll = randomInt(0, 1_000_000);
   if (roll < HOUSE_SLICE * 1_000_000) {
-    return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 315 };
+    return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 45 };
   }
 
   const playerRoll = ((roll / 1_000_000) - HOUSE_SLICE) / (1 - HOUSE_SLICE);
