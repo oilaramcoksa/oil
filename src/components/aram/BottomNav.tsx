@@ -1,12 +1,12 @@
 'use client';
 
-import { Wallet, ListChecks, Droplet, Users, Store, Dices } from 'lucide-react';
+import { Wallet, ListChecks, Droplet, Users, Store, Dices, ArrowLeftRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { t } from '@/lib/i18n';
 import { useGame } from '@/lib/store';
 import { useTelegram } from '@/hooks/use-telegram';
 
-export type Tab = 'pump' | 'wallet' | 'tasks' | 'friends' | 'store' | 'arena';
+export type Tab = 'pump' | 'wallet' | 'tasks' | 'friends' | 'store' | 'arena' | 'swap';
 
 interface Props {
   active: Tab;
@@ -19,6 +19,7 @@ export function BottomNav({ active, onChange }: Props) {
 
   const items: { key: Tab; icon: React.ReactNode; label: string }[] = [
     { key: 'arena', icon: <Dices className="w-5 h-5" />, label: t(lang, 'navArena') },
+    { key: 'swap', icon: <ArrowLeftRight className="w-5 h-5" />, label: t(lang, 'navSwap') },
     { key: 'wallet', icon: <Wallet className="w-5 h-5" />, label: t(lang, 'navWallet') },
     { key: 'tasks', icon: <ListChecks className="w-5 h-5" />, label: t(lang, 'navTasks') },
     { key: 'pump', icon: <Droplet className="w-6 h-6" />, label: t(lang, 'navPump') },
@@ -28,7 +29,7 @@ export function BottomNav({ active, onChange }: Props) {
 
   return (
     <nav className="aram-safe-bottom relative z-30 shrink-0 bg-[#2a1c0a]/95 backdrop-blur-md border-t border-amber-500/20">
-      <div className="mx-auto grid min-h-[58px] w-full max-w-md grid-cols-6">
+      <div className="mx-auto grid min-h-[58px] w-full max-w-md grid-cols-7">
         {items.map((it) => {
           const isActive = active === it.key;
           const isCenter = it.key === 'pump';
