@@ -8,6 +8,7 @@ import { Check, Gift, Flame, Calendar, Trophy, Package, Sparkles } from 'lucide-
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
+import { TadsAd } from '@/components/aram/TadsAd';
 
 type AdProgress = { used: number; limit: number; remaining: number; milestones: { views: number; bonus: number; completed: boolean }[] };
 
@@ -15,6 +16,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const lang = useGame((s) => s.lang);
   const tasks = useGame((s) => s.tasks);
   const claimTask = useGame((s) => s.claimTask);
+  const applyServerAdReward = useGame((s) => s.applyServerAdReward);
   const loginStreak = useGame((s) => s.loginStreak);
   const luckyBoxLastOpened = useGame((s) => s.luckyBoxLastOpened);
   const openLuckyBox = useGame((s) => s.openLuckyBox);
@@ -203,49 +205,55 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         </AnimatePresence>
       </div>
 
-      {/* === Rewarded ad missions: always visible, even if progress cannot load === */}
+      {/* === Rewarded ad cycle: 10 ads, 100 coins each, then 12h cooldown === */}
       <div className="aram-card rounded-2xl p-3 mb-3 border border-amber-300/70">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-[#2a1c0a]">{t(lang, 'adMissionsTitle')}</h3>
-                <p className="text-[10px] text-amber-900/60 font-bold">{t(lang, 'adMissionsDesc')}</p>
-              </div>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow">
+              <Sparkles className="w-5 h-5" />
             </div>
-            <span className="text-xs font-black text-amber-800 tabular-nums">{adProgress ? `${adProgress.used}/${adProgress.limit}` : (adProgressLoading ? '…/20' : '—/20')}</span>
+            <div>
+              <h3 className="text-sm font-black text-[#2a1c0a]">{t(lang, 'adMissionsTitle')}</h3>
+              <p className="text-[10px] text-amber-900/60 font-bold">10 إعلانات كل 12 ساعة · 100 عملة لكل إعلان</p>
+            </div>
           </div>
-          <div className="h-2 rounded-full bg-amber-900/10 overflow-hidden my-2">
-            <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${adProgress ? Math.min(100, adProgress.used / Math.max(1, adProgress.limit) * 100) : 0}%` }} />
-          </div>
-          <div className="space-y-1.5 mt-3">
-            {(adProgress?.milestones ?? [
-              { views: 1, bonus: 25, completed: false },
-              { views: 3, bonus: 50, completed: false },
-              { views: 5, bonus: 75, completed: false },
-              { views: 10, bonus: 150, completed: false },
-              { views: 15, bonus: 200, completed: false },
-              { views: 20, bonus: 300, completed: false },
-            ]).map((mission) => (
-              <div key={mission.views} className="flex items-center justify-between gap-2 rounded-xl bg-amber-50/80 border border-amber-900/5 px-2.5 py-2">
-                <div className="min-w-0">
-                  <div className="text-xs font-black text-[#56351b]">{t(lang, 'adMissionWatch')} {mission.views} {t(lang, 'adMissionViews')}</div>
-                  <div className="text-[10px] font-bold text-amber-800/70">{t(lang, 'adMissionBonus')} +{mission.bonus} {t(lang, 'coins')}</div>
-                </div>
-                <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${mission.completed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-200/60 text-amber-800'}`}>
-                  {adProgress ? (mission.completed ? t(lang, 'adMissionDone') : `${Math.min(adProgress.used, mission.views)}/${mission.views}`) : '—'}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-2 text-[9px] leading-relaxed text-amber-900/55">
-            {isVerified
-              ? (adProgress ? `${t(lang, 'adMissionDailyLimit')} ${adProgress.remaining}` : (adProgressLoading ? t(lang, 'progress') : ''))
-              : t(lang, 'telegramRequired')}
-          </p>
+          <span className="text-xs font-black text-amber-800 tabular-nums">{adProgress ? `${adProgress.used}/10` : (adProgressLoading ? '…/10' : '0/10')}</span>
         </div>
+        <div className="h-2 rounded-full bg-amber-900/10 overflow-hidden mb-3">
+          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${Math.min(100, (adProgress?.used ?? 0) / 10 * 100)}%` }} />
+        </div>
+        <div className="flex items-center justify-between rounded-xl bg-amber-50/80 border border-amber-900/5 px-3 py-2 mb-3">
+          <span className="text-xs font-black text-[#56351b]">المكافأة لكل إعلان</span>
+          <span className="text-sm font-black text-emerald-700">+100 {t(lang, 'coins')}</span>
+        </div>
+        {isVerified && initData ? (
+          <TadsAd
+            widgetId={13283}
+            mode="fullscreen"
+            title={t(lang, 'tadsWatchAdReward')}
+            actionLabel={t(lang, 'tadsWatchAdReward')}
+            loadingLabel={t(lang, 'tadsRewardLoading')}
+            initData={initData}
+            isVerified={isVerified}
+            onRewarded={(reward, walletCoins) => {
+              applyServerAdReward(reward, walletCoins);
+              haptic('medium');
+              notify('success');
+              toast.success(`${t(lang, 'tadsRewardSuccess')} +${reward} ${t(lang, 'coins')}`);
+            }}
+            onRewardError={(error) => {
+              if (error === 'telegram_auth_required') toast.error(t(lang, 'telegramRequired'));
+              else if (error === 'ad_cycle_cooldown' || error === 'ad_cycle_limit_reached') toast.error('اكتملت مشاهدات الدورة. انتظر انتهاء العداد.');
+              else if (error !== 'no_ad_available' && error !== 'ad_timeout') toast.error(t(lang, 'tadsUnavailable'));
+            }}
+          />
+        ) : (
+          <p className="text-center text-xs font-bold text-amber-900/60">{t(lang, 'telegramRequired')}</p>
+        )}
+        <p className="mt-2 text-center text-[10px] font-bold text-amber-900/60">
+          {adProgress?.locked ? 'اكتملت 10/10 مشاهدات، وسيُعاد تفعيل المشاهدة بعد انتهاء 12 ساعة.' : `المتبقي: ${adProgress?.remaining ?? 10} إعلانات · إجمالي الدورة: 1,000 عملة`}
+        </p>
+      </div>
 
       {/* Daily */}
       <div className="mb-3">
