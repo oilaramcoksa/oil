@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TadsWidget, renderTadsWidget } from 'react-tads-widget';
 import { Megaphone, Play, Loader2 } from 'lucide-react';
 
@@ -28,9 +28,40 @@ export function TadsAd({
   const claimWidgetId = rewardWidgetId ?? widgetId;
   const [adPending, setAdPending] = useState(false);
   const [rewarding, setRewarding] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cycleUsed, setCycleUsed] = useState(0);
+  const [countdownNow, setCountdownNow] = useState(Date.now());
   const pendingRef = useRef(false);
   const rewardInFlightRef = useRef(false);
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!isVerified || !initData) return;
+    let stopped = false;
+    const loadCycle = async () => {
+      try {
+        const response = await fetch('/api/ads/reward', { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json() as { used?: number; cooldownUntil?: number | null };
+        if (!stopped) {
+          setCycleUsed(Number(data.used ?? 0));
+          setCooldownUntil(data.cooldownUntil ? Number(data.cooldownUntil) : null);
+        }
+      } catch (error) { console.error('TADS cycle status failed:', error); }
+    };
+    void loadCycle();
+    const refresh = window.setInterval(() => void loadCycle(), 15000);
+    return () => { stopped = true; window.clearInterval(refresh); };
+  }, [initData, isVerified]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCountdownNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const locked = Boolean(cooldownUntil && cooldownUntil > countdownNow);
+  const remainingMs = locked ? Math.max(0, cooldownUntil! - countdownNow) : 0;
+  const countdown = `${String(Math.floor(remainingMs / 3600000)).padStart(2, '0')}:${String(Math.floor((remainingMs % 3600000) / 60000)).padStart(2, '0')}:${String(Math.floor((remainingMs % 60000) / 1000)).padStart(2, '0')}`;
 
   const clearPending = useCallback(() => {
     pendingRef.current = false;
@@ -62,11 +93,16 @@ export function TadsAd({
         ok?: boolean;
         reward?: number;
         wallet?: { coins?: number };
+        cycle?: { used?: number; cooldownUntil?: number | null };
         error?: string;
       };
       if (!response.ok || data.ok !== true || !Number.isSafeInteger(data.reward) ||
           !Number.isSafeInteger(data.wallet?.coins)) {
         throw new Error(data.error || 'ad_reward_failed');
+      }
+      if (data.cycle) {
+        setCycleUsed(Number(data.cycle.used ?? 0));
+        setCooldownUntil(data.cycle.cooldownUntil ? Number(data.cycle.cooldownUntil) : null);
       }
       onRewarded?.(Number(data.reward), Number(data.wallet?.coins));
     } catch (error) {
@@ -96,7 +132,7 @@ export function TadsAd({
   }, []);
 
   const showFullscreen = useCallback(() => {
-    if (adPending || rewarding || pendingRef.current || rewardInFlightRef.current) return;
+    if (adPending || rewarding || locked || pendingRef.current || rewardInFlightRef.current) return;
     if (!isVerified || !initData) {
       onRewardError?.('telegram_auth_required');
       return;
@@ -114,7 +150,7 @@ export function TadsAd({
       console.warn('TADS fullscreen could not be opened', error);
       onRewardError?.('ad_unavailable');
     }
-  }, [adPending, clearPending, fullscreenId, initData, isVerified, onRewardError, rewarding]);
+  }, [adPending, clearPending, fullscreenId, initData, isVerified, locked, onRewardError, rewarding]);
 
   if (mode === 'static') {
     return (
@@ -145,11 +181,11 @@ export function TadsAd({
             <button
               type="button"
               onClick={showFullscreen}
-              disabled={!isVerified || !initData || adPending || rewarding}
+              disabled={!isVerified || !initData || adPending || rewarding || locked}
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-2 text-xs font-black text-[#3b210c] shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               {adPending || rewarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-              {rewarding ? (loadingLabel ?? 'جاري إضافة المكافأة...') : (actionLabel ?? title)}
+              {locked ? `اكتملت 10/10 · إعادة التفعيل ${countdown}` : (rewarding ? (loadingLabel ?? 'جاري إضافة المكافأة...') : (actionLabel ?? title))}
             </button>
           </div>
         )}
