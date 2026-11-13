@@ -103,7 +103,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
           requestAnimationFrame(animate);
         } catch (error) {
           console.error('oil_sale_ui_failed', error);
-          toast.error(t(lang, 'swapError'));
+          toast.error(t(lang, 'sellError'));
           setPhase('done');
         }
       })();
