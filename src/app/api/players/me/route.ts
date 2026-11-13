@@ -16,12 +16,12 @@ export async function GET(req: NextRequest) {
     const existing = await db.execute({ sql: 'SELECT referral_code FROM players WHERE telegram_id = ?', args: [telegramId] });
     const referralCode = existing.rows[0]?.referral_code?.toString() ?? randomBytes(6).toString('hex');
     await db.execute({
-      sql: `INSERT INTO players (telegram_id, username, first_name, last_name, referral_code, last_seen_at)
-            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      sql: `INSERT INTO players (telegram_id, username, first_name, last_name, photo_url, referral_code, last_seen_at)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(telegram_id) DO UPDATE SET
               username = excluded.username, first_name = excluded.first_name,
-              last_name = excluded.last_name, last_seen_at = CURRENT_TIMESTAMP`,
-      args: [telegramId, identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, referralCode],
+              last_name = excluded.last_name, photo_url = excluded.photo_url, last_seen_at = CURRENT_TIMESTAMP`,
+      args: [telegramId, identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, identity.photo_url ?? null, referralCode],
     });
 
     await db.execute({
