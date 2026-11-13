@@ -10,7 +10,7 @@ import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
 import { TadsAd } from '@/components/aram/TadsAd';
 
-type AdProgress = { used: number; limit: number; remaining: number; milestones: { views: number; bonus: number; completed: boolean }[] };
+type AdProgress = { used: number; limit: number; remaining: number; cooldownUntil: number | null; locked: boolean; rewardPerAd: number; totalCycleReward: number };
 
 export function TasksScreen({ initData, isVerified }: { initData: string; isVerified: boolean }) {
   const lang = useGame((s) => s.lang);
