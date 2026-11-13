@@ -91,21 +91,18 @@ export async function PUT(req: NextRequest) {
       args: [id],
     });
     const current = wallet.rows[0];
-    const hasLedger = await db.execute({
-      sql: 'SELECT 1 AS found FROM ledger_entries WHERE telegram_id = ? LIMIT 1',
-      args: [id],
-    });
-    // Legacy snapshot migration is allowed only before the first ledger entry.
-    // Once the ledger exists, only server-side ledger operations may alter balances.
+    const [coinLedger, oilLedger] = await Promise.all([
+      db.execute({ sql: "SELECT 1 AS found FROM ledger_entries WHERE telegram_id = ? AND asset = 'coins' LIMIT 1", args: [id] }),
+      db.execute({ sql: "SELECT 1 AS found FROM ledger_entries WHERE telegram_id = ? AND asset = 'oil' LIMIT 1", args: [id] }),
+    ]);
+    // Coins become ledger-authoritative as soon as a financial coin operation
+    // exists. Oil remains snapshot-synced until it has its own ledger history.
     const coins = Math.floor(Number(state.coins ?? 0));
     const oil = Math.floor(Number(state.oil ?? 0));
     const oldCoins = Number(current?.coins_balance ?? 0);
     const oldOil = Number(current?.oil_balance ?? 0);
-    if (hasLedger.rows.length && (coins !== oldCoins || oil !== oldOil)) {
-      // Persist non-financial state, but never let stale client balances enter the snapshot.
-      state.coins = oldCoins;
-      state.oil = oldOil;
-    }
+    if (coinLedger.rows.length) state.coins = oldCoins;
+    if (oilLedger.rows.length) state.oil = oldOil;
     await db.batch([
       {
         sql: `INSERT INTO player_game_snapshots (telegram_id, state_json, revision, updated_at)
@@ -117,11 +114,16 @@ export async function PUT(req: NextRequest) {
         args: [id, JSON.stringify(state)],
       },
       {
-        sql: `UPDATE player_wallets SET coins_balance = ?, oil_balance = ?, updated_at = CURRENT_TIMESTAMP
-              WHERE telegram_id = ? AND NOT EXISTS (
-                SELECT 1 FROM ledger_entries WHERE telegram_id = ?
-              )`,
-        args: [coins, oil, id, id],
+        sql: `UPDATE player_wallets SET
+                coins_balance = CASE WHEN NOT EXISTS (
+                  SELECT 1 FROM ledger_entries WHERE telegram_id = ? AND asset = 'coins'
+                ) THEN ? ELSE coins_balance END,
+                oil_balance = CASE WHEN NOT EXISTS (
+                  SELECT 1 FROM ledger_entries WHERE telegram_id = ? AND asset = 'oil'
+                ) THEN ? ELSE oil_balance END,
+                updated_at = CURRENT_TIMESTAMP
+              WHERE telegram_id = ?`,
+        args: [id, coins, id, oil, id],
       },
     ], 'write');
     const revision = await db.execute({
