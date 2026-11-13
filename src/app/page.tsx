@@ -82,7 +82,7 @@ export default function Home() {
         onOpenTournaments={() => setTournamentsOpen(true)}
       />
 
-      <main className="flex-1 overflow-hidden">
+      <main className="min-h-0 min-w-0 flex-1 overflow-hidden overscroll-contain">
         {tab === 'pump' && <PumpScreen onGoToStore={() => setTab('store')} onGoToArena={() => setTab('arena')} />}
         {tab === 'wallet' && <WalletScreen />}
         {tab === 'tasks' && <TasksScreen />}
