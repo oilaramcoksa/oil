@@ -36,7 +36,7 @@ export function TopBar({ onOpenSettings, onOpenTournaments }: Props) {
   }, [langOpen]);
 
   return (
-    <header className="aram-safe-top sticky top-0 z-20 bg-gradient-to-b from-[#2a1c0a]/95 to-[#2a1c0a]/70 backdrop-blur-md border-b border-amber-500/20">
+    <header className="aram-safe-top relative z-20 shrink-0 bg-gradient-to-b from-[#2a1c0a]/95 to-[#2a1c0a]/70 backdrop-blur-md border-b border-amber-500/20">
       <div className="max-w-md mx-auto px-3 py-2 flex items-center justify-between gap-2">
         {/* Left: language */}
         <div className="relative" ref={langRef}>
