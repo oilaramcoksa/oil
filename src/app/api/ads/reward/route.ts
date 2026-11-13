@@ -10,6 +10,14 @@ const REWARDED_WIDGET_ID = 13283;
 const REWARD_COINS = 100;
 const MAX_DAILY_REWARDS = 20;
 const MIN_REWARD_INTERVAL_SECONDS = 30;
+const AD_MILESTONES = [
+  { views: 1, bonus: 25 },
+  { views: 3, bonus: 50 },
+  { views: 5, bonus: 75 },
+  { views: 10, bonus: 150 },
+  { views: 15, bonus: 200 },
+  { views: 20, bonus: 300 },
+] as const;
 
 function fail(error: string, status = 400) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -30,6 +38,33 @@ function weekKey(date: Date) {
  * additionally enforces a server-side daily cap, cooldown and idempotency.
  * The callback itself is a client signal, not cryptographic proof from TADS.
  */
+export async function GET(req: NextRequest) {
+  const user = verifiedPlayerFromRequest(req);
+  if (!user) return fail('telegram_auth_required', 401);
+  try {
+    await ensureDatabaseSchema();
+    const db = getTurso();
+    const result = await db.execute({
+      sql: "SELECT COUNT(*) AS total FROM ad_reward_claims WHERE telegram_id=? AND date(created_at)=date('now')",
+      args: [String(user.id)],
+    });
+    const used = Number(result.rows[0]?.total ?? 0);
+    return NextResponse.json({
+      used,
+      limit: MAX_DAILY_REWARDS,
+      remaining: Math.max(0, MAX_DAILY_REWARDS - used),
+      milestones: AD_MILESTONES.map((item) => ({
+        views: item.views,
+        bonus: item.bonus,
+        completed: used >= item.views,
+      })),
+    }, { headers: { 'Cache-Control': 'no-store, private' } });
+  } catch (error) {
+    console.error('tads_ad_progress_failed', error);
+    return fail('ad_reward_unavailable', 503);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const user = verifiedPlayerFromRequest(req);
   if (!user) return fail('telegram_auth_required', 401);
@@ -77,8 +112,7 @@ export async function POST(req: NextRequest) {
       });
       if (!wallet.rows.length) { await tx.rollback(); return fail('wallet_not_found', 404); }
       const oldCoins = Number(wallet.rows[0].coins_balance);
-      const newCoins = oldCoins + REWARD_COINS;
-      if (!Number.isSafeInteger(oldCoins) || oldCoins < 0 || !Number.isSafeInteger(newCoins)) {
+      if (!Number.isSafeInteger(oldCoins) || oldCoins < 0) {
         await tx.rollback();
         return fail('invalid_wallet_balance', 409);
       }
@@ -87,9 +121,19 @@ export async function POST(req: NextRequest) {
         sql: "SELECT COUNT(*) AS total FROM ad_reward_claims WHERE telegram_id=? AND date(created_at)=date('now')",
         args: [telegramId],
       });
-      if (Number(daily.rows[0]?.total ?? 0) >= MAX_DAILY_REWARDS) {
+      const viewsToday = Number(daily.rows[0]?.total ?? 0);
+      if (viewsToday >= MAX_DAILY_REWARDS) {
         await tx.rollback();
         return fail('daily_reward_limit_reached', 429);
+      }
+      const completedViews = viewsToday + 1;
+      const milestone = AD_MILESTONES.find((item) => item.views === completedViews);
+      const milestoneBonus = milestone?.bonus ?? 0;
+      const totalReward = REWARD_COINS + milestoneBonus;
+      const newCoins = oldCoins + totalReward;
+      if (!Number.isSafeInteger(newCoins)) {
+        await tx.rollback();
+        return fail('invalid_wallet_balance', 409);
       }
 
       const recent = await tx.execute({
@@ -102,25 +146,25 @@ export async function POST(req: NextRequest) {
       }
 
       const claimRowId = randomUUID();
-      const metadata = JSON.stringify({ widgetId: REWARDED_WIDGET_ID, claimId, reward: REWARD_COINS });
+      const metadata = JSON.stringify({ widgetId: REWARDED_WIDGET_ID, claimId, reward: totalReward, baseReward: REWARD_COINS, milestoneBonus, completedViews });
       await tx.execute({
         sql: 'INSERT INTO ad_reward_claims(id, telegram_id, claim_id, widget_id, reward_coins) VALUES (?, ?, ?, ?, ?)',
-        args: [claimRowId, telegramId, claimId, REWARDED_WIDGET_ID, REWARD_COINS],
+        args: [claimRowId, telegramId, claimId, REWARDED_WIDGET_ID, totalReward],
       });
       await tx.execute({
         sql: 'UPDATE player_wallets SET coins_balance=?, lifetime_coins_earned=lifetime_coins_earned+?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
-        args: [newCoins, REWARD_COINS, telegramId],
+        args: [newCoins, totalReward, telegramId],
       });
       await tx.execute({
         sql: `INSERT INTO ledger_entries
           (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'coins', 'tads_ad_reward', ?, ?, 'tads_ad', ?, ?, ?)`,
-        args: [randomUUID(), telegramId, REWARD_COINS, newCoins, claimRowId, `tads_ad_reward:${telegramId}:${claimId}`, metadata],
+        args: [randomUUID(), telegramId, totalReward, newCoins, claimRowId, `tads_ad_reward:${telegramId}:${claimId}`, metadata],
       });
       await tx.execute({
         sql: `INSERT INTO player_events(id, telegram_id, event_type, amount, metadata_json, idempotency_key)
           VALUES (?, ?, 'tads_ad_reward', ?, ?, ?)`,
-        args: [randomUUID(), telegramId, REWARD_COINS, metadata, `event:tads_ad_reward:${telegramId}:${claimId}`],
+        args: [randomUUID(), telegramId, totalReward, metadata, `event:tads_ad_reward:${telegramId}:${claimId}`],
       });
 
       const now = new Date();
@@ -131,26 +175,27 @@ export async function POST(req: NextRequest) {
         sql: `INSERT INTO player_daily_stats(telegram_id, day_key, coins_earned)
           VALUES (?, ?, ?) ON CONFLICT(telegram_id, day_key) DO UPDATE SET
           coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`,
-        args: [telegramId, day, REWARD_COINS],
+        args: [telegramId, day, totalReward],
       });
       await tx.execute({
         sql: `INSERT INTO player_monthly_stats(telegram_id, month_key, coins_earned)
           VALUES (?, ?, ?) ON CONFLICT(telegram_id, month_key) DO UPDATE SET
           coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`,
-        args: [telegramId, month, REWARD_COINS],
+        args: [telegramId, month, totalReward],
       });
       await tx.execute({
         sql: `INSERT INTO player_weekly_stats(telegram_id, week_key, coins_earned)
           VALUES (?, ?, ?) ON CONFLICT(telegram_id, week_key) DO UPDATE SET
           coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`,
-        args: [telegramId, week, REWARD_COINS],
+        args: [telegramId, week, totalReward],
       });
 
       await tx.commit();
       return NextResponse.json({
-        ok: true, duplicate: false, reward: REWARD_COINS,
+        ok: true, duplicate: false, reward: totalReward, baseReward: REWARD_COINS,
+        milestoneBonus, completedViews,
         wallet: { coins: newCoins },
-        daily: { used: Number(daily.rows[0]?.total ?? 0) + 1, limit: MAX_DAILY_REWARDS },
+        daily: { used: completedViews, limit: MAX_DAILY_REWARDS },
       }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
       await tx.rollback();
