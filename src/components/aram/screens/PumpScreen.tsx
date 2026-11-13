@@ -90,7 +90,7 @@ export function PumpScreen({ onGoToStore, onGoToArena }: Props) {
   };
 
   return (
-    <div className="relative flex flex-col">
+    <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain pb-3">
       {/* Stats strip */}
       <div className="px-3 pt-2 pb-1 max-w-md mx-auto w-full">
         <div className="grid grid-cols-3 gap-2">
