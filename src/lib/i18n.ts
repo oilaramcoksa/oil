@@ -76,6 +76,7 @@ const ar: Dict = {
   // Pump screen
   tapToPump: 'اضغط على المضخة',
   sell: 'بيع',
+  sellError: 'تعذّر بيع البترول وتحديث المحفظة. حاول مرة أخرى.',
   upgrade: 'ترقية',
   storageFull: 'المخزن ممتلئ!',
   oilPerTap: 'بترول/ضغطة',
@@ -394,6 +395,7 @@ const en: Dict = {
 
   tapToPump: 'Tap the pump',
   sell: 'Sell',
+  sellError: 'Could not sell oil and update your wallet. Please try again.',
   upgrade: 'Upgrade',
   storageFull: 'Storage full!',
   oilPerTap: 'oil/tap',
@@ -745,6 +747,7 @@ const ru: Dict = {
 
   tapToPump: 'Нажми на насос',
   sell: 'Продать',
+  sellError: 'Не удалось продать нефть и обновить кошелёк. Попробуйте ещё раз.',
   upgrade: 'Улучшить',
   storageFull: 'Хранилище полно!',
   oilPerTap: 'нефть/нажатие',
