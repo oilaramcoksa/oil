@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/lib/store';
+import { toast } from 'sonner';
 import { t } from '@/lib/i18n';
 import { useTelegram } from '@/hooks/use-telegram';
 import { Button } from '@/components/ui/button';
@@ -19,14 +20,16 @@ import { Truck, X, Droplet, Coins, Check } from 'lucide-react';
 interface Props {
   open: boolean;
   onClose: () => void;
+  initData: string;
+  isVerified: boolean;
 }
 
 type Phase = 'arriving' | 'connecting' | 'pumping' | 'counting' | 'done';
 
-export function SellModal({ open, onClose }: Props) {
+export function SellModal({ open, onClose, initData, isVerified }: Props) {
   const lang = useGame((s) => s.lang);
   const oilBefore = useGame((s) => s.oil);
-  const sellOil = useGame((s) => s.sellOil);
+  const applyServerSale = useGame((s) => s.applyServerSale);
   const { haptic, notify } = useTelegram();
 
   const [phase, setPhase] = useState<Phase>('arriving');
@@ -64,27 +67,50 @@ export function SellModal({ open, onClose }: Props) {
     // After pumping → count + execute sell
     timers.push(setTimeout(() => {
       setPhase('counting');
-      const r = sellOil();
-      soldRef.current = r.sold;
-      // Animate counter from 0 to r.sold
-      const start = performance.now();
-      const duration = Math.min(1400, 600 + r.sold * 6);
-      const animate = (now: number) => {
-        const t = Math.min(1, (now - start) / duration);
-        const eased = 1 - Math.pow(1 - t, 3);
-        setCounter(Math.round(r.sold * eased));
-        if (t < 1) requestAnimationFrame(animate);
-        else {
-          setResult(r);
+      void (async () => {
+        try {
+          if (!isVerified || !initData) throw new Error('telegram_auth_required');
+          const response = await fetch('/api/sell', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+            body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }),
+            cache: 'no-store',
+          });
+          const data = await response.json() as {
+            sold?: number; coinsEarned?: number;
+            wallet?: { oil: number; coins: number };
+            error?: string;
+          };
+          if (!response.ok || !data.wallet || !Number.isSafeInteger(data.sold) || !Number.isSafeInteger(data.coinsEarned)) {
+            throw new Error(data.error || 'oil_sale_failed');
+          }
+          const sale = { sold: Number(data.sold), coinsEarned: Number(data.coinsEarned) };
+          soldRef.current = sale.sold;
+          applyServerSale(sale.sold, sale.coinsEarned, data.wallet.coins);
+          const start = performance.now();
+          const duration = Math.min(1400, 600 + sale.sold * 6);
+          const animate = (now: number) => {
+            const progress = Math.min(1, (now - start) / duration);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setCounter(Math.round(sale.sold * eased));
+            if (progress < 1) requestAnimationFrame(animate);
+            else {
+              setResult(sale);
+              setPhase('done');
+              notify('success');
+            }
+          };
+          requestAnimationFrame(animate);
+        } catch (error) {
+          console.error('oil_sale_ui_failed', error);
+          toast.error(t(lang, 'swapError'));
           setPhase('done');
-          notify('success');
         }
-      };
-      requestAnimationFrame(animate);
+      })();
     }, 4200));
 
     return () => timers.forEach(clearTimeout);
-  }, [open]);
+  }, [open, initData, isVerified, applyServerSale, lang, notify]);
 
   // Pre-capture the oil at the moment of opening so the displayed number
   // matches what we sold even though sellOil zeroes it.
