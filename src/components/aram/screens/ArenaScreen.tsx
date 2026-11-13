@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
 
-type Entry = { telegramId: string; username: string; amount: number };
+type Entry = { telegramId: string; username: string; amount: number; photoUrl?: string | null };
 type Round = {
   id: string;
   status: 'open' | 'countdown' | 'spinning';
@@ -96,23 +96,25 @@ export function ArenaScreen({
   const displayStop = round
     ? (round.wheelStopDegrees ?? 0)
     : (state.lastResult?.wheelStopDegrees ?? 0);
+  const wheelColors = ['#2457f5', '#8b5cf6', '#0ea5e9', '#10b981', '#ec4899', '#ef4444', '#14b8a6', '#6366f1'];
   const wheelEntries = [
-    { id: 'house', label: t(lang, 'arenaAdminSlice'), weight: 25, house: true },
-    ...displayedEntries.map((entry) => ({
+    { id: 'house', label: t(lang, 'arenaAdminSlice'), weight: 25, house: true, photoUrl: null, color: '#f59e0b' },
+    ...displayedEntries.map((entry, index) => ({
       id: entry.telegramId,
       label: entry.username,
       weight: 75 * (entry.amount / Math.max(total, 1)),
       house: false,
+      photoUrl: entry.photoUrl ?? null,
+      color: wheelColors[index % wheelColors.length],
     })),
   ];
 
   const wheelGradient = useMemo(() => {
     let cursor = 0;
-    const colors = ['#f59e0b', '#2457f5', '#8b5cf6', '#0ea5e9', '#10b981', '#ec4899', '#ef4444', '#14b8a6'];
-    const stops = wheelEntries.map((entry, index) => {
+    const stops = wheelEntries.map((entry) => {
       const start = cursor;
       cursor += entry.weight;
-      return `${colors[index % colors.length]} ${start}% ${cursor}%`;
+      return `${entry.color} ${start}% ${cursor}%`;
     });
     if (cursor < 100) stops.push(`#252a3a ${cursor}% 100%`);
     return `conic-gradient(from -90deg, ${stops.join(', ')})`;
@@ -206,12 +208,17 @@ export function ArenaScreen({
               return (
                 <div
                   key={entry.id}
-                  className="absolute left-1/2 top-1/2 w-24 -translate-x-1/2 -translate-y-1/2 text-center text-[10px] font-black"
+                  className="absolute left-1/2 top-1/2 z-[2] grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center"
                   style={{ transform: `rotate(${angle}deg) translateY(-112px) rotate(-${angle}deg)` }}
+                  title={entry.house ? entry.label : `${entry.label} · ${entry.weight.toFixed(1)}%`}
                 >
-                  <span className={`mx-auto grid h-7 w-7 place-items-center rounded-full border border-white/80 text-[10px] font-black shadow-lg ${entry.house ? 'bg-amber-400 text-[#33200b]' : 'bg-black/70 text-white'}`}>
-                    {entry.house ? '🔥' : entry.label.slice(0, 1).toUpperCase()}
-                  </span>
+                  {entry.house ? (
+                    <span className="grid h-10 w-10 place-items-center rounded-full border-[3px] border-white bg-amber-300 text-xl text-amber-950 shadow-[0_3px_12px_rgba(0,0,0,.5)]">🔥</span>
+                  ) : entry.photoUrl ? (
+                    <img src={entry.photoUrl} alt={entry.label} referrerPolicy="no-referrer" className="h-11 w-11 rounded-full border-[3px] border-white object-cover shadow-[0_3px_12px_rgba(0,0,0,.55)]" />
+                  ) : (
+                    <span className="grid h-11 w-11 place-items-center rounded-full border-[3px] border-white bg-[#17191f] text-sm font-black text-white shadow-[0_3px_12px_rgba(0,0,0,.55)]">{entry.label.slice(0, 1).toUpperCase()}</span>
+                  )}
                 </div>
               );
             })}
@@ -286,9 +293,11 @@ export function ArenaScreen({
           ) : displayedEntries.map((entry) => (
             <div key={entry.telegramId} className="flex items-center justify-between border-b border-white/5 py-2 last:border-0">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-violet-500/20 text-xs font-black text-violet-200">
-                  {entry.username.slice(0, 1).toUpperCase()}
-                </span>
+                {entry.photoUrl ? (
+                  <img src={entry.photoUrl} alt={entry.username} referrerPolicy="no-referrer" className="h-9 w-9 shrink-0 rounded-full border border-white/20 object-cover" />
+                ) : (
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-violet-500/20 text-xs font-black text-violet-200">{entry.username.slice(0, 1).toUpperCase()}</span>
+                )}
                 <span className="truncate text-xs font-bold">
                   {entry.username}{entry.telegramId === telegramUserId ? ' · ' + t(lang, 'arenaYou') : ''}
                 </span>
