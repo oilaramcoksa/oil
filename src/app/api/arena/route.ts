@@ -12,12 +12,14 @@ const MAX_ENTRY = 1_000_000_000;
 const COUNTDOWN_MS = 30_000;
 const SPIN_MS = 7_000;
 const HOUSE_SLICE = 0.25;
+const WAITING_REFUND_MS = 60 * 60 * 1000;
 
 type ArenaEntryRow = {
   telegram_id: string;
   amount: number;
   username?: string | null;
   first_name?: string | null;
+  photo_url?: string | null;
 };
 
 function jsonError(error: string, status = 400) {
@@ -31,7 +33,7 @@ function validAmount(value: unknown): value is number {
 
 async function readEntries(db: ReturnType<typeof getTurso>, roundId: string): Promise<ArenaEntryRow[]> {
   const result = await db.execute({
-    sql: `SELECT e.telegram_id, e.amount, p.username, p.first_name
+    sql: `SELECT e.telegram_id, e.amount, p.username, p.first_name, p.photo_url
           FROM arena_entries e
           JOIN players p ON p.telegram_id = e.telegram_id
           WHERE e.round_id = ?
@@ -43,11 +45,16 @@ async function readEntries(db: ReturnType<typeof getTurso>, roundId: string): Pr
     amount: Number(row.amount),
     username: row.username == null ? null : String(row.username),
     first_name: row.first_name == null ? null : String(row.first_name),
+    photo_url: row.photo_url == null ? null : String(row.photo_url),
   }));
 }
 
 function chooseOutcome(entries: ArenaEntryRow[], total: number) {
   const seed = randomBytes(32).toString('hex');
+
+  if (total > 10_000) {
+    return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 315 };
+  }
 
   const roll = randomInt(0, 1_000_000);
   if (roll < HOUSE_SLICE * 1_000_000) {
@@ -89,6 +96,33 @@ function chooseOutcome(entries: ArenaEntryRow[], total: number) {
  */
 async function settleDueRounds(db: ReturnType<typeof getTurso>) {
   const now = Date.now();
+
+  // An unpaired entry expires one hour after the round was created.
+  const expiredWaiting = await db.execute({
+    sql: "SELECT id FROM arena_rounds WHERE status='open' AND created_at <= datetime('now', '-1 hour') ORDER BY created_at LIMIT 25",
+  });
+  for (const candidate of expiredWaiting.rows) {
+    const roundId = String(candidate.id);
+    const entries = await readEntries(db, roundId);
+    const cancelled = await db.execute({
+      sql: "UPDATE arena_rounds SET status='cancelled', completed_at=CURRENT_TIMESTAMP WHERE id=? AND status='open' AND created_at <= datetime('now', '-1 hour')",
+      args: [roundId],
+    });
+    if (Number(cancelled.rowsAffected) === 1) {
+      for (const entry of entries) {
+        await postLedgerEntry({
+          telegramId: entry.telegram_id,
+          asset: 'coins',
+          entryType: 'arena_refund',
+          amount: entry.amount,
+          idempotencyKey: `arena_waiting_refund:${roundId}:${entry.telegram_id}`,
+          referenceType: 'arena_round',
+          referenceId: roundId,
+          metadata: { reason: 'waiting_timeout' },
+        });
+      }
+    }
+  }
 
   const dueCountdowns = await db.execute({
     sql: "SELECT id FROM arena_rounds WHERE status='countdown' AND starts_at <= ? ORDER BY created_at LIMIT 10",
@@ -191,6 +225,7 @@ function toPublicEntry(entry: ArenaEntryRow) {
     telegramId: entry.telegram_id,
     username: entry.username || entry.first_name || 'Player',
     amount: entry.amount,
+    photoUrl: entry.photo_url || null,
   };
 }
 
