@@ -53,6 +53,9 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'server_error');
       setWallet((old) => ({ ...old, ...data.wallet }));
+      if (data.wallet && Number.isSafeInteger(Number(data.wallet.coins))) {
+        useGame.setState({ coins: Number(data.wallet.coins) });
+      }
       setCoinsInput('');
       toast.success(t(lang, 'swapSuccess'));
       await refresh();
