@@ -239,6 +239,10 @@ export async function GET(req: NextRequest) {
     await settleDueRounds(db);
 
     const playerId = String(identity.id);
+    await db.execute({
+      sql: 'UPDATE players SET username=?, first_name=?, last_name=?, photo_url=? WHERE telegram_id=?',
+      args: [identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, identity.photo_url ?? null, playerId],
+    });
     const [walletResult, activeResult] = await Promise.all([
       db.execute({
         sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',
