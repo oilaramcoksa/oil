@@ -10,6 +10,7 @@ import { PACKAGES, WALLETS, packageTotal, type UpgradePackage, type CryptoWallet
 import { CryptoIcon } from '@/components/aram/CryptoIcon';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
+import { TadsAd } from '@/components/aram/TadsAd';
 
 export function StoreScreen() {
   const lang = useGame((s) => s.lang);
@@ -220,6 +221,18 @@ export function StoreScreen() {
           ⓘ {t(lang, 'aboutText').split('.').slice(0, 2).join('.')}
         </p>
       </motion.div>
+
+      {/* TADS native text-graphic ad. Configure its separate TGB widget ID in Vercel. */}
+      {Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID || 0) > 0 && (
+        <div className="mb-3">
+          <TadsAd
+            widgetId={Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID)}
+            mode="static"
+            title={t(lang, 'tadsSponsored')}
+            description={t(lang, 'tadsUnavailable')}
+          />
+        </div>
+      )}
 
       {/* Speed parts shop */}
       <div className="mb-3">
