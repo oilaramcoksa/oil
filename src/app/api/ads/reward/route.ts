@@ -7,7 +7,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const TADS_REWARDED_WIDGET_ID = 13283;
-const ADSGRAM_REWARDED_BLOCK_ID = 59642;
+const ADSGRAM_REWARDED_BLOCK_ID = '59642';
+const ADSGRAM_INTERSTITIAL_BLOCK_ID = 'int-59643';
 const REWARD_COINS = 100;
 const CYCLE_LIMIT = 30;
 const ADSGRAM_LIMIT = 20;
@@ -96,12 +97,16 @@ export async function POST(req: NextRequest) {
   const user = verifiedPlayerFromRequest(req);
   if (!user) return fail('telegram_auth_required', 401);
 
-  let body: { widgetId?: unknown; claimId?: unknown; provider?: unknown };
+  let body: { widgetId?: unknown; claimId?: unknown; provider?: unknown; adFormat?: unknown };
   try { body = await req.json(); } catch { return fail('invalid_body'); }
   const provider = body.provider === 'adsgram' ? 'adsgram' : body.provider === 'tads' || body.provider == null ? 'tads' : null;
+  const adFormat = body.adFormat === 'interstitial' && provider === 'adsgram' ? 'interstitial' : 'reward';
   if (!provider) return fail('invalid_ad_provider', 400);
-  const expectedWidgetId = provider === 'adsgram' ? ADSGRAM_REWARDED_BLOCK_ID : TADS_REWARDED_WIDGET_ID;
-  if (body.widgetId !== expectedWidgetId) return fail('invalid_reward_widget', 400);
+  const expectedWidgetId = provider === 'adsgram'
+    ? (adFormat === 'interstitial' ? ADSGRAM_INTERSTITIAL_BLOCK_ID : ADSGRAM_REWARDED_BLOCK_ID)
+    : TADS_REWARDED_WIDGET_ID;
+  if (String(body.widgetId) !== String(expectedWidgetId)) return fail('invalid_reward_widget', 400);
+  const rewardCoins = provider === 'adsgram' && adFormat === 'interstitial' ? 50 : REWARD_COINS;
   const claimId = typeof body.claimId === 'string' ? body.claimId : '';
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId)) return fail('invalid_claim_id');
 
@@ -162,7 +167,7 @@ export async function POST(req: NextRequest) {
       const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
       if (!wallet.rows.length) { await tx.rollback(); return fail('wallet_not_found', 404); }
       const oldCoins = Number(wallet.rows[0].coins_balance);
-      const newCoins = oldCoins + REWARD_COINS;
+      const newCoins = oldCoins + rewardCoins;
       if (!Number.isSafeInteger(oldCoins) || oldCoins < 0 || !Number.isSafeInteger(newCoins)) { await tx.rollback(); return fail('invalid_wallet_balance', 409); }
 
       const nextUsed = used + 1;
@@ -172,7 +177,7 @@ export async function POST(req: NextRequest) {
       const claimRowId = randomUUID();
       await tx.execute({
         sql: 'INSERT INTO ad_reward_claims(id, telegram_id, claim_id, widget_id, reward_coins) VALUES (?, ?, ?, ?, ?)',
-        args: [claimRowId, telegramId, claimId, expectedWidgetId, REWARD_COINS],
+        args: [claimRowId, telegramId, claimId, String(expectedWidgetId), rewardCoins],
       });
       await tx.execute({
         sql: `UPDATE ${CYCLE_TABLE} SET views=?, adsgram_views=?, tads_views=?,
@@ -182,18 +187,18 @@ export async function POST(req: NextRequest) {
       });
       await tx.execute({
         sql: 'UPDATE player_wallets SET coins_balance=?, lifetime_coins_earned=lifetime_coins_earned+?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
-        args: [newCoins, REWARD_COINS, telegramId],
+        args: [newCoins, rewardCoins, telegramId],
       });
-      const metadata = JSON.stringify({ provider, widgetId: expectedWidgetId, claimId, reward: REWARD_COINS, cycleView: nextUsed, adsgramViews: nextAdsgram, tadsViews: nextTads, cycleLimit: CYCLE_LIMIT, cycleHours: CYCLE_HOURS });
+      const metadata = JSON.stringify({ provider, adFormat, widgetId: expectedWidgetId, claimId, reward: rewardCoins, cycleView: nextUsed, adsgramViews: nextAdsgram, tadsViews: nextTads, cycleLimit: CYCLE_LIMIT, cycleHours: CYCLE_HOURS });
       await tx.execute({
         sql: `INSERT INTO ledger_entries(id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'coins', 'ad_reward', ?, ?, 'ad_reward', ?, ?, ?)`,
-        args: [randomUUID(), telegramId, REWARD_COINS, newCoins, claimRowId, `ad_reward:${telegramId}:${claimId}`, metadata],
+        args: [randomUUID(), telegramId, rewardCoins, newCoins, claimRowId, `ad_reward:${telegramId}:${claimId}`, metadata],
       });
       await tx.execute({
         sql: `INSERT INTO player_events(id, telegram_id, event_type, amount, metadata_json, idempotency_key)
           VALUES (?, ?, 'ad_reward', ?, ?, ?)`,
-        args: [randomUUID(), telegramId, REWARD_COINS, metadata, `event:ad_reward:${telegramId}:${claimId}`],
+        args: [randomUUID(), telegramId, rewardCoins, metadata, `event:ad_reward:${telegramId}:${claimId}`],
       });
 
       const now = new Date();
@@ -204,13 +209,13 @@ export async function POST(req: NextRequest) {
       weekDate.setUTCDate(weekDate.getUTCDate() + 4 - weekday);
       const yearStart = new Date(Date.UTC(weekDate.getUTCFullYear(), 0, 1));
       const week = `${weekDate.getUTCFullYear()}-W${String(Math.ceil(((weekDate.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)).padStart(2, '0')}`;
-      await tx.execute({ sql: `INSERT INTO player_daily_stats(telegram_id, day_key, coins_earned) VALUES (?, ?, ?) ON CONFLICT(telegram_id, day_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`, args: [telegramId, day, REWARD_COINS] });
-      await tx.execute({ sql: `INSERT INTO player_monthly_stats(telegram_id, month_key, coins_earned) VALUES (?, ?, ?) ON CONFLICT(telegram_id, month_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`, args: [telegramId, month, REWARD_COINS] });
-      await tx.execute({ sql: `INSERT INTO player_weekly_stats(telegram_id, week_key, coins_earned) VALUES (?, ?, ?) ON CONFLICT(telegram_id, week_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`, args: [telegramId, week, REWARD_COINS] });
+      await tx.execute({ sql: `INSERT INTO player_daily_stats(telegram_id, day_key, coins_earned) VALUES (?, ?, ?) ON CONFLICT(telegram_id, day_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`, args: [telegramId, day, rewardCoins] });
+      await tx.execute({ sql: `INSERT INTO player_monthly_stats(telegram_id, month_key, coins_earned) VALUES (?, ?, ?) ON CONFLICT(telegram_id, month_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`, args: [telegramId, month, rewardCoins] });
+      await tx.execute({ sql: `INSERT INTO player_weekly_stats(telegram_id, week_key, coins_earned) VALUES (?, ?, ?) ON CONFLICT(telegram_id, week_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned, updated_at=CURRENT_TIMESTAMP`, args: [telegramId, week, rewardCoins] });
       const cooldown = completesCycle ? await tx.execute({ sql: "SELECT CAST(strftime('%s', datetime('now', '+12 hours')) AS INTEGER) * 1000 AS ms" }) : { rows: [{ ms: null }] };
       await tx.commit();
       return NextResponse.json({
-        ok: true, duplicate: false, reward: REWARD_COINS, baseReward: REWARD_COINS,
+        ok: true, duplicate: false, reward: rewardCoins, baseReward: rewardCoins,
         wallet: { coins: newCoins },
         cycle: cycleResponse(nextUsed, nextAdsgram, nextTads, cooldown.rows[0]?.ms == null ? null : Number(cooldown.rows[0].ms)),
       }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
