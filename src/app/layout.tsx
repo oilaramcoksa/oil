@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { TadsProvider } from "@/components/aram/TadsProvider";
 
 export const metadata: Metadata = {
   title: "Aramco Oil — Pump oil · Collect coins",
@@ -37,7 +38,7 @@ export default function RootLayout({
         <script src="https://telegram.org/js/telegram-web-app.js" async />
       </head>
       <body className="antialiased bg-background text-foreground aram-bg">
-        {children}
+        <TadsProvider>{children}</TadsProvider>
         <Toaster />
       </body>
     </html>
