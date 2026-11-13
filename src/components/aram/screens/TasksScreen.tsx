@@ -10,6 +10,7 @@ import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
 import { TadsAd } from '@/components/aram/TadsAd';
 import { AdsgramRewardAd } from '@/components/aram/AdsgramRewardAd';
+import { AdsgramInterstitialAd } from '@/components/aram/AdsgramInterstitialAd';
 
 type AdProgress = { used: number; limit: number; remaining: number; cooldownUntil: number | null; locked: boolean; rewardPerAd: number; totalCycleReward: number };
 
@@ -266,6 +267,23 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
               else if (error === 'ad_cycle_cooldown' || error === 'ad_cycle_limit_reached') toast.error('اكتملت مشاهدات الدورة. انتظر انتهاء العداد.');
               else if (error === 'adsgram_not_completed') toast.info('لم تكتمل مشاهدة الإعلان، لذلك لم تُضف مكافأة.');
               else toast.error('تعذر تشغيل إعلان AdsGram. حاول لاحقًا.');
+            }}
+          />
+        )}
+        {isVerified && initData && (
+          <AdsgramInterstitialAd
+            initData={initData}
+            isVerified={isVerified}
+            onRewarded={(reward, walletCoins) => {
+              applyServerAdReward(reward, walletCoins);
+              haptic('medium');
+              notify('success');
+              toast.success(`مكافأة إعلان Interstitial: +${reward} ${t(lang, 'coins')}`);
+            }}
+            onRewardError={(error) => {
+              if (error === 'telegram_auth_required') toast.error(t(lang, 'telegramRequired'));
+              else if (error === 'adsgram_interstitial_not_completed') toast.info('لم يكتمل الإعلان، ولم تُضف المكافأة.');
+              else toast.error('تعذر تشغيل إعلان Interstitial. حاول لاحقًا.');
             }}
           />
         )}
