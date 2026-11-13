@@ -58,7 +58,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
       const res = await fetch('/api/usdt-withdrawals', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ amountUsd: usdAmount / 1_000_000, tronAddress: address.trim(), idempotencyKey: crypto.randomUUID() }) });
       const data = await res.json();
       if (!res.ok) {
-        const key = data.error === 'insufficient_usd_balance' ? 'swapInsufficientUsd' : data.error === 'invalid_tron_address' ? 'swapInvalidAddress' : data.error === 'minimum_one_usd' ? 'swapMinWithdraw' : 'swapWithdrawError';
+        const key = data.error === 'insufficient_usd_balance' ? 'swapInsufficientUsd' : data.error === 'invalid_tron_address' ? 'swapInvalidAddress' : data.error === 'minimum_one_usd' ? 'swapMinWithdrawError' : 'swapWithdrawError';
         throw new Error(key);
       }
       setWallet((old) => ({ ...old, ...data.wallet }));
@@ -95,7 +95,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
           <input type="number" inputMode="decimal" min="1" step="0.000001" value={usdInput} onChange={(e) => setUsdInput(e.target.value)} className="mb-3 w-full rounded-xl border border-amber-200 bg-white px-3 py-3 font-bold text-[#542b12] outline-none focus:border-amber-500"/>
           <label className="mb-1 block text-xs font-bold text-amber-900/70">{t(lang, 'swapTronAddress')}</label>
           <input type="text" dir="ltr" autoCapitalize="off" autoCorrect="off" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="T..." className="w-full rounded-xl border border-amber-200 bg-white px-3 py-3 font-mono text-sm text-[#542b12] outline-none focus:border-amber-500"/>
-          <p className="mt-2 text-[10px] leading-relaxed text-amber-900/60">{t(lang, 'swapMinWithdraw')}</p>
+          <p className="mt-2 text-[10px] leading-relaxed text-amber-900/60">{t(lang, 'swapMinWithdrawHint')}</p>
           <button disabled={!canWithdraw} onClick={() => void withdraw()} className="mt-3 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 font-black text-white shadow-md disabled:opacity-40">{loading ? t(lang, 'swapProcessing') : t(lang, 'swapWithdrawButton')}</button>
         </section>
         <section className="aram-card rounded-2xl p-3">
