@@ -17,6 +17,7 @@ import { useTelegram } from '@/hooks/use-telegram';
 import { Toaster } from 'sonner';
 import { GameCloudSync } from '@/components/aram/GameCloudSync';
 import { ArenaScreen } from '@/components/aram/screens/ArenaScreen';
+import { SwapScreen } from '@/components/aram/screens/SwapScreen';
 
 export default function Home() {
   const lang = useGame((s) => s.lang);
@@ -89,6 +90,7 @@ export default function Home() {
         {tab === 'friends' && <FriendsScreen />}
         {tab === 'store' && <StoreScreen />}
         {tab === 'arena' && <ArenaScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} />}
+        {tab === 'swap' && <SwapScreen initData={initData} isVerified={isVerified} />}
       </main>
 
       <BottomNav active={tab} onChange={setTab} />
