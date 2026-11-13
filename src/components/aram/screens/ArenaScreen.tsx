@@ -318,7 +318,7 @@ export function ArenaScreen({
             <input
               type="number"
               inputMode="numeric"
-              min="1000"
+              min="100"
               max={balance}
               step="1"
               value={amount}
@@ -328,14 +328,28 @@ export function ArenaScreen({
             />
             <button
               onClick={() => void join(balance)}
-              disabled={loading || !isVerified || ownEntry || isRoundClosed || balance < 1000}
+              disabled={loading || !isVerified || ownEntry || isRoundClosed || balance < 100}
               className="rounded-xl border border-amber-600 bg-gradient-to-b from-amber-400 to-orange-500 px-4 text-xs font-black text-[#3b210c] shadow-md disabled:opacity-40"
             >
               {t(lang, 'arenaMax')}
             </button>
           </div>
+          <div className="mt-2 grid grid-cols-4 gap-2" aria-label={t(lang, 'arenaQuickAmounts')}>
+            {[100, 200, 500, 1000].map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setAmount(String(preset))}
+                disabled={loading || !isVerified || ownEntry || isRoundClosed || balance < preset}
+                aria-pressed={amount === String(preset)}
+                className={`rounded-lg border px-2 py-2 text-xs font-black tabular-nums transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${amount === String(preset) ? 'border-amber-500 bg-gradient-to-b from-amber-300 to-orange-400 text-[#3b210c] shadow-inner' : 'border-amber-800/15 bg-[#fff7e9] text-[#70431f] hover:border-amber-500/60'}`}
+              >
+                {preset.toLocaleString()}
+              </button>
+            ))}
+          </div>
           <button
-            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < 1_000 || Number(amount) > balance}
+            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < 100 || Number(amount) > balance}
             onClick={() => void join()}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#ff9f50] py-3 font-black text-[#24180f] disabled:opacity-40"
           >
