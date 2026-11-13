@@ -256,6 +256,30 @@ export async function GET(req: NextRequest) {
     const balance = Number(walletResult.rows[0]?.coins_balance ?? 0);
     const activeRound = activeResult.rows[0];
 
+    // Return only this player's most recent completed round, never another
+    // player's unrelated global result. This remains available while a new
+    // round is active and while the player was offline at settlement time.
+    const personalPrevious = await db.execute({
+      sql: `SELECT r.* FROM arena_rounds r
+            INNER JOIN arena_entries e ON e.round_id = r.id
+            WHERE e.telegram_id = ? AND r.status = 'completed'
+            ORDER BY r.completed_at DESC LIMIT 1`,
+      args: [playerId],
+    });
+    const personalRow = personalPrevious.rows[0];
+    let personalLastResult = null;
+    if (personalRow) {
+      const personalEntries = await readEntries(db, String(personalRow.id));
+      personalLastResult = {
+        id: String(personalRow.id),
+        winnerType: String(personalRow.winner_type),
+        winnerTelegramId: personalRow.winner_telegram_id == null ? null : String(personalRow.winner_telegram_id),
+        totalEntries: Number(personalRow.total_entries),
+        wheelStopDegrees: personalRow.wheel_stop_degrees == null ? 0 : Number(personalRow.wheel_stop_degrees),
+        entries: personalEntries.map(toPublicEntry),
+      };
+    }
+
     if (activeRound) {
       const entries = await readEntries(db, String(activeRound.id));
       return NextResponse.json({
@@ -272,34 +296,16 @@ export async function GET(req: NextRequest) {
         },
         balance,
         entries: entries.map(toPublicEntry),
-        lastResult: null,
+        lastResult: personalLastResult,
         source: 'turso',
       }, { headers: { 'Cache-Control': 'no-store, private' } });
-    }
-
-    const previousResult = await db.execute({
-      sql: "SELECT * FROM arena_rounds WHERE status='completed' ORDER BY completed_at DESC LIMIT 1",
-    });
-    const last = previousResult.rows[0];
-    let lastResult = null;
-
-    if (last) {
-      const entries = await readEntries(db, String(last.id));
-      lastResult = {
-        id: String(last.id),
-        winnerType: String(last.winner_type),
-        winnerTelegramId: last.winner_telegram_id == null ? null : String(last.winner_telegram_id),
-        totalEntries: Number(last.total_entries),
-        wheelStopDegrees: last.wheel_stop_degrees == null ? 0 : Number(last.wheel_stop_degrees),
-        entries: entries.map(toPublicEntry),
-      };
     }
 
     return NextResponse.json({
       round: null,
       balance,
       entries: [],
-      lastResult,
+      lastResult: personalLastResult,
       source: 'turso',
     }, { headers: { 'Cache-Control': 'no-store, private' } });
   } catch (error) {
