@@ -257,6 +257,21 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
     ],
   },
   {
+    version: 6,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS ad_reward_claims (
+        id TEXT PRIMARY KEY,
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        claim_id TEXT NOT NULL,
+        widget_id INTEGER NOT NULL,
+        reward_coins INTEGER NOT NULL CHECK(reward_coins > 0),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(telegram_id, claim_id)
+      )`,
+      'CREATE INDEX IF NOT EXISTS idx_ad_rewards_player_time ON ad_reward_claims(telegram_id, created_at)',
+    ],
+  },
+  {
     version: 5,
     statements: [
       `CREATE TABLE IF NOT EXISTS coin_swaps (
