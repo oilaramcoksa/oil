@@ -24,16 +24,17 @@ import { useTelegram } from '@/hooks/use-telegram';
 interface Props {
   onGoToStore: () => void;
   onGoToArena: () => void;
+  initData: string;
+  isVerified: boolean;
 }
 
-export function PumpScreen({ onGoToStore, onGoToArena }: Props) {
+export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: Props) {
   const lang = useGame((s) => s.lang);
   const oil = useGame((s) => s.oil);
   const coins = useGame((s) => s.coins);
   const upgrades = useGame((s) => s.upgrades);
   const cycleEndsAt = useGame((s) => s.cycleEndsAt);
   const tapPump = useGame((s) => s.tapPump);
-  const sellOil = useGame((s) => s.sellOil);
   const processPassive = useGame((s) => s.processPassive);
   const { haptic, notify } = useTelegram();
 
@@ -331,7 +332,7 @@ export function PumpScreen({ onGoToStore, onGoToArena }: Props) {
         </Button>
       </div>
 
-      <SellModal open={sellOpen} onClose={() => setSellOpen(false)} />
+      <SellModal open={sellOpen} onClose={() => setSellOpen(false)} initData={initData} isVerified={isVerified} />
     </div>
   );
 }
