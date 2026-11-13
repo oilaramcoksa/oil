@@ -13,7 +13,7 @@ import { COINS_PER_USD, type WithdrawalRecord } from './withdraw';
 
 export interface Transaction {
   id: string;
-  type: 'sell' | 'upgrade' | 'task' | 'referral' | 'daily' | 'withdraw' | 'refund';
+  type: 'sell' | 'upgrade' | 'task' | 'referral' | 'daily' | 'withdraw' | 'refund' | 'ad';
   amount: number;       // game coins (positive = added)
   label: string;        // human-readable label
   createdAt: number;    // ms timestamp
@@ -117,6 +117,7 @@ interface GameState {
   tapPump: () => { oilAdded: number; newTotal: number; full: boolean; cycleStarted: boolean };
   sellOil: () => { sold: number; coinsEarned: number };
   applyServerSale: (sold: number, coinsEarned: number, walletCoins: number) => void;
+  applyServerAdReward: (reward: number, walletCoins: number) => void;
   buyUpgrade: (pkg: UpgradePackage['id'], wallet: CryptoWallet['code'], txHash: string) => void;
   claimTask: (taskId: string) => { ok: boolean; reward?: number };
   addReferral: (name: string) => void;
@@ -331,6 +332,24 @@ export const useGame = create<GameState>()(
         }
         set({ oil: newOil, lastTickAt: now });
         return { litersAdded: actualAdded, cycleEnded: false };
+      },
+
+      applyServerAdReward: (reward, walletCoins) => {
+        const s = get();
+        if (!Number.isSafeInteger(reward) || reward <= 0 || !Number.isSafeInteger(walletCoins) || walletCoins < 0) return;
+        const tx: Transaction = {
+          id: makeId(),
+          type: 'ad',
+          amount: reward,
+          label: 'txAdReward',
+          createdAt: Date.now(),
+          meta: { source: 'TADS rewarded ad' },
+        };
+        set({
+          coins: walletCoins,
+          coinsEarnedThisMonth: s.coinsEarnedThisMonth + reward,
+          transactions: [tx, ...s.transactions].slice(0, 50),
+        });
       },
 
       applyServerSale: (sold, coinsEarned, walletCoins) => {
