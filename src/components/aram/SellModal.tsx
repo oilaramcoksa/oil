@@ -488,26 +488,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                       </g>
                     )}
 
-                    {/* === Connecting pipe (when phase is connecting/pumping/counting) === */}
-                    {(phase === 'connecting' || phase === 'pumping' || phase === 'counting' || phase === 'retracting') && (
-                      <g className="aram-pipe-extend" style={{ transformOrigin: '5px 40px' }}>
-                        {/* Pipe */}
-                        <rect x="-160" y="38" width="160" height="5" fill="url(#m-steel)" />
-                        <rect x="-160" y="38" width="160" height="1.5" fill="#D4D4D8" />
-                        {/* Pipe joints */}
-                        <rect x="-130" y="36" width="3" height="9" fill="#52525B" />
-                        <rect x="-90" y="36" width="3" height="9" fill="#52525B" />
-                        <rect x="-50" y="36" width="3" height="9" fill="#52525B" />
-                        {/* Flange at tank end */}
-                        <rect x="-3" y="35" width="6" height="11" fill="#27272A" />
-                        {/* Flow indicator */}
-                        {(phase === 'pumping' || phase === 'counting') && (
-                          <g className="aram-oil-flow">
-                            <rect x="-150" y="39" width="20" height="3" fill="#0C0A09" opacity="0.7" />
-                          </g>
-                        )}
-                      </g>
-                    )}
+
                   </g>
                 </motion.g>
 
