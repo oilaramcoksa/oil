@@ -24,7 +24,7 @@ interface Props {
   isVerified: boolean;
 }
 
-type Phase = 'arriving' | 'connecting' | 'pumping' | 'counting' | 'retracting' | 'departing' | 'done';
+type Phase = 'arriving' | 'parked' | 'connecting' | 'pumping' | 'counting' | 'retracting' | 'departing' | 'done';
 
 export function SellModal({ open, onClose, initData, isVerified }: Props) {
   const lang = useGame((s) => s.lang);
@@ -36,6 +36,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
   const [counter, setCounter] = useState(0);
   const [result, setResult] = useState<{ sold: number; coinsEarned: number } | null>(null);
   const soldRef = useRef(0);
+  const startingOilRef = useRef(0);
 
   useEffect(() => {
     if (!open) {
@@ -49,10 +50,12 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
       return;
     }
 
-    // Sequence timing
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    // Capture the amount before the server updates the wallet.
+    startingOilRef.current = oilBefore;
 
-    // After truck arrives → connect pipe
+    // Sequence: drive in (1.6s), pause visibly for 2s, then lower the hose.
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    timers.push(setTimeout(() => setPhase('parked'), 1600));
     timers.push(setTimeout(() => {
       setPhase('connecting');
       haptic('light');
@@ -115,12 +118,12 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
     }, 5900));
 
     return () => timers.forEach(clearTimeout);
-  }, [open, initData, isVerified, applyServerSale, lang, notify]);
+  }, [open, initData, isVerified, applyServerSale, lang, notify, haptic, oilBefore]);
 
   // Pre-capture the oil at the moment of opening so the displayed number
   // matches what we sold even though sellOil zeroes it.
   const oilDisplay = open ? (result ? result.sold : Math.max(oilBefore, counter)) : 0;
-  const tankFillHeight = 34 * Math.max(0, Math.min(1, counter / Math.max(oilBefore, 1)));
+  const tankFillHeight = 34 * Math.max(0, Math.min(1, counter / Math.max(startingOilRef.current, 1)));
 
   return (
     <AnimatePresence>
@@ -562,6 +565,9 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                       <Truck className="w-4 h-4 animate-pulse" />
                       {t(lang, 'truckArriving')}
                     </span>
+                  )}
+                  {phase === 'parked' && (
+                    <span className="flex items-center gap-2">🛻 {t(lang, 'truckParked')}</span>
                   )}
                   {phase === 'connecting' && (
                     <span className="flex items-center gap-2">
