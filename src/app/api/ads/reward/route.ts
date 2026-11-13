@@ -6,7 +6,8 @@ import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const REWARDED_WIDGET_ID = 13283;
+const TADS_REWARDED_WIDGET_ID = 13283;
+const ADSGRAM_REWARDED_BLOCK_ID = 59642;
 const REWARD_COINS = 100;
 const CYCLE_LIMIT = 10;
 const CYCLE_HOURS = 12;
@@ -73,9 +74,12 @@ export async function POST(req: NextRequest) {
   const user = verifiedPlayerFromRequest(req);
   if (!user) return fail('telegram_auth_required', 401);
 
-  let body: { widgetId?: unknown; claimId?: unknown };
+  let body: { widgetId?: unknown; claimId?: unknown; provider?: unknown };
   try { body = await req.json(); } catch { return fail('invalid_body'); }
-  if (body.widgetId !== REWARDED_WIDGET_ID) return fail('invalid_reward_widget', 400);
+  const provider = body.provider === 'adsgram' ? 'adsgram' : body.provider === 'tads' || body.provider == null ? 'tads' : null;
+  if (!provider) return fail('invalid_ad_provider', 400);
+  const expectedWidgetId = provider === 'adsgram' ? ADSGRAM_REWARDED_BLOCK_ID : TADS_REWARDED_WIDGET_ID;
+  if (body.widgetId !== expectedWidgetId) return fail('invalid_reward_widget', 400);
   const claimId = typeof body.claimId === 'string' ? body.claimId : '';
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId)) {
     return fail('invalid_claim_id', 400);
@@ -174,7 +178,7 @@ export async function POST(req: NextRequest) {
       const claimRowId = randomUUID();
       await tx.execute({
         sql: 'INSERT INTO ad_reward_claims(id, telegram_id, claim_id, widget_id, reward_coins) VALUES (?, ?, ?, ?, ?)',
-        args: [claimRowId, telegramId, claimId, REWARDED_WIDGET_ID, REWARD_COINS],
+        args: [claimRowId, telegramId, claimId, expectedWidgetId, REWARD_COINS],
       });
       await tx.execute({
         sql: `UPDATE ad_reward_cycles SET views=?,
@@ -188,7 +192,7 @@ export async function POST(req: NextRequest) {
       });
 
       const metadata = JSON.stringify({
-        widgetId: REWARDED_WIDGET_ID, claimId, reward: REWARD_COINS,
+        provider, widgetId: expectedWidgetId, claimId, reward: REWARD_COINS,
         cycleView: completedViews, cycleLimit: CYCLE_LIMIT, cycleHours: CYCLE_HOURS,
       });
       await tx.execute({
