@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PumpScene } from '../PumpScene';
 import { SellModal } from '../SellModal';
@@ -21,6 +21,7 @@ import {
 import { t } from '@/lib/i18n';
 import { useTelegram } from '@/hooks/use-telegram';
 import { TadsAd } from '@/components/aram/TadsAd';
+import { toast } from 'sonner';
 
 interface Props {
   onGoToStore: () => void;
@@ -37,6 +38,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
   const cycleEndsAt = useGame((s) => s.cycleEndsAt);
   const tapPump = useGame((s) => s.tapPump);
   const processPassive = useGame((s) => s.processPassive);
+  const applyServerAdReward = useGame((s) => s.applyServerAdReward);
   const { haptic, notify } = useTelegram();
 
   const [sellOpen, setSellOpen] = useState(false);
@@ -90,6 +92,20 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
     haptic('medium');
     setSellOpen(true);
   };
+
+  const handleAdRewarded = useCallback((reward: number, walletCoins: number) => {
+    applyServerAdReward(reward, walletCoins);
+    haptic('medium');
+    notify('success');
+    toast.success(t(lang, 'tadsRewardSuccess'));
+  }, [applyServerAdReward, haptic, lang, notify]);
+
+  const handleAdRewardError = useCallback((error: string) => {
+    if (error === 'reward_cooldown') toast.error(t(lang, 'tadsRewardCooldown'));
+    else if (error === 'daily_reward_limit_reached') toast.error(t(lang, 'tadsRewardLimit'));
+    else if (error === 'telegram_auth_required') toast.error(t(lang, 'telegramRequired'));
+    else toast.error(t(lang, 'tadsUnavailable'));
+  }, [lang]);
 
   return (
     <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain pb-3">
@@ -338,8 +354,13 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
           widgetId={Number(process.env.NEXT_PUBLIC_TADS_FULLSCREEN_WIDGET_ID || '13283')}
           mode="fullscreen"
           title={t(lang, 'tadsFullscreenTitle')}
-          actionLabel={t(lang, 'tadsWatchAd')}
+          actionLabel={t(lang, 'tadsWatchAdReward')}
+          loadingLabel={t(lang, 'tadsRewardLoading')}
           description={t(lang, 'tadsUnavailable')}
+          initData={initData}
+          isVerified={isVerified}
+          onRewarded={handleAdRewarded}
+          onRewardError={handleAdRewardError}
         />
       </div>
 
