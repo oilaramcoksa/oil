@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
       if (activeRound) {
         const status = String(activeRound.status);
         const startsAt = activeRound.starts_at == null ? null : Number(activeRound.starts_at);
-        if (status !== 'open' || (startsAt !== null && startsAt <= Date.now())) {
+        if (status === 'spinning' || (startsAt !== null && startsAt <= Date.now())) {
           throw new Error('round_closed_for_entries');
         }
         roundId = String(activeRound.id);
