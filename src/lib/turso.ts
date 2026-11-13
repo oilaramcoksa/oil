@@ -254,7 +254,8 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       'CREATE INDEX IF NOT EXISTS idx_arena_round_status ON arena_rounds(status, created_at)',
       'CREATE INDEX IF NOT EXISTS idx_arena_entries_round ON arena_entries(round_id, created_at)',
       'CREATE INDEX IF NOT EXISTS idx_arena_entries_player ON arena_entries(telegram_id, created_at)',
-    ],,
+    ],
+  },
   {
     version: 5,
     statements: [
@@ -281,8 +282,7 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       'CREATE INDEX IF NOT EXISTS idx_usdt_withdrawals_player ON usdt_withdrawal_requests(telegram_id, created_at)',
       'CREATE INDEX IF NOT EXISTS idx_usdt_withdrawals_status ON usdt_withdrawal_requests(status, created_at)',
     ],
-  }
-  },
+  },  },
 
 ];
 
