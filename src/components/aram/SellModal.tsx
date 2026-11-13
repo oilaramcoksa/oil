@@ -24,7 +24,7 @@ interface Props {
   isVerified: boolean;
 }
 
-type Phase = 'arriving' | 'connecting' | 'pumping' | 'counting' | 'departing' | 'done';
+type Phase = 'arriving' | 'connecting' | 'pumping' | 'counting' | 'retracting' | 'departing' | 'done';
 
 export function SellModal({ open, onClose, initData, isVerified }: Props) {
   const lang = useGame((s) => s.lang);
@@ -98,16 +98,18 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
               setResult(sale);
               notify('success');
               // Keep the completed sale visible briefly, then retract the hose and drive away.
-              timers.push(setTimeout(() => setPhase('departing'), 1800));
-              timers.push(setTimeout(() => setPhase('done'), 3300));
+              timers.push(setTimeout(() => setPhase('retracting'), 1800));
+              timers.push(setTimeout(() => setPhase('departing'), 2600));
+              timers.push(setTimeout(() => setPhase('done'), 4100));
             }
           };
           requestAnimationFrame(animate);
         } catch (error) {
           console.error('oil_sale_ui_failed', error);
           toast.error(t(lang, 'sellError'));
-          timers.push(setTimeout(() => setPhase('departing'), 900));
-          timers.push(setTimeout(() => setPhase('done'), 2400));
+          timers.push(setTimeout(() => setPhase('retracting'), 900));
+          timers.push(setTimeout(() => setPhase('departing'), 1700));
+          timers.push(setTimeout(() => setPhase('done'), 3200));
         }
       })();
     }, 5900));
@@ -118,6 +120,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
   // Pre-capture the oil at the moment of opening so the displayed number
   // matches what we sold even though sellOil zeroes it.
   const oilDisplay = open ? (result ? result.sold : Math.max(oilBefore, counter)) : 0;
+  const tankFillHeight = 34 * Math.max(0, Math.min(1, counter / Math.max(oilBefore, 1)));
 
   return (
     <AnimatePresence>
@@ -372,6 +375,24 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                     <rect x="35" y="18" width="3" height="44" fill="#451A03" opacity="0.7" />
                     <rect x="70" y="18" width="3" height="44" fill="#451A03" opacity="0.7" />
                     <rect x="105" y="18" width="3" height="44" fill="#451A03" opacity="0.7" />
+                    {/* Oil visibly fills the tanker while the sold counter advances. */}
+                    <motion.rect
+                      x="8"
+                      y={58 - tankFillHeight}
+                      width="124"
+                      height={tankFillHeight}
+                      rx="3"
+                      fill="#78350F"
+                      opacity="0.82"
+                    />
+                    <motion.rect
+                      x="8"
+                      y={58 - tankFillHeight}
+                      width="124"
+                      height="2"
+                      fill="#FDE68A"
+                      opacity={tankFillHeight > 0 ? 0.8 : 0}
+                    />
                     {/* Highlight stripe */}
                     <rect x="5" y="22" width="130" height="2" fill="#FEF3C7" opacity="0.5" />
                     {/* ARAMCO logo on tank */}
@@ -468,7 +489,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                     )}
 
                     {/* === Connecting pipe (when phase is connecting/pumping/counting) === */}
-                    {(phase === 'connecting' || phase === 'pumping' || phase === 'counting') && (
+                    {(phase === 'connecting' || phase === 'pumping' || phase === 'counting' || phase === 'retracting') && (
                       <g className="aram-pipe-extend" style={{ transformOrigin: '5px 40px' }}>
                         {/* Pipe */}
                         <rect x="-160" y="38" width="160" height="5" fill="url(#m-steel)" />
@@ -497,14 +518,14 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                       d="M 187 340 C 170 316 183 291 207 292 C 226 293 232 305 241 317"
                       fill="none" stroke="#111827" strokeWidth="11" strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: 1, opacity: 1 }}
+                      animate={{ pathLength: phase === 'retracting' ? 0 : 1, opacity: phase === 'retracting' ? 0 : 1 }}
                       transition={{ duration: 1, ease: 'easeOut' }}
                     />
                     <motion.path
                       d="M 187 340 C 170 316 183 291 207 292 C 226 293 232 305 241 317"
                       fill="none" stroke="#D4D4D8" strokeWidth="5" strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
-                      animate={{ pathLength: 1, opacity: 1 }}
+                      animate={{ pathLength: phase === 'retracting' ? 0 : 1, opacity: phase === 'retracting' ? 0 : 1 }}
                       transition={{ duration: 1, ease: 'easeOut' }}
                     />
                     <circle cx="187" cy="340" r="6" fill="#FBBF24" stroke="#78350F" strokeWidth="2" />
