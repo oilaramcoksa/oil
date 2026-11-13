@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, ArrowDownToLine, Coins, DollarSign, RefreshCw, Wallet } from 'lucide-react';
+import { ArrowLeftRight, ArrowDownToLine, Coins, DollarSign, RefreshCw, Wallet, ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
@@ -104,7 +104,21 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
           <label className="mb-1 block text-xs font-bold text-amber-900/70">{t(lang, 'swapAmountUsd')}</label>
           <input type="number" inputMode="decimal" min="1" step="0.000001" value={usdInput} onChange={(e) => setUsdInput(e.target.value)} className="mb-3 w-full rounded-xl border border-amber-200 bg-white px-3 py-3 font-bold text-[#542b12] outline-none focus:border-amber-500"/>
           <label className="mb-1 block text-xs font-bold text-amber-900/70">{t(lang, 'swapTronAddress')}</label>
-          <input type="text" dir="ltr" autoCapitalize="off" autoCorrect="off" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="T..." className="w-full rounded-xl border border-amber-200 bg-white px-3 py-3 font-mono text-sm text-[#542b12] outline-none focus:border-amber-500"/>
+          <div className="flex gap-2" dir="ltr">
+            <input type="text" dir="ltr" autoCapitalize="off" autoCorrect="off" spellCheck={false} value={address} onChange={(e) => setAddress(e.target.value.trim())} placeholder="T..." className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-3 font-mono text-sm text-[#542b12] outline-none focus:border-amber-500"/>
+            <button type="button" onClick={async () => {
+              try {
+                const pasted = await navigator.clipboard.readText();
+                if (!pasted.trim()) { toast.error(t(lang, 'swapClipboardEmpty')); return; }
+                setAddress(pasted.trim());
+                toast.success(t(lang, 'swapPasted'));
+              } catch {
+                toast.error(t(lang, 'swapPasteDenied'));
+              }
+            }} className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-100 px-3 text-xs font-black text-amber-900" aria-label={t(lang, 'swapPaste')}>
+              <ClipboardPaste size={16}/><span>{t(lang, 'swapPaste')}</span>
+            </button>
+          </div>
           <p className="mt-2 text-[10px] leading-relaxed text-amber-900/60">{t(lang, 'swapMinWithdrawHint')}</p>
           <button disabled={!canWithdraw || walletLoading || walletError} onClick={() => void withdraw()} className="mt-3 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 font-black text-white shadow-md disabled:opacity-40">{loading ? t(lang, 'swapProcessing') : t(lang, 'swapWithdrawButton')}</button>
         </section>
