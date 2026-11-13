@@ -223,7 +223,9 @@ export function ArenaScreen({
             <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_32%_18%,rgba(255,255,255,.42),transparent_36%),radial-gradient(ellipse_at_50%_50%,transparent_48%,rgba(110,55,10,.18)_100%)]" />
             <div className="pointer-events-none absolute inset-[3px] rounded-full border border-white/25 shadow-[inset_0_2px_8px_rgba(255,255,255,.22),inset_0_-12px_22px_rgba(0,0,0,.22)]" />
             {wheelEntries.map((entry, index) => {
-              const angle = wheelEntries.slice(0, index).reduce((sum, item) => sum + item.weight, 0) + entry.weight / 2 - 90;
+              const angle = entry.house
+                ? -135
+                : -90 + ((25 + (displayedEntries.slice(0, index - 1).reduce((sum, item) => sum + item.amount, 0) + (displayedEntries[index - 1]?.amount ?? 0) / 2) / Math.max(total, 1)) * 270);
               return (
                 <div
                   key={entry.id}
