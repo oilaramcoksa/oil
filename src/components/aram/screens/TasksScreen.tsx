@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
 import { TadsAd } from '@/components/aram/TadsAd';
+import { AdsgramRewardAd } from '@/components/aram/AdsgramRewardAd';
 
 type AdProgress = { used: number; limit: number; remaining: number; cooldownUntil: number | null; locked: boolean; rewardPerAd: number; totalCycleReward: number };
 
@@ -249,6 +250,24 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
           />
         ) : (
           <p className="text-center text-xs font-bold text-amber-900/60">{t(lang, 'telegramRequired')}</p>
+        )}
+        {isVerified && initData && (
+          <AdsgramRewardAd
+            initData={initData}
+            isVerified={isVerified}
+            onRewarded={(reward, walletCoins) => {
+              applyServerAdReward(reward, walletCoins);
+              haptic('medium');
+              notify('success');
+              toast.success(`${t(lang, 'tadsRewardSuccess')} +${reward} ${t(lang, 'coins')}`);
+            }}
+            onRewardError={(error) => {
+              if (error === 'telegram_auth_required') toast.error(t(lang, 'telegramRequired'));
+              else if (error === 'ad_cycle_cooldown' || error === 'ad_cycle_limit_reached') toast.error('اكتملت مشاهدات الدورة. انتظر انتهاء العداد.');
+              else if (error === 'adsgram_not_completed') toast.info('لم تكتمل مشاهدة الإعلان، لذلك لم تُضف مكافأة.');
+              else toast.error('تعذر تشغيل إعلان AdsGram. حاول لاحقًا.');
+            }}
+          />
         )}
         <p className="mt-2 text-center text-[10px] font-bold text-amber-900/60">
           {adProgress?.locked ? 'اكتملت 10/10 مشاهدات، وسيُعاد تفعيل المشاهدة بعد انتهاء 12 ساعة.' : `المتبقي: ${adProgress?.remaining ?? 10} إعلانات · إجمالي الدورة: 1,000 عملة`}
