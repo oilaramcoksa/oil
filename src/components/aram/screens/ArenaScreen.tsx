@@ -108,7 +108,7 @@ export function ArenaScreen({
 
   const wheelGradient = useMemo(() => {
     let cursor = 0;
-    const colors = ['#1545f0', '#ff9d4b', '#7c3aed', '#00b98b', '#f43f5e', '#0ea5e9'];
+    const colors = ['#f59e0b', '#2457f5', '#8b5cf6', '#0ea5e9', '#10b981', '#ec4899', '#ef4444', '#14b8a6'];
     const stops = wheelEntries.map((entry, index) => {
       const start = cursor;
       cursor += entry.weight;
@@ -156,7 +156,7 @@ export function ArenaScreen({
     }
   };
 
-  const isRoundClosed = Boolean(round && round.status !== 'open');
+  const isRoundClosed = Boolean(round && (round.status === 'spinning' || (round.startsAt !== null && round.startsAt <= now)));
   const spinRemaining = round?.spinStartedAt
     ? Math.max(0.2, (round.spinStartedAt + 7_000 - now) / 1_000)
     : 7;
