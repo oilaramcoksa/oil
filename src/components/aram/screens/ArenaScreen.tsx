@@ -118,8 +118,8 @@ export function ArenaScreen({
     return `conic-gradient(from -90deg, ${stops.join(', ')})`;
   }, [displayedEntries, lang]);
 
-  const join = async () => {
-    const entryAmount = Number(amount);
+  const join = async (requestedAmount?: number) => {
+    const entryAmount = requestedAmount ?? Number(amount);
     if (!Number.isSafeInteger(entryAmount) || entryAmount < 1_000) {
       toast.error(t(lang, 'arenaMin'));
       return;
@@ -178,28 +178,27 @@ export function ArenaScreen({
           </button>
         </header>
 
-        <section className="mb-3 grid grid-cols-3 gap-2">
-          <div className="rounded-xl border border-white/10 bg-white/[.04] p-3">
-            <span className="text-[10px] text-zinc-400">{t(lang, 'arenaPlayers')}</span>
-            <div className="mt-1 flex items-center gap-1 text-lg font-black"><Users size={15} /> {displayedEntries.length}</div>
+        <section className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#252735] via-[#1d202b] to-[#17191f] p-3 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/15 text-blue-300"><Users size={18}/></span>
+              <div><div className="text-sm font-extrabold">{t(lang, 'arenaRoundLabel')}</div><div className="mt-0.5 text-[10px] text-zinc-400">{t(lang, 'arenaPlayers')}: {displayedEntries.length}</div></div>
+            </div>
+            <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold text-emerald-300">{round?.status === 'countdown' ? t(lang, 'arenaCountdown') : isSpinning ? t(lang, 'arenaSpinning') : t(lang, 'arenaReady')}</span>
           </div>
-          <div className="rounded-xl border border-white/10 bg-white/[.04] p-3">
-            <span className="text-[10px] text-zinc-400">{t(lang, 'arenaPot')}</span>
-            <div className="mt-1 text-lg font-black text-amber-400 tabular-nums">{total.toLocaleString()}</div>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-white/[.04] p-3">
-            <span className="text-[10px] text-zinc-400">{t(lang, 'arenaBalance')}</span>
-            <div className="mt-1 text-lg font-black text-emerald-400 tabular-nums">{balance.toLocaleString()}</div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-black/20 p-2.5"><div className="text-[10px] text-zinc-400">{t(lang, 'arenaPot')}</div><div className="mt-1 text-lg font-black tabular-nums text-amber-300">{total.toLocaleString()}</div></div>
+            <div className="rounded-xl bg-black/20 p-2.5"><div className="text-[10px] text-zinc-400">{t(lang, 'arenaBalance')}</div><div className="mt-1 text-lg font-black tabular-nums text-emerald-300">{balance.toLocaleString()}</div></div>
           </div>
         </section>
 
         <div className="relative mx-auto my-5 aspect-square w-[min(82vw,370px)]">
-          <div className="absolute -top-1 left-1/2 z-20 -translate-x-1/2 text-3xl text-white drop-shadow-lg">▼</div>
+          <div className="absolute -top-2 left-1/2 z-20 -translate-x-1/2 drop-shadow-[0_3px_8px_rgba(0,0,0,.7)]"><div className="h-0 w-0 border-x-[16px] border-t-[27px] border-x-transparent border-t-white"/></div>
           <motion.div
             initial={false}
             animate={{ rotate: isSpinning ? 2_880 + displayStop : !round && state.lastResult ? 2_880 + displayStop : displayStop }}
             transition={isSpinning ? { duration: spinRemaining, ease: [0.12, 0.75, 0.12, 1] } : { duration: 0.35 }}
-            className="absolute inset-0 rounded-full border-[7px] border-[#292a32] shadow-[0_0_0_2px_rgba(255,255,255,.05),0_20px_45px_rgba(0,0,0,.45)]"
+            className="absolute inset-0 rounded-full border-[8px] border-[#2c2f3a] shadow-[inset_0_0_0_2px_rgba(255,255,255,.22),0_0_0_3px_rgba(0,0,0,.55),0_24px_55px_rgba(0,0,0,.65)]"
             style={{ background: wheelGradient }}
           >
             {wheelEntries.map((entry, index) => {
@@ -210,24 +209,24 @@ export function ArenaScreen({
                   className="absolute left-1/2 top-1/2 w-24 -translate-x-1/2 -translate-y-1/2 text-center text-[10px] font-black"
                   style={{ transform: `rotate(${angle}deg) translateY(-112px) rotate(-${angle}deg)` }}
                 >
-                  <span className="inline-block max-w-full truncate rounded bg-black/55 px-1.5 py-1">
-                    {entry.house ? '🔥 ' + t(lang, 'arenaAdminSlice') : entry.label}
+                  <span className={`mx-auto grid h-7 w-7 place-items-center rounded-full border border-white/80 text-[10px] font-black shadow-lg ${entry.house ? 'bg-amber-400 text-[#33200b]' : 'bg-black/70 text-white'}`}>
+                    {entry.house ? '🔥' : entry.label.slice(0, 1).toUpperCase()}
                   </span>
-                  {!entry.house && <span className="mt-0.5 block text-[9px]">{entry.weight.toFixed(1)}%</span>}
                 </div>
               );
             })}
           </motion.div>
 
-          <div className="absolute inset-[34%] z-10 flex flex-col items-center justify-center rounded-full border-[4px] border-white bg-[#17191f] shadow-[0_4px_18px_rgba(0,0,0,.65)]">
-            <div className="text-center text-2xl font-black tabular-nums">
+          <div className="absolute inset-[34%] z-10 flex flex-col items-center justify-center rounded-full border-[5px] border-white/90 bg-[radial-gradient(circle_at_35%_25%,#343746,#15171d_72%)] shadow-[0_0_0_7px_rgba(0,0,0,.22),0_8px_30px_rgba(0,0,0,.7)]">
+            <div className="mb-1 grid h-8 w-8 place-items-center rounded-full bg-white/10 text-amber-300">{isSpinning ? <Zap size={17}/> : <Users size={17}/>}</div>
+            <div className="text-center text-xl font-black tabular-nums">
               {round?.status === 'countdown'
                 ? `00:${String(countdown ?? 0).padStart(2, '0')}`
                 : isSpinning
                   ? t(lang, 'arenaSpinning')
-                  : t(lang, 'arenaWaiting')}
+                  : t(lang, 'arenaReady')}
             </div>
-            <div className="mt-1 text-[10px] text-zinc-400"><Users size={11} className="inline" /> {displayedEntries.length}</div>
+            <div className="mt-1 text-[9px] text-zinc-400">{displayedEntries.length} · {t(lang, 'arenaPlayers')}</div>
           </div>
         </div>
 
@@ -237,12 +236,12 @@ export function ArenaScreen({
             <strong className="text-base text-amber-400">{total.toLocaleString()}</strong>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full w-1/4 bg-orange-400" />
+            <div className="h-full w-1/4 bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500" />
           </div>
           <div className="mt-2 flex justify-between text-[10px] text-zinc-400">
-            <span>{t(lang, 'arenaAdminSlice')}</span><span>25%</span>
+            <span>{t(lang, 'arenaBurnSlice')}</span><span>25%</span>
           </div>
-          <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">{t(lang, 'arenaAdminNote')}</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">{t(lang, 'arenaAdminNote')}</p>
         </section>
 
         <section className="mb-3 rounded-xl border border-white/10 bg-white/[.04] p-3">
@@ -262,9 +261,9 @@ export function ArenaScreen({
               className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#25262a] p-3 font-black outline-none focus:border-blue-500"
             />
             <button
-              onClick={() => setAmount(String(balance))}
-              disabled={ownEntry || isRoundClosed}
-              className="rounded-lg bg-white/10 px-3 text-xs font-black disabled:opacity-40"
+              onClick={() => void join(balance)}
+              disabled={loading || !isVerified || ownEntry || isRoundClosed || balance < 1000}
+              className="rounded-xl border border-amber-300/20 bg-gradient-to-b from-amber-400/20 to-orange-500/10 px-4 text-xs font-black text-amber-200 shadow-inner disabled:opacity-40"
             >
               {t(lang, 'arenaMax')}
             </button>
@@ -277,7 +276,7 @@ export function ArenaScreen({
             {loading ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
             {t(lang, 'arenaJoin')} · {Number(amount || 0).toLocaleString()}
           </button>
-          <p className="mt-2 text-[10px] text-zinc-500">{t(lang, 'arenaMin')} · {t(lang, 'arenaRules')}</p>
+          <p className="mt-2 text-[10px] text-zinc-500">{t(lang, 'arenaMin')} · {t(lang, 'arenaRules')} · {t(lang, 'arenaMaxHint')}</p>
         </section>
 
         <section className="rounded-xl border border-white/10 bg-white/[.04] p-3">
