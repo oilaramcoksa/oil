@@ -332,6 +332,32 @@ export async function ensureDatabaseSchema(): Promise<void> {
       // Backfill wallet and game-state rows for all players registered before this schema.
       await db.execute(`INSERT OR IGNORE INTO player_wallets(telegram_id)
         SELECT telegram_id FROM players`);
+      // Restore legacy wallet balances from the last cloud snapshot before
+      // treating newly backfilled zero-balance wallet rows as authoritative.
+      // Never overwrite balances once a ledger entry or swap exists.
+      await db.execute(`
+        UPDATE player_wallets
+        SET coins_balance = COALESCE((
+              SELECT CAST(json_extract(s.state_json, '$.coins') AS INTEGER)
+              FROM player_game_snapshots s
+              WHERE s.telegram_id = player_wallets.telegram_id
+                AND json_valid(s.state_json)
+                AND json_type(s.state_json, '$.coins') IN ('integer','real')
+                AND CAST(json_extract(s.state_json, '$.coins') AS INTEGER) >= 0
+            ), coins_balance),
+            oil_balance = COALESCE((
+              SELECT CAST(json_extract(s.state_json, '$.oil') AS INTEGER)
+              FROM player_game_snapshots s
+              WHERE s.telegram_id = player_wallets.telegram_id
+                AND json_valid(s.state_json)
+                AND json_type(s.state_json, '$.oil') IN ('integer','real')
+                AND CAST(json_extract(s.state_json, '$.oil') AS INTEGER) >= 0
+            ), oil_balance),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE NOT EXISTS (SELECT 1 FROM ledger_entries l WHERE l.telegram_id = player_wallets.telegram_id)
+          AND NOT EXISTS (SELECT 1 FROM coin_swaps s WHERE s.telegram_id = player_wallets.telegram_id)
+          AND EXISTS (SELECT 1 FROM player_game_snapshots s WHERE s.telegram_id = player_wallets.telegram_id)
+      `);
       await db.execute(`INSERT OR IGNORE INTO player_game_state(telegram_id)
         SELECT telegram_id FROM players`);
       await db.execute(`INSERT OR IGNORE INTO player_monthly_stats(telegram_id, month_key)
