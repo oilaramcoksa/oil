@@ -211,6 +211,23 @@ export async function POST(req: NextRequest) {
         if (Number(updated.rowsAffected) !== 1) { await tx.rollback(); return fail('player_not_found', 404); }
         await notify(tx, target, action === 'ban' ? '⛔ تم تعليق حسابك' : '✅ تمت إعادة تفعيل حسابك',
           action === 'ban' ? (reason || 'تم تعليق الحساب بواسطة الإدارة') : 'يمكنك الآن استخدام اللعبة مجددًا.', 'account');
+
+      } else if (action === 'move_referral') {
+        const refereeId = String(body.refereeTelegramId ?? '').trim().slice(0, 64);
+        if (!target || !refereeId || target === refereeId) { await tx.rollback(); return fail('invalid_referral_move'); }
+        const players = await tx.execute({
+          sql: 'SELECT telegram_id FROM players WHERE telegram_id IN (?,?)',
+          args: [target, refereeId],
+        });
+        if (players.rows.length !== 2) { await tx.rollback(); return fail('player_not_found', 404); }
+        await tx.execute({
+          sql: `INSERT INTO referrals(id,referrer_telegram_id,referee_telegram_id,status)
+                VALUES(?,?,?,'joined')
+                ON CONFLICT(referee_telegram_id) DO UPDATE SET
+                referrer_telegram_id=excluded.referrer_telegram_id`,
+          args: [randomUUID(), target, refereeId],
+        });
+        await notify(tx, refereeId, '🔗 تم تحديث جهة الدعوة', 'تم تحديث بيانات الإحالة المرتبطة بحسابك بواسطة إدارة اللعبة.', 'referral');
       } else if (action === 'set_speed') {
         const speed = Number(body.speed);
         await tx.execute({ sql: 'INSERT OR IGNORE INTO player_game_state(telegram_id) VALUES(?)', args: [target] });
