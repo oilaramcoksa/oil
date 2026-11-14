@@ -522,6 +522,31 @@ export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, par
             <path d="M78 100 L84 107" stroke="#E5E7EB" strokeWidth="2.5" />
           </g>
         )}
+        {(parts.fuel_station ?? 0) > 0 && (
+          <g transform="translate(25,244) scale(0.72)" filter="url(#softShadow)">
+            <rect x="0" y="0" width="72" height="58" rx="5" fill="#DC2626" stroke="#7F1D1D" strokeWidth="2" />
+            <rect x="7" y="7" width="58" height="16" rx="2" fill="#FDE68A" />
+            <path d="M13 15 H59" stroke="#92400E" strokeWidth="2" />
+            <rect x="10" y="30" width="20" height="20" rx="2" fill="#1E293B" />
+            <rect x="38" y="30" width="24" height="20" rx="2" fill="#E5E7EB" />
+            <path d="M50 32 V47 M43 40 H57" stroke="#DC2626" strokeWidth="2" />
+            <rect x="67" y="24" width="8" height="28" rx="2" fill="#52525B" />
+            <path d="M71 24 Q82 23 80 36" stroke="#E5E7EB" strokeWidth="3" fill="none" />
+          </g>
+        )}
+        {(parts.oil_truck ?? 0) > 0 && (
+          <g transform="translate(284,267) scale(0.78)" filter="url(#softShadow)">
+            <rect x="0" y="16" width="55" height="25" rx="7" fill="#E5E7EB" stroke="#475569" strokeWidth="2" />
+            <path d="M55 23 H74 L86 35 V42 H55 Z" fill="#DC2626" stroke="#7F1D1D" strokeWidth="2" />
+            <path d="M64 25 H73 L80 34 H64 Z" fill="#BAE6FD" />
+            <circle cx="19" cy="44" r="8" fill="#1F2937" stroke="#9CA3AF" strokeWidth="2" />
+            <circle cx="69" cy="44" r="8" fill="#1F2937" stroke="#9CA3AF" strokeWidth="2" />
+            <circle cx="19" cy="44" r="3" fill="#D1D5DB" />
+            <circle cx="69" cy="44" r="3" fill="#D1D5DB" />
+            <path d="M8 21 H47" stroke="#F59E0B" strokeWidth="3" />
+            <text x="27" y="34" textAnchor="middle" fill="#7F1D1D" fontSize="8" fontWeight="900">OIL</text>
+          </g>
+        )}
         {/* === OIL PLATFORM / CONCRETE BASE === */}
         <g filter="url(#softShadow)">
           {/* Shadow */}
