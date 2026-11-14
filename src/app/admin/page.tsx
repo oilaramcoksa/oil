@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, BellRing, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle } from 'lucide-react';
+import { Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle } from 'lucide-react';
 
-type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'audit';
+type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'audit';
 type Player = {telegram_id:string;username?:string|null;first_name?:string|null;last_name?:string|null;status:string;coins:number;oil:number;base_oil_per_tap:number};
 type Row = Record<string, unknown>;
 
@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [usdt,setUsdt] = useState<Row[]>([]);
   const [payments,setPayments] = useState<Row[]>([]);
   const [logs,setLogs] = useState<Row[]>([]);
+  const [shortsRows,setShortsRows] = useState<Row[]>([]);
   const [referralRows,setReferralRows] = useState<Row[]>([]);
   const [referralMemberId,setReferralMemberId] = useState('');
   const [status,setStatus] = useState('pending');
@@ -53,6 +54,7 @@ export default function AdminPage() {
       if(nextSection==='payments') setPayments(data.payments||[]);
       if(nextSection==='referrals') setReferralRows(data.referrals||[]);
       if(nextSection==='audit') setLogs(data.logs||[]);
+      if(nextSection==='shorts') setShortsRows(data.shorts||[]);
     } catch(e){setError(e instanceof Error?e.message:'حدث خطأ');}
     finally{setBusy(false);}
   }
@@ -84,6 +86,7 @@ export default function AdminPage() {
     {id:'withdrawals' as const,label:'طلبات السحب',icon:Wallet},
     {id:'payments' as const,label:'المشتريات',icon:ShoppingBag},
     {id:'broadcasts' as const,label:'الرسائل والإعلانات',icon:Megaphone},
+    {id:'shorts' as const,label:'مسابقة Shorts',icon:Youtube},
     {id:'audit' as const,label:'سجل الإدارة',icon:Activity}
   ];
   if(!token) return <main dir="rtl" className="min-h-screen bg-[#090d16] text-white grid place-items-center p-5"><form onSubmit={login} className="w-full max-w-md rounded-3xl border border-amber-400/20 bg-[#111827] p-8 shadow-2xl"><div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-amber-400/10 text-amber-300"><ShieldCheck size={32}/></div><h1 className="text-center text-2xl font-black">Aramco Oil</h1><p className="mb-7 mt-2 text-center text-sm text-slate-400">بوابة الإدارة الآمنة</p>{error&&<p className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{error}</p>}<label className="mb-2 block text-sm text-slate-300">كلمة مرور الإدارة</label><input autoFocus type="password" value={input} onChange={e=>setInput(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 outline-none focus:border-amber-400" placeholder="أدخل رمز الدخول"/><button disabled={busy} className="mt-4 w-full rounded-xl bg-amber-400 py-3 font-black text-slate-950 disabled:opacity-60">{busy?'جارٍ التحقق…':'دخول لوحة التحكم'}</button><p className="mt-4 text-center text-xs text-slate-500">يتم التحقق من الرمز على الخادم ولا يُحفظ في المتصفح.</p></form></main>;
@@ -113,6 +116,7 @@ export default function AdminPage() {
           </div>
           <div className="mt-4 flex items-center gap-2 text-xs text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400"/> الإشعارات تُحفظ في قاعدة البيانات وتُعرض داخل اللعبة</div>
         </section>}
+        {section==='shorts'&&<><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-400">مراجعة المشاركات واستبعاد الروابط المخالفة. أرقام المشاهدات مُدخلة من اللاعبين وليست موثقة من YouTube.</p><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-xl border border-white/10 bg-[#111827] px-3 py-2 text-sm"><option value="approved">المعتمدة</option><option value="rejected">المستبعدة</option><option value="all">الكل</option></select></div><DataTable title="مشاركات YouTube Shorts" rows={shortsRows} columns={['first_name','username','telegram_id','video_title','declared_views','video_url','status']} action={(row)=>act({action:'shorts_review',id:String(row.id),status:String(row.status)==='rejected'?'approved':'rejected'})}/></>}
         {section==='audit'&&<DataTable title="آخر العمليات الإدارية" rows={logs} columns={['action','target_type','target_id','details_json','created_at']}/>}
       </main>
     </div>
