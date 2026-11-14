@@ -193,6 +193,7 @@ export async function POST(req: NextRequest) {
         if(!row.rows.length){await tx.rollback();return fail('payment_not_pending',409);}
         const p=row.rows[0], telegramId=String(p.telegram_id), pkg=String(p.package_id??'');
         if(!['confirmed','rejected'].includes(status)){await tx.rollback();return fail('invalid_status');}
+        if(status==='rejected'&&!noteText(body.reason,true)){await tx.rollback();return fail('reason_required');}
         if(status==='confirmed'){
           const payload=JSON.parse(String(p.provider_payload_json??'{}'));
           if(payload.kind==='shop_part'){
