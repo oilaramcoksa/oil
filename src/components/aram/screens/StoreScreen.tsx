@@ -342,9 +342,15 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                 </span>
               </div>
             </motion.button>
-              <div className="mt-2 rounded-xl border border-emerald-300/60 bg-gradient-to-r from-emerald-50 via-white to-amber-50 px-3 py-2 shadow-sm">
+              <div className="relative mt-1 overflow-hidden rounded-xl border-2 border-emerald-300/70 bg-gradient-to-br from-emerald-50 via-white to-amber-50 px-3 py-2 shadow-sm">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className={`inline-flex items-center rounded-full bg-gradient-to-r ${p.color} px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-sm`}>
+                    {p.id.replace('_', ' ')}
+                  </span>
+                  <span className="text-[9px] font-black text-emerald-800">{t(lang, 'monthlyGrowthForPackage')}</span>
+                </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-black text-emerald-800">{t(lang, 'monthlyGrowthHint')}</span>
+                  <span className="text-[10px] font-black text-emerald-900">{t(lang, 'monthlyGrowthHint')}</span>
                   <span className="shrink-0 rounded-full bg-emerald-600/10 px-2 py-1 text-sm font-black text-emerald-700">
                     +${p.id === 'fast_oil' ? 9 : p.id === 'king_oil' ? 30 : 75}
                   </span>
