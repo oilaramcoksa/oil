@@ -156,6 +156,7 @@ export async function POST(req: NextRequest) {
   const target = String(body.telegramId ?? '').trim().slice(0, 64);
   const reason = noteText(body.reason, true);
   const amount = Number(body.amount);
+  let broadcastDelivered: number | null = null;
 
   if (['grant_coins', 'grant_oil', 'set_speed', 'ban', 'unban'].includes(action) && !target) return fail('player_required');
   if (['grant_coins', 'grant_oil'].includes(action) &&
@@ -357,8 +358,7 @@ export async function POST(req: NextRequest) {
         if (!title || !message) { await tx.rollback(); return fail('message_required'); }
         const users = await tx.execute("SELECT telegram_id FROM players WHERE status='active'");
         for (const row of users.rows) await notify(tx, String(row.telegram_id), title, message, 'announcement');
-        await tx.commit();
-        return NextResponse.json({ ok: true, delivered: users.rows.length }, { headers: { 'Cache-Control': 'no-store' } });
+        broadcastDelivered = users.rows.length;
       } else {
         await tx.rollback();
         return fail('unknown_action', 404);
@@ -369,7 +369,7 @@ export async function POST(req: NextRequest) {
         args: [randomUUID(), 'admin_session', action, action === 'withdrawal' ? 'withdrawal' : action === 'payment' ? 'payment' : action === 'broadcast' || action === 'broadcast_coins' ? 'broadcast' : 'player', target || String(body.id ?? 'all'), JSON.stringify(body)],
       });
       await tx.commit();
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, ...(broadcastDelivered === null ? {} : { delivered: broadcastDelivered }) }, { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
       await tx.rollback();
       throw error;
