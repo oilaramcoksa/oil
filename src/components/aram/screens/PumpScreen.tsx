@@ -35,6 +35,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
   const oil = useGame((s) => s.oil);
   const coins = useGame((s) => s.coins);
   const upgrades = useGame((s) => s.upgrades);
+  const baseOilPerTap = useGame((s) => s.baseOilPerTap);
   const parts = useGame((s) => s.parts);
   const cycleEndsAt = useGame((s) => s.cycleEndsAt);
   const tapPump = useGame((s) => s.tapPump);
@@ -63,7 +64,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
   }, []);
 
   const cap = effectiveCapacity(upgrades);
-  const perTap = effectiveOilPerTap(upgrades);
+  const perTap = effectiveOilPerTap(upgrades, Date.now(), baseOilPerTap);
   const coinsPerHour = effectiveCoinsPerHour(upgrades);
   const oilRatio = oil / cap;
   const isFull = oil >= cap;
