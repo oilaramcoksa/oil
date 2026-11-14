@@ -269,7 +269,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
             <motion.button key={part.id} whileTap={{ scale: 0.97 }} onClick={() => { setSelectedPart(part); setPartFailed(false); setPartVerifying(false); }}
               className="aram-card rounded-2xl p-2 text-center border border-amber-300">
               <div className="h-20 flex items-center justify-center mb-1"><img src={part.image} alt={part.label} className="max-h-20 max-w-full object-contain" /></div>
-              <div className="text-[11px] font-black text-[#2a1c0a] leading-tight">{t(lang, part.nameKey)}</div>
+              <div className="text-[11px] font-black text-[#2a1c0a] leading-tight">{part.label}</div>
               <div className="text-lg font-black text-emerald-700 my-1">{part.multiplier}</div>
               <div className="text-[11px] font-bold text-amber-900">{part.price} TON</div>
               <div className="text-[9px] text-amber-900/60 mt-1">{t(lang, 'buyPart')}</div>
@@ -460,7 +460,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                 >
                   <img src={selectedPart.image} alt={selectedPart.label} className="max-h-36 max-w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.45)]" />
                 </motion.div>
-                <h3 className="text-amber-100 font-black text-lg">{t(lang, selectedPart.nameKey)}</h3>
+                <h3 className="text-amber-100 font-black text-lg">{selectedPart.label}</h3>
                 <motion.div
                   animate={{ scale: [1, 1.07, 1], textShadow: ['0 0 8px rgba(52,211,153,.15)', '0 0 22px rgba(52,211,153,.65)', '0 0 8px rgba(52,211,153,.15)'] }}
                   transition={{ duration: 2.2, repeat: Infinity }}
