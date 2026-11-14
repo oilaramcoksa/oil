@@ -11,6 +11,7 @@ interface Props {
   oilRatio: number;
   onTap: () => void;
   parts?: { oil_pump?: number; fuel_station?: number; oil_truck?: number };
+  specialParts?: { new_background?: boolean; vip_badge?: boolean };
 }
 
 interface Ripple {
@@ -26,6 +27,8 @@ export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, par
   // Day/night cycle: 06:00–17:59 = day, 18:00–05:59 = night.
   const hour = new Date().getHours();
   const isNight = hour < 6 || hour >= 18;
+  const specialBackground = specialParts.new_background === true;
+  const vip = specialParts.vip_badge === true;
 
   const handleTap = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -44,6 +47,7 @@ export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, par
       className="relative w-full aspect-square max-h-[60vh] select-none touch-none"
       onPointerDown={handleTap}
     >
+      {vip && <div className="absolute left-3 top-3 z-20 rounded-lg border border-amber-200/80 bg-gradient-to-r from-amber-300 via-yellow-100 to-amber-500 px-3 py-1 text-xs font-black italic tracking-[.2em] text-amber-950 shadow-[0_0_18px_rgba(251,191,36,.8)] animate-pulse">VIP</div>}
       <svg
         viewBox="0 0 400 400"
         className="absolute inset-0 w-full h-full"
@@ -54,15 +58,15 @@ export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, par
           <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
             {isNight ? (
               <>
-                <stop offset="0%" stopColor="#0B1026" />
-                <stop offset="40%" stopColor="#1E1B4B" />
-                <stop offset="75%" stopColor="#3730A3" stopOpacity="0.6" />
+                <stop offset="0%" stopColor={specialBackground ? '#071b32' : '#0B1026'} />
+                <stop offset="40%" stopColor={specialBackground ? '#123b60' : '#1E1B4B'} />
+                <stop offset="75%" stopColor={specialBackground ? '#176b83' : '#3730A3'} stopOpacity="0.6" />
                 <stop offset="100%" stopColor="#7C2D12" stopOpacity="0.5" />
               </>
             ) : (
               <>
-                <stop offset="0%" stopColor="#FEF3C7" />
-                <stop offset="25%" stopColor="#FED7AA" />
+                <stop offset="0%" stopColor={specialBackground ? '#d9f5ff' : '#FEF3C7'} />
+                <stop offset="25%" stopColor={specialBackground ? '#9be7ee' : '#FED7AA'} />
                 <stop offset="55%" stopColor="#FB923C" />
                 <stop offset="85%" stopColor="#C2410C" />
                 <stop offset="100%" stopColor="#7C2D12" />
