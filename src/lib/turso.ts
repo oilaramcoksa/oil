@@ -313,6 +313,19 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       'CREATE INDEX IF NOT EXISTS idx_usdt_withdrawals_status ON usdt_withdrawal_requests(status, created_at)',
     ],
   },
+
+  {
+    version: 8,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS player_parts (
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        part_id TEXT NOT NULL CHECK(part_id IN ('oil_pump','fuel_station','oil_truck')),
+        quantity INTEGER NOT NULL DEFAULT 0 CHECK(quantity >= 0),
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(telegram_id, part_id)
+      )`,
+    ],
+  },
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {
