@@ -55,6 +55,10 @@ export async function GET(req: NextRequest) {
       args: [telegramId],
     });
     const parts = Object.fromEntries(partsRows.rows.map((row) => [String(row.part_id), Number(row.quantity)]));
+    const gameSettings = await db.execute({
+      sql: 'SELECT base_oil_per_tap, base_capacity FROM player_game_state WHERE telegram_id = ?',
+      args: [telegramId],
+    });
     const stats = await db.execute({
       sql: `SELECT COALESCE(taps,0) AS taps, COALESCE(sells,0) AS sells,
                    COALESCE(coins_earned,0) AS coins_earned
@@ -82,6 +86,7 @@ export async function GET(req: NextRequest) {
       player: { telegramId, username: identity.username ?? null, firstName: identity.first_name ?? null, lastName: identity.last_name ?? null },
       referralCode,
       parts,
+      gameSettings: gameSettings.rows[0] ? { baseOilPerTap: Number(gameSettings.rows[0].base_oil_per_tap), baseCapacity: Number(gameSettings.rows[0].base_capacity) } : null,
       referralCount: referrals.length,
       referrals,
       monthlyStats: stats.rows[0] ?? { taps: 0, sells: 0, coins_earned: 0 },
