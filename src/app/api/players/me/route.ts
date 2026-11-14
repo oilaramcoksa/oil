@@ -54,6 +54,78 @@ export async function GET(req: NextRequest) {
       }
     }
 
+
+    // Record one verified app visit per UTC calendar day. Referral qualification
+    // requires three distinct consecutive calendar days after the referral exists.
+    const dayKey = new Date().toISOString().slice(0, 10);
+    await db.execute({
+      sql: 'INSERT OR IGNORE INTO player_login_days(telegram_id, day_key) VALUES(?, ?)',
+      args: [telegramId, dayKey],
+    });
+    const loginDays = await db.execute({
+      sql: "SELECT COUNT(*) AS days FROM player_login_days WHERE telegram_id=? AND day_key >= date('now','-2 days') AND day_key <= date('now')",
+      args: [telegramId],
+    });
+    if (Number(loginDays.rows[0]?.days ?? 0) >= 3) {
+      await db.execute({
+        sql: "UPDATE referrals SET status='qualified' WHERE referee_telegram_id=? AND status='joined'",
+        args: [telegramId],
+      });
+    }
+
+    // Lifetime 5% referral commission. It is an additional platform-funded
+    // credit to the inviter; the referred player's wallet is never debited.
+    const referral = await db.execute({
+      sql: "SELECT referrer_telegram_id FROM referrals WHERE referee_telegram_id=? AND status IN ('qualified','rewarded')",
+      args: [telegramId],
+    });
+    if (referral.rows.length) {
+      const referrerId = String(referral.rows[0].referrer_telegram_id);
+      const revenue = await db.execute({
+        sql: "SELECT COALESCE(SUM(amount),0) AS total FROM ledger_entries WHERE telegram_id=? AND asset='coins' AND entry_type='oil_sale' AND date(created_at)=date('now')",
+        args: [telegramId],
+      });
+      const revenueCoins = Math.max(0, Number(revenue.rows[0]?.total ?? 0));
+      const tx = await db.transaction('write');
+      try {
+        const paid = await tx.execute({
+          sql: "SELECT commission_coins FROM referral_daily_commissions WHERE referee_telegram_id=? AND day_key=?",
+          args: [telegramId, dayKey],
+        });
+        const alreadyPaid = Number(paid.rows[0]?.commission_coins ?? 0);
+        const targetCommission = Math.floor(revenueCoins * 0.05);
+        const delta = Math.max(0, targetCommission - alreadyPaid);
+        await tx.execute({
+          sql: `INSERT INTO referral_daily_commissions(referee_telegram_id,day_key,revenue_coins,commission_coins)
+                VALUES(?,?,?,?) ON CONFLICT(referee_telegram_id,day_key) DO UPDATE SET
+                revenue_coins=excluded.revenue_coins,commission_coins=excluded.commission_coins,updated_at=CURRENT_TIMESTAMP`,
+          args: [telegramId, dayKey, revenueCoins, targetCommission],
+        });
+        if (delta > 0) {
+          await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [referrerId] });
+          await tx.execute({
+            sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+            args: [delta, delta, referrerId],
+          });
+          const balance = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [referrerId] });
+          const commissionId = randomBytes(16).toString('hex');
+          await tx.execute({
+            sql: `INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json)
+                  VALUES(?,?,'coins','referral_commission',?,?,'referral',?,?,?)`,
+            args: [commissionId, referrerId, delta, Number(balance.rows[0]?.coins_balance ?? 0), telegramId, `referral-commission:${telegramId}:${dayKey}:${targetCommission}`, JSON.stringify({ refereeTelegramId: telegramId, dayKey, revenueCoins, rate: 5 })],
+          });
+          await tx.execute({
+            sql: "UPDATE referrals SET reward_coins=reward_coins+?,status='rewarded' WHERE referee_telegram_id=?",
+            args: [delta, telegramId],
+          });
+        }
+        await tx.commit();
+      } catch (error) {
+        await tx.rollback();
+        throw error;
+      }
+    }
+
     const partsRows = await db.execute({
       sql: 'SELECT part_id, quantity FROM player_parts WHERE telegram_id = ?',
       args: [telegramId],
