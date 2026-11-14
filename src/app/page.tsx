@@ -19,6 +19,8 @@ import { GameCloudSync } from '@/components/aram/GameCloudSync';
 import { AdminNotices } from '@/components/aram/AdminNotices';
 import { ArenaScreen } from '@/components/aram/screens/ArenaScreen';
 import { SwapScreen } from '@/components/aram/screens/SwapScreen';
+import { ShortsContest } from '@/components/aram/ShortsContest';
+import { Youtube } from 'lucide-react';
 
 export default function Home() {
   const lang = useGame((s) => s.lang);
@@ -33,6 +35,7 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>('pump');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tournamentsOpen, setTournamentsOpen] = useState(false);
+  const [shortsOpen, setShortsOpen] = useState(false);
 
   // Daily/weekly/monthly reset on mount
   useEffect(() => {
@@ -80,6 +83,8 @@ export default function Home() {
     <div className="aram-app aram-bg flex flex-col" dir={dirOf(lang)}>
       {isVerified && user && <GameCloudSync initData={initData} userId={user.id} userName={user.username || user.first_name || 'Player'} />}
       {isVerified && <AdminNotices initData={initData} isVerified={isVerified} />}
+      <button type="button" onClick={() => setShortsOpen(true)} className="fixed left-3 top-24 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-red-300/60 bg-gradient-to-br from-red-500 to-red-800 text-white shadow-[0_0_22px_rgba(239,68,68,.55)] animate-pulse" aria-label="مسابقة YouTube Shorts"><Youtube size={24}/></button>
+      {shortsOpen && <ShortsContest onClose={() => setShortsOpen(false)} />}
       <TopBar
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenTournaments={() => setTournamentsOpen(true)}
