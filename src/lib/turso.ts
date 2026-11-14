@@ -196,6 +196,13 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
         setting_value TEXT NOT NULL,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )`,
+      `CREATE TABLE IF NOT EXISTS player_parts (
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        part_id TEXT NOT NULL CHECK(part_id IN ('oil_pump','fuel_station','oil_truck')),
+        quantity INTEGER NOT NULL DEFAULT 0 CHECK(quantity >= 0),
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(telegram_id, part_id)
+      )`,
       'CREATE INDEX IF NOT EXISTS idx_players_last_seen ON players(last_seen_at)',
       'CREATE INDEX IF NOT EXISTS idx_events_player_time ON player_events(telegram_id, created_at)',
       'CREATE INDEX IF NOT EXISTS idx_ledger_player_time ON ledger_entries(telegram_id, created_at)',
