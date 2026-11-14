@@ -73,6 +73,68 @@ export async function POST(req: NextRequest) {
         args: [randomUUID(), id, coinsEarned, newCoins, saleId, `oil_sale:${key}:coins`, metadata],
       });
 
+      // Lifetime inviter commission is funded by the platform and applies only
+      // to coins credited by oil sales. The referred player's balance is untouched.
+      const saleDay = new Date().toISOString().slice(0, 10);
+      const loginDays = await tx.execute({
+        sql: "SELECT COUNT(*) AS days FROM player_login_days WHERE telegram_id=? AND day_key BETWEEN date('now','-2 days') AND date('now')",
+        args: [id],
+      });
+      if (Number(loginDays.rows[0]?.days ?? 0) >= 3) {
+        await tx.execute({
+          sql: "UPDATE referrals SET status='qualified' WHERE referee_telegram_id=? AND status='joined'",
+          args: [id],
+        });
+      }
+      const referral = await tx.execute({
+        sql: "SELECT referrer_telegram_id FROM referrals WHERE referee_telegram_id=? AND status IN ('qualified','rewarded')",
+        args: [id],
+      });
+      if (referral.rows.length) {
+        const referrerId = String(referral.rows[0].referrer_telegram_id);
+        const dailyRevenue = await tx.execute({
+          sql: "SELECT COALESCE(SUM(amount),0) AS total FROM ledger_entries WHERE telegram_id=? AND asset='coins' AND entry_type='oil_sale' AND date(created_at)=date('now')",
+          args: [id],
+        });
+        const revenueCoins = Math.max(0, Number(dailyRevenue.rows[0]?.total ?? 0));
+        const targetCommission = Math.floor(revenueCoins * 0.05);
+        const prior = await tx.execute({
+          sql: "SELECT commission_coins FROM referral_daily_commissions WHERE referee_telegram_id=? AND day_key=?",
+          args: [id, saleDay],
+        });
+        const alreadyCredited = Number(prior.rows[0]?.commission_coins ?? 0);
+        const delta = Math.max(0, targetCommission - alreadyCredited);
+        await tx.execute({
+          sql: `INSERT INTO referral_daily_commissions(referee_telegram_id,day_key,revenue_coins,commission_coins)
+                VALUES(?,?,?,?) ON CONFLICT(referee_telegram_id,day_key) DO UPDATE SET
+                revenue_coins=excluded.revenue_coins,commission_coins=excluded.commission_coins,updated_at=CURRENT_TIMESTAMP`,
+          args: [id, saleDay, revenueCoins, targetCommission],
+        });
+        if (delta > 0) {
+          await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [referrerId] });
+          await tx.execute({
+            sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+            args: [delta, delta, referrerId],
+          });
+          const inviterWallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [referrerId] });
+          await tx.execute({
+            sql: `INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json)
+                  VALUES(?,?,'coins','referral_commission',? ,?,'referral',?,?,?)`,
+            args: [randomUUID(), referrerId, delta, Number(inviterWallet.rows[0]?.coins_balance ?? 0), id,
+              `referral-commission:${id}:${saleDay}:${key}`,
+              JSON.stringify({ refereeTelegramId: id, saleId, dayKey: saleDay, revenueCoins, rate: 5, source: 'oil_sale' })],
+          });
+          await tx.execute({
+            sql: "UPDATE referrals SET reward_coins=reward_coins+?,status='rewarded' WHERE referee_telegram_id=?",
+            args: [delta, id],
+          });
+          await tx.execute({
+            sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'referral_commission',?,?,?)",
+            args: [randomUUID(), referrerId, delta, JSON.stringify({ refereeTelegramId: id, saleId, rate: 5 }), `referral-commission-notice:${id}:${saleDay}:${key}`],
+          });
+        }
+      }
+
       const now = new Date();
       const day = now.toISOString().slice(0, 10);
       const month = day.slice(0, 7);
