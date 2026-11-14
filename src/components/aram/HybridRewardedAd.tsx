@@ -46,7 +46,6 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
   const fallbackRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const switchToAdexiumRef = useRef<() => void>(() => undefined);
-  const tadsControllerRef = useRef<{ showAd: () => Promise<unknown> } | null>(null);
   const providerRef = useRef<Provider>('adexium');
   const busyRef = useRef(false);
 
@@ -141,7 +140,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
           });
         };
         await waitForTads();
-        const controller = tadsControllerRef.current ?? await window.tads!.init({
+        const controller = await window.tads!.init({
           widgetId: TADS_WID, type: 'fullscreen', debug: false,
           onShowReward: () => { if (pendingRef.current && providerRef.current === 'tads') void postReward('tads'); },
           onAdsNotFound: () => {
@@ -152,7 +151,6 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
             }
           },
         });
-        tadsControllerRef.current = controller;
         if (typeof controller?.showAd !== 'function') throw new Error('tads_controller_not_ready');
         await controller.showAd();
       } catch (error) {
