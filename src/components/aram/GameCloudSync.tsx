@@ -96,6 +96,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
     let saveQueue: Promise<void> = Promise.resolve();
     let lastRevision = 0;
     let last = '';
+    const syncParts = () => { void useGame.getState().syncAdminState(initData); };
 
     const headers = { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData };
 
@@ -116,6 +117,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
         const remote = await response.json() as RemoteGameState;
         if (disposed) return;
 
+        syncParts();
         const revision = Number(remote.revision ?? 0);
         const hasNewSnapshot = initial || (revision > lastRevision && !dirty);
         // Pull snapshot revisions when safe, and always pull the relational wallet
@@ -177,7 +179,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
 
       // Cross-device near-real-time refresh. Financial balances and ledger history
       // are read from Turso, never trusted from a stale localStorage snapshot.
-      pollTimer = setInterval(() => void pull(false), PULL_INTERVAL_MS);
+      pollTimer = setInterval(() => { void pull(false); syncParts(); }, PULL_INTERVAL_MS);
       window.addEventListener('focus', onFocus);
       window.addEventListener('online', onFocus);
     })();
