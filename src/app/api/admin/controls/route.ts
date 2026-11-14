@@ -1,4 +1,4 @@
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { PACKAGES, UPGRADE_DURATION_MS } from '@/lib/wallets';
@@ -8,10 +8,19 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function authorized(req: NextRequest) {
-  const expected = process.env.ADMIN_TOKEN;
-  const supplied = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
-  if (!expected || expected.length < 32 || supplied.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+  const secret=process.env.ADMIN_SESSION_SECRET;
+  if(!secret || secret.length<32) return false;
+  const value=req.cookies.get('aramco_admin')?.value ?? '';
+  if(!value || value.length>512) return false;
+  let decoded='';
+  try{decoded=Buffer.from(value,'base64url').toString('utf8');}catch{return false;}
+  const [issued,nonce,signature,...rest]=decoded.split('.');
+  if(rest.length || !/^\\d+$/.test(issued||'') || !/^[a-f0-9]{64}$/i.test(nonce||'') || !/^[a-f0-9]{64}$/i.test(signature||'')) return false;
+  const timestamp=Number(issued);
+  if(!Number.isSafeInteger(timestamp)||Date.now()-timestamp>8*60*60*1000||timestamp>Date.now()+60000) return false;
+  const expected=createHmac('sha256',secret).update(`${issued}.${nonce}`).digest('hex');
+  const supplied=Buffer.from(signature,'hex'), computed=Buffer.from(expected,'hex');
+  return supplied.length===computed.length && timingSafeEqual(supplied,computed);
 }
 function fail(message: string, status = 400) { return NextResponse.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } }); }
 function noteText(v: unknown, required = false) {
