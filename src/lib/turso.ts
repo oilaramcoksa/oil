@@ -272,6 +272,14 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
     ],
   },
   {
+    version: 7,
+    statements: [
+      'ALTER TABLE arena_rounds ADD COLUMN seed_commitment TEXT',
+      'ALTER TABLE arena_rounds ADD COLUMN algorithm_version INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE arena_rounds ADD COLUMN outcome_proof_hash TEXT',
+    ],
+  },
+  {
     version: 5,
     statements: [
       `CREATE TABLE IF NOT EXISTS coin_swaps (
