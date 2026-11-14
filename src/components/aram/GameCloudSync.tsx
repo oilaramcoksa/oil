@@ -96,7 +96,12 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
     let saveQueue: Promise<void> = Promise.resolve();
     let lastRevision = 0;
     let last = '';
-    const syncParts = () => { void useGame.getState().syncAdminState(initData); };
+    let lastPartsSync = 0;
+    const syncParts = () => {
+      if (Date.now() - lastPartsSync < 15_000) return;
+      lastPartsSync = Date.now();
+      void useGame.getState().syncAdminState(initData);
+    };
 
     const headers = { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData };
 
