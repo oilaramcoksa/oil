@@ -20,7 +20,7 @@ interface Ripple {
   y: number;
 }
 
-export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, parts = {} }: Props) {
+export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, parts = {}, specialParts = {} }: Props) {
   const [ripples, setRipples] = useState<Ripple[]>([]);
   const ridRef = useRef(0);
 
