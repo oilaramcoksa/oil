@@ -24,7 +24,7 @@ declare global {
       displayAd: (ad: { id?: string }) => void;
       on: (event: string, callback: (ad?: { id?: string }) => void) => void;
     };
-    tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean }) => { showAd: () => Promise<unknown> } };
+    tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean }) => { showAd?: () => Promise<unknown> } | Promise<{ showAd?: () => Promise<unknown> }> };
   }
 }
 
@@ -86,8 +86,9 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
               }, 100);
             });
           }
-          const controller = window.tads?.init({ widgetId: 13283, type: 'fullscreen', debug: false });
-          await controller?.showAd();
+          const controller = await window.tads?.init({ widgetId: 13283, type: 'fullscreen', debug: false });
+          if (typeof controller?.showAd !== 'function') throw new Error('tads_controller_not_ready');
+          await controller.showAd();
         } catch (error) { console.info('TADS sale interstitial unavailable', error); }
       };
       try {
