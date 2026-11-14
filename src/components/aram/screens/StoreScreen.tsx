@@ -33,7 +33,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   };
 
   const [selected, setSelected] = useState<UpgradePackage | null>(null);
-  const [selectedPart, setSelectedPart] = useState<{ id: 'oil_pump' | 'fuel_station' | 'oil_truck'; nameKey: string; price: number; multiplier: string; image: string; descriptionKey: string } | null>(null);
+  const [selectedPart, setSelectedPart] = useState<{ id: string; nameKey: string; label: string; description: string; price: number; multiplier: string; image: string; descriptionKey: string } | null>(null);
   const [partVerifying, setPartVerifying] = useState(false);
   const [partFailed, setPartFailed] = useState(false);
   const [partCopied, setPartCopied] = useState(false);
@@ -144,9 +144,12 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   };
 
   const shopParts = [
-    { id: 'oil_pump' as const, nameKey: 'oilPumpPart', price: 0.5, multiplier: '×3', image: '/images/shop/oil-pump.png', descriptionKey: 'oilPumpDescription' },
-    { id: 'fuel_station' as const, nameKey: 'fuelStationPart', price: 0.3, multiplier: '×2', image: '/images/shop/fuel-station.png', descriptionKey: 'fuelStationDescription' },
-    { id: 'oil_truck' as const, nameKey: 'oilTruckPart', price: 0.1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
+    { id: 'oil_pump' as const, nameKey: 'oilPumpPart', label: t(lang, 'oilPumpPart'), description: t(lang, 'oilPumpDescription'), price: 0.5, multiplier: '×3', image: '/images/shop/oil-pump.png', descriptionKey: 'oilPumpDescription' },
+    { id: 'fuel_station' as const, nameKey: 'fuelStationPart', label: t(lang, 'fuelStationPart'), description: t(lang, 'fuelStationDescription'), price: 0.3, multiplier: '×2', image: '/images/shop/fuel-station.png', descriptionKey: 'fuelStationDescription' },
+    { id: 'oil_truck' as const, nameKey: 'oilTruckPart', label: t(lang, 'oilTruckPart'), description: t(lang, 'oilTruckDescription'), price: 0.1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
+    { id: 'new_background', nameKey: 'new_background', label: 'خلفية مميزة نهارًا وليلًا', description: 'تغيّر أجواء المشهد مع زيادة سرعة التعدين 5X مع الحفاظ على شكل المضخة.', price: 1, multiplier: '×5', image: '/images/shop/oil-pump.png', descriptionKey: 'new_background' },
+    { id: 'vip_badge', nameKey: 'vip_badge', label: 'شارة VIP الذهبية', description: 'شارة ذهبية متحركة أعلى المضخة لتمييز حسابك، مع زيادة سرعة التعدين 4X.', price: 2, multiplier: '×4', image: '/images/shop/oil-truck.png', descriptionKey: 'vip_badge' },
+    { id: 'wheel_expansion', nameKey: 'wheel_expansion', label: 'توسعة عجلة الحظ', description: 'تضاعف مساحة عجلة الحظ لمدة 72 ساعة من لحظة الشراء، حتى إن لم تستخدمها.', price: 2, multiplier: '×2 مساحة العجلة · 72 ساعة', image: '/images/shop/fuel-station.png', descriptionKey: 'wheel_expansion' },
   ];
 
   const copyPartWallet = async () => {
@@ -265,7 +268,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
           {shopParts.map((part) => (
             <motion.button key={part.id} whileTap={{ scale: 0.97 }} onClick={() => { setSelectedPart(part); setPartFailed(false); setPartVerifying(false); }}
               className="aram-card rounded-2xl p-2 text-center border border-amber-300">
-              <div className="h-20 flex items-center justify-center mb-1"><img src={part.image} alt={t(lang, part.nameKey)} className="max-h-20 max-w-full object-contain" /></div>
+              <div className="h-20 flex items-center justify-center mb-1"><img src={part.image} alt={part.label} className="max-h-20 max-w-full object-contain" /></div>
               <div className="text-[11px] font-black text-[#2a1c0a] leading-tight">{t(lang, part.nameKey)}</div>
               <div className="text-lg font-black text-emerald-700 my-1">{part.multiplier}</div>
               <div className="text-[11px] font-bold text-amber-900">{part.price} TON</div>
@@ -455,7 +458,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                   className="h-36 flex items-center justify-center mb-2"
                 >
-                  <img src={selectedPart.image} alt={t(lang, selectedPart.nameKey)} className="max-h-36 max-w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.45)]" />
+                  <img src={selectedPart.image} alt={selectedPart.label} className="max-h-36 max-w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.45)]" />
                 </motion.div>
                 <h3 className="text-amber-100 font-black text-lg">{t(lang, selectedPart.nameKey)}</h3>
                 <motion.div
@@ -463,7 +466,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                   transition={{ duration: 2.2, repeat: Infinity }}
                   className="text-4xl font-black text-emerald-300 my-2"
                 >{selectedPart.multiplier}</motion.div>
-                <p className="text-amber-200/70 text-xs mb-4">{t(lang, selectedPart.descriptionKey)}</p>
+                <p className="text-amber-200/70 text-xs mb-4">{selectedPart.description}</p>
               </motion.div>
 
               <motion.div layout className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-white/[0.09] to-white/[0.03] p-3 text-left mb-3 shadow-inner">
