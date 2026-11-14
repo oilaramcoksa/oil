@@ -10,7 +10,8 @@ import { PACKAGES, WALLETS, packageTotal, type UpgradePackage, type CryptoWallet
 import { CryptoIcon } from '@/components/aram/CryptoIcon';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
-import { TadsAd } from '@/components/aram/TadsAd';
+import { TadsWidget } from 'react-tads-widget';
+import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
 
 export function StoreScreen({ initData, isVerified }: { initData: string; isVerified: boolean }) {
   const lang = useGame((s) => s.lang);
@@ -237,23 +238,26 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
         </p>
       </motion.div>
 
-      {/* TADS native text-graphic ad. Configure its separate TGB widget ID in Vercel. */}
-      {Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID || '13284') > 0 && (
-        <div className="mb-3">
-          <TadsAd
-            widgetId={Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID || '13284')}
-            mode="static"
-            rewardWidgetId={Number(process.env.NEXT_PUBLIC_TADS_FULLSCREEN_WIDGET_ID || '13283')}
-            title={t(lang, 'tadsSponsored')}
-            actionLabel={t(lang, 'tadsWatchAdReward')}
-            loadingLabel={t(lang, 'tadsRewardLoading')}
+      {/* TADS native ad plus shared Adexium/TADS rewarded flow */}
+      <div className="mb-3">
+        <TadsWidget
+          id={String(Number(process.env.NEXT_PUBLIC_TADS_TGB_WIDGET_ID || '13284'))}
+          type="static"
+          debug={false}
+          onAdsNotFound={() => console.info('TADS store native ad: no fill')}
+        />
+        <div className="mt-2">
+          <HybridRewardedAd
             initData={initData}
             isVerified={isVerified}
+            title={t(lang, 'tadsWatchAdReward')}
+            actionLabel={t(lang, 'tadsWatchAdReward')}
+            loadingLabel={t(lang, 'tadsRewardLoading')}
             onRewarded={handleStoreAdRewarded}
-            onRewardError={handleStoreAdError}
+            onError={handleStoreAdError}
           />
         </div>
-      )}
+      </div>
 
       {/* Speed parts shop */}
       <div className="mb-3">
