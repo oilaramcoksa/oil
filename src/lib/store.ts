@@ -74,6 +74,7 @@ interface GameState {
   tasks: TaskState[];
   referrals: Referral[];
   transactions: Transaction[];
+  parts: { oil_pump: number; fuel_station: number; oil_truck: number };
 
   // withdrawals (TON)
   tonAddress: string;                 // last address the player used
@@ -131,6 +132,7 @@ interface GameState {
 
   requestWithdrawal: (units: number, tonAddress: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   syncWithdrawals: () => Promise<void>;
+  syncAdminState: (initData: string) => Promise<void>;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -188,6 +190,7 @@ export const useGame = create<GameState>()(
       tasks: defaultTasks(),
       referrals: [],
       transactions: [],
+      parts: { oil_pump: 0, fuel_station: 0, oil_truck: 0 },
 
       tonAddress: '',
       withdrawals: [],
@@ -703,6 +706,21 @@ export const useGame = create<GameState>()(
       },
 
       // Pull request statuses from the server; refund rejected requests once.
+      syncAdminState: async (initData) => {
+        if (!initData) return;
+        try {
+          const response = await fetch('/api/players/me', { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' });
+          if (!response.ok) return;
+          const data = await response.json() as { parts?: Record<string, number> };
+          const parts = data.parts ?? {};
+          set({ parts: {
+            oil_pump: Math.max(0, Number(parts.oil_pump ?? 0)),
+            fuel_station: Math.max(0, Number(parts.fuel_station ?? 0)),
+            oil_truck: Math.max(0, Number(parts.oil_truck ?? 0)),
+          } });
+        } catch { /* Retry at the next cloud sync interval. */ }
+      },
+
       syncWithdrawals: async () => {
         const s = get();
         try {
@@ -737,6 +755,7 @@ export const useGame = create<GameState>()(
         tasks: s.tasks,
         referrals: s.referrals,
         transactions: s.transactions,
+        parts: s.parts,
         tonAddress: s.tonAddress,
         withdrawals: s.withdrawals,
         refundedWithdrawals: s.refundedWithdrawals,
