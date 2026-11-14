@@ -17,17 +17,15 @@ import { useTelegram } from '@/hooks/use-telegram';
 import { Button } from '@/components/ui/button';
 import { Truck, X, Droplet, Coins, Check } from 'lucide-react';
 
-declare global {
-  interface Window {
-    AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => {
-      requestAd: (format: 'interstitial') => void;
-      displayAd: (ad: { id?: string }) => void;
-      on: (event: string, callback: (ad?: { id?: string }) => void) => void;
-    };
-    tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean }) => { showAd?: () => Promise<unknown> } | Promise<{ showAd?: () => Promise<unknown> }> };
-  }
-}
-
+type SaleAdexiumInstance = {
+  requestAd: (format: 'interstitial') => void;
+  displayAd: (ad: { id?: string }) => void;
+  on: (event: string, callback: (ad?: { id?: string }) => void) => void;
+};
+type SaleTadsWindow = Window & {
+  AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => SaleAdexiumInstance;
+  tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean }) => { showAd?: () => Promise<unknown> } | Promise<{ showAd?: () => Promise<unknown> }> };
+};
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -69,7 +67,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
     void (async () => {
       const showTadsFallback = async () => {
         try {
-          if (!window.tads?.init) {
+          if (!(window as SaleTadsWindow).tads?.init) {
             let script = document.querySelector<HTMLScriptElement>('script[data-tads-sdk="true"]');
             if (!script) {
               script = document.createElement('script');
@@ -86,14 +84,14 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
               }, 100);
             });
           }
-          const controller = await window.tads?.init({ widgetId: 13283, type: 'fullscreen', debug: false });
+          const controller = await (window as SaleTadsWindow).tads?.init({ widgetId: 13283, type: 'fullscreen', debug: false });
           if (typeof controller?.showAd !== 'function') throw new Error('tads_controller_not_ready');
           await controller.showAd();
         } catch (error) { console.info('TADS sale interstitial unavailable', error); }
       };
       try {
         let script = document.querySelector<HTMLScriptElement>('script[data-adexium-sdk="true"]');
-        if (!window.AdexiumWidget) {
+        if (!(window as SaleTadsWindow).AdexiumWidget) {
           if (!script) {
             script = document.createElement('script');
             script.src = 'https://cdn.tgads.space/assets/js/adexium-widget.min.js';
@@ -108,7 +106,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
           });
         }
         if (!window.AdexiumWidget) throw new Error('adexium_unavailable');
-        const ad = new window.AdexiumWidget({ wid: 'fac3402b-57c4-45be-9d1d-5589a334852d', adFormat: 'interstitial', debug: false });
+        const ad = new (window as SaleTadsWindow).AdexiumWidget!({ wid: 'fac3402b-57c4-45be-9d1d-5589a334852d', adFormat: 'interstitial', debug: false });
         await new Promise<void>((resolve, reject) => {
           let settled = false;
           const finish = () => { if (!settled) { settled = true; resolve(); } };
