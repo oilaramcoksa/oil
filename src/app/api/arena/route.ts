@@ -91,7 +91,7 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
     const roundId = String(candidate.id);
     const entries = await readEntries(db, roundId);
     const cancelled = await db.execute({
-      sql: "UPDATE arena_rounds SET status='cancelled', completed_at=CURRENT_TIMESTAMP WHERE id=? AND status='open' AND created_at <= datetime('now', '-1 hour')",
+      sql: "UPDATE arena_rounds SET status='cancelled', completed_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=? AND status='open' AND created_at <= datetime('now', '-1 hour')",
       args: [roundId],
     });
     if (Number(cancelled.rowsAffected) === 1) {
@@ -193,7 +193,7 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
     }
 
     const completed = await db.execute({
-      sql: "UPDATE arena_rounds SET status='completed', completed_at=CURRENT_TIMESTAMP WHERE id=? AND status='spinning'",
+      sql: "UPDATE arena_rounds SET status='completed', completed_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=? AND status='spinning'",
       args: [roundId],
     });
 
