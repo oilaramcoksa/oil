@@ -236,7 +236,7 @@ export const useGame = create<GameState>()(
           cycleStarted = true;
         }
 
-        const totalCap = s.baseCapacity + filterActiveUpgrades(s.upgrades, now).length * 250;
+        const totalCap = s.baseCapacity + filterActiveUpgrades(s.upgrades, now).length * 250 + Math.max(0, s.parts.fuel_station) * 250;
         if (s.oil >= totalCap) {
           // Even if storage is full, still (re)start the cycle if needed.
           if (cycleStarted) {
@@ -258,7 +258,8 @@ export const useGame = create<GameState>()(
           const pkg = PACKAGES.find((p) => p.id === u.packageId);
           return acc + (pkg?.oilPerTap ?? 0);
         }, 0);
-        const perTap = s.baseOilPerTap + upgradeTap;
+        const partMultiplier = Math.max(1, 1 + Math.max(0, s.parts.oil_pump) * 0.5);
+      const perTap = Math.floor((s.baseOilPerTap + upgradeTap) * partMultiplier);
         const newTotal = Math.min(totalCap, s.oil + perTap);
         const oilAdded = newTotal - s.oil;
 
@@ -298,7 +299,7 @@ export const useGame = create<GameState>()(
           return acc + (pkg?.perHour ?? 0);
         }, 0);
         const rateLitersPerHour = rateCoinsPerHour / coinsPerOil;
-        const totalCap = s.baseCapacity + filterActiveUpgrades(s.upgrades, now).length * 250;
+        const totalCap = s.baseCapacity + filterActiveUpgrades(s.upgrades, now).length * 250 + Math.max(0, s.parts.fuel_station) * 250;
 
         // If cycle has ended, credit liters up to cycleEndsAt and stop.
         if (now >= s.cycleEndsAt) {
