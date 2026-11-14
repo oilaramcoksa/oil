@@ -130,7 +130,15 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
 
   const startAdexium = useCallback(async () => {
     const failover = () => {
-      if (!pendingRef.current || fallbackRef.current) return;
+      if (!pendingRef.current) return;
+      clearTimer();
+      if (fallbackRef.current) {
+        pendingRef.current = false;
+        busyRef.current = false;
+        setBusy(false);
+        onError('no_ad_available');
+        return;
+      }
       fallbackRef.current = true;
       startTads();
     };
@@ -190,7 +198,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       console.warn('Adexium failed; falling back to TADS', error);
       failover();
     }
-  }, [clearTimer, postReward, startTads]);
+  }, [clearTimer, onError, postReward, startTads]);
 
   const start = useCallback(async () => {
     if (busyRef.current || !isVerified || !initData || (cycle?.cooldownUntil && cycle.cooldownUntil > Date.now())) return;
