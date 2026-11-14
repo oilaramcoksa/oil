@@ -287,12 +287,11 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
           const owned = upgrades.filter((u) => u.packageId === p.id).length;
           return (
             <div key={p.id} className="space-y-2">
-            <motion.button
+            <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              onClick={() => openPackage(p)}
-              className="aram-card rounded-2xl p-3 w-full text-left hover:scale-[1.01] transition-transform"
+              className="aram-card rounded-2xl p-3 w-full text-left"
             >
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
@@ -341,7 +340,15 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                   {owned > 0 ? `×${owned} ${t(lang, 'active')}` : ''}
                 </span>
               </div>
-            </motion.button>
+              <button
+                type="button"
+                onClick={() => openPackage(p)}
+                className={`mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r ${p.color} px-4 py-2.5 text-sm font-black text-white shadow-md transition hover:brightness-105 active:scale-[0.99]`}
+              >
+                {t(lang, 'buyThisPackage')}
+                <span aria-hidden="true">←</span>
+              </button>
+            </motion.div>
               <div className="relative mt-1 overflow-hidden rounded-xl border-2 border-emerald-300/70 bg-gradient-to-br from-emerald-50 via-white to-amber-50 px-3 py-2 shadow-sm">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className={`inline-flex items-center rounded-full bg-gradient-to-r ${p.color} px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-sm`}>
