@@ -509,6 +509,19 @@ export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, par
             <text x="19" y="11" textAnchor="middle" fill="#7F1D1D" fontSize="5" fontWeight="900">OIL</text>
           </g>
         )}
+        {(parts.oil_pump ?? 0) > 0 && (
+          <g transform="translate(250,188) scale(0.48)" filter="url(#softShadow)">
+            <rect x="0" y="112" width="86" height="7" fill="#3F3F46" />
+            <path d="M14 90 L22 24 L30 24 L24 94 Z" fill="#DC2626" stroke="#7F1D1D" strokeWidth="1.5" />
+            <path d="M18 25 L76 17 L78 25 L22 33 Z" fill="#B91C1C" stroke="#7F1D1D" strokeWidth="1.5" />
+            <path d="M67 24 Q82 36 78 51 L71 52 Q76 37 65 31 Z" fill="#991B1B" />
+            <rect x="38" y="74" width="19" height="34" rx="3" fill="#71717A" stroke="#27272A" strokeWidth="2" />
+            <circle cx="48" cy="90" r="10" fill="#52525B" stroke="#1F2937" strokeWidth="2" />
+            <circle cx="48" cy="90" r="3" fill="#FBBF24" />
+            <path d="M78 51 L78 102" stroke="#E5E7EB" strokeWidth="2.5" />
+            <path d="M78 100 L84 107" stroke="#E5E7EB" strokeWidth="2.5" />
+          </g>
+        )}
         {/* === OIL PLATFORM / CONCRETE BASE === */}
         <g filter="url(#softShadow)">
           {/* Shadow */}
