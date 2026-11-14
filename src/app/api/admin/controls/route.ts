@@ -214,6 +214,19 @@ export async function POST(req: NextRequest) {
         const speed = Number(body.speed);
         await tx.execute({ sql: 'INSERT OR IGNORE INTO player_game_state(telegram_id) VALUES(?)', args: [target] });
         await tx.execute({ sql: 'UPDATE player_game_state SET base_oil_per_tap=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [speed, target] });
+        const snapshot = await tx.execute({ sql: 'SELECT state_json FROM player_game_snapshots WHERE telegram_id=?', args: [target] });
+        if (snapshot.rows.length) {
+          let state: Record<string, unknown> = {};
+          try {
+            const parsed = JSON.parse(String(snapshot.rows[0].state_json));
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) state = parsed as Record<string, unknown>;
+          } catch { /* Settings remain authoritative in player_game_state. */ }
+          state.baseOilPerTap = speed;
+          await tx.execute({
+            sql: 'UPDATE player_game_snapshots SET state_json=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+            args: [JSON.stringify(state), target],
+          });
+        }
         await notify(tx, target, '⚡ تم تحديث سرعة المضخة', `تم ضبط سرعة المضخة الأساسية إلى ${speed.toLocaleString('en-US')} وحدة لكل ضغطة.`, 'upgrade');
       } else if (action === 'withdrawal') {
         const id = String(body.id ?? '');
