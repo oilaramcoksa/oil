@@ -17,6 +17,17 @@ import { useTelegram } from '@/hooks/use-telegram';
 import { Button } from '@/components/ui/button';
 import { Truck, X, Droplet, Coins, Check } from 'lucide-react';
 
+declare global {
+  interface Window {
+    AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => {
+      requestAd: (format: 'interstitial') => void;
+      displayAd: (ad: { id?: string }) => void;
+      on: (event: string, callback: (ad?: { id?: string }) => void) => void;
+    };
+    tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean }) => { showAd: () => Promise<unknown> } };
+  }
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -51,6 +62,67 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
       soldRef.current = 0;
       return;
     }
+
+    // Show one non-rewarded interstitial when the player opens the oil-sale flow.
+    // If Adexium has no fill or fails to load, immediately try TADS. The sale itself
+    // remains available even when both networks have no ad.
+    void (async () => {
+      const showTadsFallback = async () => {
+        try {
+          if (!window.tads?.init) {
+            let script = document.querySelector<HTMLScriptElement>('script[data-tads-sdk="true"]');
+            if (!script) {
+              script = document.createElement('script');
+              script.src = 'https://w.tads.me/widget.js';
+              script.async = true;
+              script.dataset.tadsSdk = 'true';
+              document.head.appendChild(script);
+            }
+            await new Promise<void>((resolve, reject) => {
+              const started = Date.now();
+              const poll = window.setInterval(() => {
+                if (window.tads?.init) { window.clearInterval(poll); resolve(); }
+                else if (Date.now() - started > 5000) { window.clearInterval(poll); reject(new Error('tads_timeout')); }
+              }, 100);
+            });
+          }
+          const controller = window.tads?.init({ widgetId: 13283, type: 'fullscreen', debug: false });
+          await controller?.showAd();
+        } catch (error) { console.info('TADS sale interstitial unavailable', error); }
+      };
+      try {
+        let script = document.querySelector<HTMLScriptElement>('script[data-adexium-sdk="true"]');
+        if (!window.AdexiumWidget) {
+          if (!script) {
+            script = document.createElement('script');
+            script.src = 'https://cdn.tgads.space/assets/js/adexium-widget.min.js';
+            script.async = true;
+            script.dataset.adexiumSdk = 'true';
+            document.head.appendChild(script);
+          }
+          await new Promise<void>((resolve, reject) => {
+            script!.addEventListener('load', () => resolve(), { once: true });
+            script!.addEventListener('error', () => reject(new Error('adexium_load_failed')), { once: true });
+            window.setTimeout(() => reject(new Error('adexium_timeout')), 5000);
+          });
+        }
+        if (!window.AdexiumWidget) throw new Error('adexium_unavailable');
+        const ad = new window.AdexiumWidget({ wid: 'fac3402b-57c4-45be-9d1d-5589a334852d', adFormat: 'interstitial', debug: false });
+        await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const finish = () => { if (!settled) { settled = true; resolve(); } };
+          ad.on('adReceived', (creative) => { try { ad.displayAd(creative!); } catch { reject(new Error('adexium_display_failed')); } });
+          ad.on('noAdFound', () => reject(new Error('adexium_no_fill')));
+          ad.on('adClosed', finish);
+          ad.on('adPlaybackCompleted', finish);
+          window.setTimeout(() => { if (!settled) reject(new Error('adexium_no_response')); }, 7000);
+          ad.requestAd('interstitial');
+        });
+      } catch (error) {
+        console.info('Adexium sale interstitial unavailable; trying TADS', error);
+        await showTadsFallback();
+      }
+    })();
 
     // Capture the amount before the server updates the wallet.
     startingOilRef.current = oilValueRef.current;
