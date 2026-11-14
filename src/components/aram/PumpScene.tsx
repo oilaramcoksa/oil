@@ -10,6 +10,7 @@ interface Props {
   pumping: boolean;
   oilRatio: number;
   onTap: () => void;
+  parts?: { oil_pump?: number; fuel_station?: number; oil_truck?: number };
 }
 
 interface Ripple {
@@ -18,7 +19,7 @@ interface Ripple {
   y: number;
 }
 
-export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap }: Props) {
+export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, parts = {} }: Props) {
   const [ripples, setRipples] = useState<Ripple[]>([]);
   const ridRef = useRef(0);
 
@@ -486,6 +487,28 @@ export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap }: P
           </circle>
         </g>
 
+        {/* Owned shop parts: persistent, server-backed visual upgrades */}
+        {(parts.fuel_station ?? 0) > 0 && (
+          <g transform="translate(288,246)" filter="url(#softShadow)">
+            <rect x="0" y="0" width="66" height="43" rx="4" fill="#F8FAFC" stroke="#334155" strokeWidth="2" />
+            <rect x="7" y="7" width="52" height="23" rx="2" fill="#1E293B" />
+            <path d="M10 10 H56 V27 H10 Z" fill="#FBBF24" opacity="0.22" />
+            <rect x="22" y="-10" width="22" height="11" rx="2" fill="#DC2626" />
+            <text x="33" y="21" textAnchor="middle" fill="#FEF3C7" fontSize="7" fontWeight="900">OIL</text>
+            <rect x="54" y="30" width="5" height="12" fill="#64748B" />
+            <text x="33" y="39" textAnchor="middle" fill="#0F172A" fontSize="5" fontWeight="900">STATION</text>
+          </g>
+        )}
+        {(parts.oil_truck ?? 0) > 0 && (
+          <g transform="translate(242,276)" filter="url(#softShadow)">
+            <rect x="0" y="0" width="39" height="17" rx="3" fill="#F8FAFC" stroke="#1E293B" strokeWidth="1.4" />
+            <path d="M39 5 H51 L58 13 V17 H39 Z" fill="#DC2626" stroke="#7F1D1D" strokeWidth="1" />
+            <rect x="43" y="7" width="8" height="6" rx="1" fill="#BAE6FD" />
+            <circle cx="12" cy="18" r="4" fill="#111827" stroke="#9CA3AF" strokeWidth="1" />
+            <circle cx="45" cy="18" r="4" fill="#111827" stroke="#9CA3AF" strokeWidth="1" />
+            <text x="19" y="11" textAnchor="middle" fill="#7F1D1D" fontSize="5" fontWeight="900">OIL</text>
+          </g>
+        )}
         {/* === OIL PLATFORM / CONCRETE BASE === */}
         <g filter="url(#softShadow)">
           {/* Shadow */}
