@@ -173,6 +173,14 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
         if (!id) { failover(); return; }
         taskIdRef.current = id;
         clearTimer();
+        timeoutRef.current = setTimeout(() => {
+          if (pendingRef.current && !completedRef.current) {
+            pendingRef.current = false;
+            busyRef.current = false;
+            setBusy(false);
+            onError('ad_playback_timeout');
+          }
+        }, 120000);
         try { ad.displayAd(creative!); } catch { failover(); }
       });
       ad.on('noAdFound', () => {
