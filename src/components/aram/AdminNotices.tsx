@@ -7,6 +7,7 @@ type Notice = { id: string; title: string; message: string; kind: string };
 
 export function AdminNotices({ initData, isVerified }: { initData: string; isVerified: boolean }) {
   const seen = useRef<Set<string>>(new Set());
+  const initialized = useRef(false);
 
   useEffect(() => {
     if (!isVerified || !initData) return;
@@ -26,6 +27,7 @@ export function AdminNotices({ initData, isVerified }: { initData: string; isVer
         for (const notice of notices.reverse()) {
           if (!notice.id || seen.current.has(notice.id)) continue;
           seen.current.add(notice.id);
+          if (!initialized.current) continue;
           if (seen.current.size > 200) {
             const first = seen.current.values().next().value;
             if (first) seen.current.delete(first);
@@ -38,6 +40,7 @@ export function AdminNotices({ initData, isVerified }: { initData: string; isVer
             });
           }
         }
+        initialized.current = true;
       } catch {
         // The next poll retries when the network becomes available.
       } finally {
