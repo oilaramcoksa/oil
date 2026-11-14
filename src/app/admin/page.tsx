@@ -35,14 +35,14 @@ export default function AdminPage() {
   const [decisionReason,setDecisionReason] = useState('');
   const [actionDialog,setActionDialog] = useState<{action:string;id?:string;currency?:string;status?:string}|null>(null);
 
-  const headers = useMemo(()=>({Authorization:`Bearer ${token}`,'Content-Type':'application/json'}),[token]);
+  const headers = useMemo(()=>({'Content-Type':'application/json'}),[]);
 
   async function load(nextSection:Section=section) {
     if(!token) return;
     setBusy(true); setError('');
     try {
       const params=new URLSearchParams({section:nextSection,status,q:query});
-      const res=await fetch('/api/admin/controls?'+params.toString(),{headers:{Authorization:`Bearer ${token}`},cache:'no-store'});
+      const res=await fetch('/api/admin/controls?'+params.toString(),{headers,credentials:'same-origin',cache:'no-store'});
       const data=await res.json();
       if(!res.ok) throw new Error(data.error||'تعذر تحميل البيانات');
       if(nextSection==='overview') setOverview(data.overview||{});
@@ -54,12 +54,20 @@ export default function AdminPage() {
     finally{setBusy(false);}
   }
   useEffect(()=>{if(token) void load(section);},[token,section,status]);
-  function login(e:React.FormEvent){e.preventDefault();if(!input.trim())return;setToken(input.trim());setInput('');}
-  function logout(){setToken('');setOverview({});setPlayers([]);}
+  async function login(e:React.FormEvent){
+    e.preventDefault(); if(!input.trim()) return; setBusy(true); setError('');
+    try{
+      const res=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:input})});
+      const data=await res.json(); if(!res.ok) throw new Error(data.error==='admin_not_configured'?'إعدادات دخول الإدارة غير مكتملة على الخادم': 'كلمة المرور غير صحيحة');
+      setToken('session'); setInput('');
+    }catch(e){setError(e instanceof Error?e.message:'فشل تسجيل الدخول');}
+    finally{setBusy(false);}
+  }
+  async function logout(){ await fetch('/api/admin/login',{method:'DELETE'}); setToken('');setOverview({});setPlayers([]);}
   async function act(payload:Record<string,unknown>) {
     setBusy(true);setError('');setNotice('');
     try{
-      const res=await fetch('/api/admin/controls',{method:'POST',headers,body:JSON.stringify(payload)});
+      const res=await fetch('/api/admin/controls',{method:'POST',headers,credentials:'same-origin',body:JSON.stringify(payload)});
       const data=await res.json();if(!res.ok)throw new Error(data.error||'فشلت العملية');
       setNotice('تم تنفيذ العملية بنجاح');setReason('');setAmount('');setDecisionReason('');setTxHash('');setActionDialog(null);
       await load(section);
