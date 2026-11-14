@@ -8,7 +8,7 @@ import { Check, Gift, Flame, Calendar, Trophy, Package, Sparkles } from 'lucide-
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
-import { TadsAd } from '@/components/aram/TadsAd';
+import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
 
 type AdProgress = { used: number; limit: number; remaining: number; cooldownUntil: number | null; locked: boolean; rewardPerAd: number; totalCycleReward: number };
 
@@ -205,7 +205,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         </AnimatePresence>
       </div>
 
-      {/* === Rewarded ad cycle: 10 ads, 100 coins each, then 12h cooldown === */}
+      {/* === Alternating Adexium / TADS rewarded ads === */}
       <div className="aram-card rounded-2xl p-3 mb-3 border border-amber-300/70">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
@@ -214,7 +214,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
             </div>
             <div>
               <h3 className="text-sm font-black text-[#2a1c0a]">{t(lang, 'adMissionsTitle')}</h3>
-              <p className="text-[10px] text-amber-900/60 font-bold">30 إعلانًا من TADS كل 12 ساعة</p>
+              <p className="text-[10px] text-amber-900/60 font-bold">{t(lang, 'hybridAdCycleDescription')}</p>
             </div>
           </div>
           <span className="text-xs font-black text-amber-800 tabular-nums">{adProgress ? `${adProgress.used}/30` : (adProgressLoading ? '…/30' : '0/30')}</span>
@@ -223,35 +223,35 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
           <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${Math.min(100, (adProgress?.used ?? 0) / 30 * 100)}%` }} />
         </div>
         <div className="flex items-center justify-between rounded-xl bg-amber-50/80 border border-amber-900/5 px-3 py-2 mb-3">
-          <span className="text-xs font-black text-[#56351b]">المكافأة لكل إعلان</span>
+          <span className="text-xs font-black text-[#56351b]">{t(lang, 'rewardPerAdLabel')}</span>
           <span className="text-sm font-black text-emerald-700">+100 {t(lang, 'coins')}</span>
         </div>
         {isVerified && initData ? (
-          <TadsAd
-            widgetId={13283}
-            mode="fullscreen"
+          <HybridRewardedAd
+            initData={initData}
+            isVerified={isVerified}
             title={t(lang, 'tadsWatchAdReward')}
             actionLabel={t(lang, 'tadsWatchAdReward')}
             loadingLabel={t(lang, 'tadsRewardLoading')}
-            initData={initData}
-            isVerified={isVerified}
             onRewarded={(reward, walletCoins) => {
               applyServerAdReward(reward, walletCoins);
               haptic('medium');
               notify('success');
               toast.success(`${t(lang, 'tadsRewardSuccess')} +${reward} ${t(lang, 'coins')}`);
             }}
-            onRewardError={(error) => {
+            onError={(error) => {
               if (error === 'telegram_auth_required') toast.error(t(lang, 'telegramRequired'));
-              else if (error === 'ad_cycle_cooldown' || error === 'ad_cycle_limit_reached') toast.error('اكتملت مشاهدات الدورة. انتظر انتهاء العداد.');
+              else if (error === 'ad_cycle_cooldown' || error === 'ad_cycle_limit_reached') toast.error(t(lang, 'adCycleComplete'));
+              else if (error === 'adexium_task_not_completed') toast.error(t(lang, 'adNotVerified'));
               else if (error !== 'no_ad_available' && error !== 'ad_timeout') toast.error(t(lang, 'tadsUnavailable'));
+              else toast.error(t(lang, 'noAdsAvailable'));
             }}
           />
         ) : (
           <p className="text-center text-xs font-bold text-amber-900/60">{t(lang, 'telegramRequired')}</p>
         )}
         <p className="mt-2 text-center text-[10px] font-bold text-amber-900/60">
-          {adProgress?.locked ? 'اكتملت 30/30 مشاهدة من TADS، وسيُعاد تفعيل المشاهدة بعد انتهاء 12 ساعة.' : `المتبقي: ${adProgress?.remaining ?? 30} إعلانًا`}
+          {adProgress?.locked ? t(lang, 'adCycleComplete') : `${t(lang, 'adsRemaining')}: ${adProgress?.remaining ?? 30}`}
         </p>
       </div>
 
