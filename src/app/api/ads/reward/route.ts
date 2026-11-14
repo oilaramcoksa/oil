@@ -10,8 +10,9 @@ const TADS_REWARDED_WIDGET_ID = 13283;
 const REWARD_COINS = 100;
 const CYCLE_LIMIT = 30;
 const TADS_LIMIT = 30;
+const ADEXIUM_WIDGET_ID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
 const CYCLE_HOURS = 12;
-const CYCLE_TABLE = 'ad_reward_cycles_v3';
+const CYCLE_TABLE = 'ad_reward_cycles_v4';
 
 function fail(error: string, status = 400) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -37,20 +38,25 @@ async function ensureAdCycleTable() {
     telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
     views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 30),
     tads_views INTEGER NOT NULL DEFAULT 0 CHECK(tads_views >= 0 AND tads_views <= 30),
+    adexium_views INTEGER NOT NULL DEFAULT 0 CHECK(adexium_views >= 0 AND adexium_views <= 30),
     cooldown_until TEXT,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`);
   await db.execute(`INSERT OR IGNORE INTO ${CYCLE_TABLE}
-    (telegram_id, views, tads_views, cooldown_until, updated_at)
-    SELECT telegram_id, MIN(views, 30), MIN(views, 30), cooldown_until, updated_at FROM ad_reward_cycles_v2`);
+    (telegram_id, views, tads_views, adexium_views, cooldown_until, updated_at)
+    SELECT telegram_id, MIN(views, 30), MIN(views, 30), 0, cooldown_until, updated_at FROM ad_reward_cycles_v3`);
   await db.execute(`INSERT OR IGNORE INTO ${CYCLE_TABLE}
-    (telegram_id, views, tads_views, cooldown_until, updated_at)
-    SELECT telegram_id, MIN(views, 30), MIN(views, 30), cooldown_until, updated_at FROM ad_reward_cycles`);
+    (telegram_id, views, tads_views, adexium_views, cooldown_until, updated_at)
+    SELECT telegram_id, MIN(views, 30), MIN(views, 30), 0, cooldown_until, updated_at FROM ad_reward_cycles_v2`);
+  await db.execute(`INSERT OR IGNORE INTO ${CYCLE_TABLE}
+    (telegram_id, views, tads_views, adexium_views, cooldown_until, updated_at)
+    SELECT telegram_id, MIN(views, 30), MIN(views, 30), 0, cooldown_until, updated_at FROM ad_reward_cycles`);
 }
 
 function cycleResponse(
   used: number,
   tadsUsed: number,
+  adexiumUsed: number,
   cooldownUntilMs: number | null,
 ) {
   const locked = cooldownUntilMs !== null && cooldownUntilMs > Date.now();
@@ -63,6 +69,8 @@ function cycleResponse(
     rewardPerAd: REWARD_COINS,
     totalCycleReward: CYCLE_LIMIT * REWARD_COINS,
     tads: { used: locked ? TADS_LIMIT : tadsUsed, limit: TADS_LIMIT, remaining: locked ? 0 : Math.max(0, TADS_LIMIT - tadsUsed) },
+    adexium: { used: locked ? CYCLE_LIMIT : adexiumUsed, limit: CYCLE_LIMIT, remaining: locked ? 0 : Math.max(0, CYCLE_LIMIT - adexiumUsed) },
+    nextProvider: used % 2 === 0 ? 'adexium' : 'tads',
   };
 }
 
@@ -75,12 +83,12 @@ export async function GET(req: NextRequest) {
     const db = getTurso();
     await db.execute({
       sql: `UPDATE ${CYCLE_TABLE}
-        SET views=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP
+        SET views=0, tads_views=0, adexium_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP
         WHERE telegram_id=? AND cooldown_until IS NOT NULL AND datetime(cooldown_until) <= datetime('now')`,
       args: [String(user.id)],
     });
     const result = await db.execute({
-      sql: `SELECT views, tads_views,
+      sql: `SELECT views, tads_views, adexium_views,
         CASE WHEN cooldown_until IS NOT NULL AND datetime(cooldown_until) > datetime('now')
         THEN CAST(strftime('%s', cooldown_until) AS INTEGER) * 1000 ELSE NULL END AS cooldown_until_ms
         FROM ${CYCLE_TABLE} WHERE telegram_id=?`,
@@ -88,7 +96,7 @@ export async function GET(req: NextRequest) {
     });
     const row = result.rows[0];
     return NextResponse.json(cycleResponse(
-      Number(row?.views ?? 0), Number(row?.tads_views ?? 0),
+      Number(row?.views ?? 0), Number(row?.tads_views ?? 0), Number(row?.adexium_views ?? 0),
       row?.cooldown_until_ms == null ? null : Number(row.cooldown_until_ms),
     ), { headers: { 'Cache-Control': 'no-store, private' } });
   } catch (error) {
@@ -101,15 +109,30 @@ export async function POST(req: NextRequest) {
   const user = verifiedPlayerFromRequest(req);
   if (!user) return fail('telegram_auth_required', 401);
 
-  let body: { widgetId?: unknown; claimId?: unknown };
+  let body: { widgetId?: unknown; claimId?: unknown; provider?: unknown; taskId?: unknown };
   try { body = await req.json(); } catch { return fail('invalid_body'); }
-  const provider = 'tads';
+  const provider = body.provider === 'adexium' ? 'adexium' : 'tads';
   const adFormat = 'reward';
-  const expectedWidgetId = TADS_REWARDED_WIDGET_ID;
+  const expectedWidgetId = provider === 'adexium' ? ADEXIUM_WIDGET_ID : TADS_REWARDED_WIDGET_ID;
   const rewardCoins = REWARD_COINS;
   if (String(body.widgetId) !== String(expectedWidgetId)) return fail('invalid_reward_widget', 400);
-  const claimId = typeof body.claimId === 'string' ? body.claimId : '';
+  const claimId = provider === 'adexium'
+    ? (typeof body.taskId === 'string' ? body.taskId : '')
+    : (typeof body.claimId === 'string' ? body.claimId : '');
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId)) return fail('invalid_claim_id');
+  if (provider === 'adexium') {
+    try {
+      const check = await fetch(`https://bid.tgads.live/task/check/${encodeURIComponent(ADEXIUM_WIDGET_ID)}/${encodeURIComponent(claimId)}`, {
+        method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(8000),
+      });
+      if (!check.ok) return fail('adexium_verification_unavailable', 503);
+      const verification = await check.json() as { done?: boolean };
+      if (verification.done !== true) return fail('adexium_task_not_completed', 409);
+    } catch (error) {
+      console.error('adexium_task_check_failed', error);
+      return fail('adexium_verification_unavailable', 503);
+    }
+  }
 
   try {
     await ensureDatabaseSchema();
@@ -125,7 +148,7 @@ export async function POST(req: NextRequest) {
       if (previous.rows.length) {
         const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
         const cycle = await tx.execute({
-          sql: `SELECT views, tads_views,
+          sql: `SELECT views, tads_views, adexium_views,
             CASE WHEN cooldown_until IS NOT NULL AND datetime(cooldown_until) > datetime('now')
             THEN CAST(strftime('%s', cooldown_until) AS INTEGER) * 1000 ELSE NULL END AS cooldown_until_ms
             FROM ${CYCLE_TABLE} WHERE telegram_id=?`,
@@ -136,16 +159,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           ok: true, duplicate: true, reward: Number(previous.rows[0].reward_coins),
           wallet: { coins: Number(wallet.rows[0]?.coins_balance ?? 0) },
-          cycle: cycleResponse(Number(row?.views ?? 0), Number(row?.tads_views ?? 0), row?.cooldown_until_ms == null ? null : Number(row.cooldown_until_ms)),
+          cycle: cycleResponse(Number(row?.views ?? 0), Number(row?.tads_views ?? 0), Number(row?.adexium_views ?? 0), row?.cooldown_until_ms == null ? null : Number(row.cooldown_until_ms)),
         }, { headers: { 'Cache-Control': 'no-store' } });
       }
 
       const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [telegramId] });
       if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
       await tx.execute({ sql: `INSERT OR IGNORE INTO ${CYCLE_TABLE}(telegram_id) VALUES (?)`, args: [telegramId] });
-      let cycle = await tx.execute({ sql: `SELECT views, tads_views, cooldown_until FROM ${CYCLE_TABLE} WHERE telegram_id=?`, args: [telegramId] });
+      let cycle = await tx.execute({ sql: `SELECT views, tads_views, adexium_views, cooldown_until FROM ${CYCLE_TABLE} WHERE telegram_id=?`, args: [telegramId] });
       let used = Number(cycle.rows[0]?.views ?? 0);
       let tadsUsed = Number(cycle.rows[0]?.tads_views ?? 0);
+      let adexiumUsed = Number(cycle.rows[0]?.adexium_views ?? 0);
       const cooldownUntil = cycle.rows[0]?.cooldown_until;
       if (cooldownUntil) {
         const active = await tx.execute({ sql: "SELECT CASE WHEN datetime(?) > datetime('now') THEN 1 ELSE 0 END AS active", args: [String(cooldownUntil)] });
@@ -154,12 +178,12 @@ export async function POST(req: NextRequest) {
           await tx.rollback();
           return NextResponse.json({ error: 'ad_cycle_cooldown', cycle: cycleResponse(CYCLE_LIMIT, TADS_LIMIT, Number(until.rows[0]?.ms)) }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
         }
-        await tx.execute({ sql: `UPDATE ${CYCLE_TABLE} SET views=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`, args: [telegramId] });
-        used = 0; tadsUsed = 0;
+        await tx.execute({ sql: `UPDATE ${CYCLE_TABLE} SET views=0, tads_views=0, adexium_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`, args: [telegramId] });
+        used = 0; tadsUsed = 0; adexiumUsed = 0;
       }
-      if (used >= CYCLE_LIMIT || tadsUsed >= TADS_LIMIT) {
+      if (used >= CYCLE_LIMIT || (provider === 'tads' ? tadsUsed >= TADS_LIMIT : adexiumUsed >= CYCLE_LIMIT)) {
         await tx.rollback();
-        return fail('tads_cycle_limit_reached', 429);
+        return fail('ad_cycle_limit_reached', 429);
       }
 
       const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
@@ -169,7 +193,8 @@ export async function POST(req: NextRequest) {
       if (!Number.isSafeInteger(oldCoins) || oldCoins < 0 || !Number.isSafeInteger(newCoins)) { await tx.rollback(); return fail('invalid_wallet_balance', 409); }
 
       const nextUsed = used + 1;
-      const nextTads = tadsUsed + 1;
+      const nextTads = tadsUsed + (provider === 'tads' ? 1 : 0);
+      const nextAdexium = adexiumUsed + (provider === 'adexium' ? 1 : 0);
       const completesCycle = nextUsed === CYCLE_LIMIT;
       const claimRowId = randomUUID();
       await tx.execute({
@@ -177,16 +202,16 @@ export async function POST(req: NextRequest) {
         args: [claimRowId, telegramId, claimId, String(expectedWidgetId), rewardCoins],
       });
       await tx.execute({
-        sql: `UPDATE ${CYCLE_TABLE} SET views=?, tads_views=?,
+        sql: `UPDATE ${CYCLE_TABLE} SET views=?, tads_views=?, adexium_views=?,
           cooldown_until=CASE WHEN ?=1 THEN datetime('now', '+12 hours') ELSE NULL END,
           updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`,
-        args: [nextUsed, nextTads, completesCycle ? 1 : 0, telegramId],
+        args: [nextUsed, nextTads, nextAdexium, completesCycle ? 1 : 0, telegramId],
       });
       await tx.execute({
         sql: 'UPDATE player_wallets SET coins_balance=?, lifetime_coins_earned=lifetime_coins_earned+?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
         args: [newCoins, rewardCoins, telegramId],
       });
-      const metadata = JSON.stringify({ provider, adFormat, widgetId: expectedWidgetId, claimId, reward: rewardCoins, cycleView: nextUsed, tadsViews: nextTads, cycleLimit: CYCLE_LIMIT, cycleHours: CYCLE_HOURS });
+      const metadata = JSON.stringify({ provider, adFormat, widgetId: expectedWidgetId, claimId, reward: rewardCoins, cycleView: nextUsed, tadsViews: nextTads, adexiumViews: nextAdexium, cycleLimit: CYCLE_LIMIT, cycleHours: CYCLE_HOURS });
       await tx.execute({
         sql: `INSERT INTO ledger_entries(id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'coins', 'ad_reward', ?, ?, 'ad_reward', ?, ?, ?)`,
@@ -214,7 +239,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: true, duplicate: false, reward: rewardCoins, baseReward: rewardCoins,
         wallet: { coins: newCoins },
-        cycle: cycleResponse(nextUsed, nextTads, cooldown.rows[0]?.ms == null ? null : Number(cooldown.rows[0].ms)),
+        cycle: cycleResponse(nextUsed, nextTads, nextAdexium, cooldown.rows[0]?.ms == null ? null : Number(cooldown.rows[0].ms)),
       }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
       await tx.rollback();
