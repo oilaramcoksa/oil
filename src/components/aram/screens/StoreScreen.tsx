@@ -286,8 +286,8 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
           const total = packageTotal(p);
           const owned = upgrades.filter((u) => u.packageId === p.id).length;
           return (
+            <div key={p.id} className="space-y-2">
             <motion.button
-              key={p.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
@@ -316,15 +316,6 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                   </span>
                 )}
               </div>
-              <div className="mt-2 rounded-xl border border-emerald-300/60 bg-gradient-to-r from-emerald-50 via-white to-amber-50 px-3 py-2 shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-black text-emerald-800">{t(lang, 'monthlyGrowthHint')}</span>
-                  <span className="shrink-0 rounded-full bg-emerald-600/10 px-2 py-1 text-sm font-black text-emerald-700">
-                    +${p.id === 'fast_oil' ? 9 : p.id === 'king_oil' ? 30 : 75}
-                  </span>
-                </div>
-                <p className="mt-1 text-[9px] leading-relaxed text-amber-900/65">{t(lang, 'monthlyGrowthDisclaimer')}</p>
-              </div>
               <div className="grid grid-cols-3 gap-1.5 text-center">
                 <div className="rounded-lg bg-amber-50 py-1">
                   <div className="text-[9px] text-amber-900/60 font-bold uppercase">{t(lang, 'basePower')}</div>
@@ -351,6 +342,16 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                 </span>
               </div>
             </motion.button>
+              <div className="mt-2 rounded-xl border border-emerald-300/60 bg-gradient-to-r from-emerald-50 via-white to-amber-50 px-3 py-2 shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-black text-emerald-800">{t(lang, 'monthlyGrowthHint')}</span>
+                  <span className="shrink-0 rounded-full bg-emerald-600/10 px-2 py-1 text-sm font-black text-emerald-700">
+                    +${p.id === 'fast_oil' ? 9 : p.id === 'king_oil' ? 30 : 75}
+                  </span>
+                </div>
+                <p className="mt-1 text-[9px] leading-relaxed text-amber-900/65">{t(lang, 'monthlyGrowthDisclaimer')}</p>
+              </div>
+            </div>
           );
         })}
       </div>
