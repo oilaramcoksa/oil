@@ -59,6 +59,12 @@ export async function POST(req: NextRequest) {
     if(owner.rows.length) {
       const last=await db.execute({sql:'SELECT last_reported_at FROM shorts_entries WHERE id=?',[id]});
       if(Date.now()-Number(last.rows[0]?.last_reported_at||0)<300000) return NextResponse.json({error:'update_every_5_minutes'},{status:429});
+      // Snapshot current ranks before changing the submitted view count.
+      await db.execute(`UPDATE shorts_entries SET previous_rank=(
+        SELECT COUNT(*)+1 FROM shorts_entries other
+        WHERE other.status='approved' AND (other.declared_views>shorts_entries.declared_views OR
+        (other.declared_views=shorts_entries.declared_views AND other.created_at<shorts_entries.created_at))
+      ) WHERE status='approved'`);
       await db.execute({sql:'UPDATE shorts_entries SET declared_views=?,video_title=?,last_reported_at=? WHERE id=? AND telegram_id=?',[views,title,Date.now(),id,String(user.id)]});
     } else {
       await db.execute({sql:"INSERT INTO shorts_entries(id,telegram_id,video_url,video_title,declared_views,last_reported_at,status) VALUES(?,?,?,?,?,?, 'approved')",[id,String(user.id),videoUrl,title,views,Date.now()]});
