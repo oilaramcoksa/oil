@@ -8,6 +8,9 @@ const SHOP_PARTS = [
   { id: 'oil_pump', priceTon: 0.5 },
   { id: 'fuel_station', priceTon: 0.3 },
   { id: 'oil_truck', priceTon: 0.1 },
+  { id: 'new_background', priceTon: 1 },
+  { id: 'vip_badge', priceTon: 2 },
+  { id: 'wheel_expansion', priceTon: 2 },
 ] as const;
 
 export const runtime = 'nodejs';
