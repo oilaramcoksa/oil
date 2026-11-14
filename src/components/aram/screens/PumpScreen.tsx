@@ -20,7 +20,7 @@ import {
 } from '@/lib/store';
 import { t } from '@/lib/i18n';
 import { useTelegram } from '@/hooks/use-telegram';
-import { TadsAd } from '@/components/aram/TadsAd';
+import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
 import { toast } from 'sonner';
 
 interface Props {
@@ -350,19 +350,15 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
       </div>
 
       <div className="mx-auto mt-1 w-full max-w-md px-3 pb-2">
-        <TadsAd
-          widgetId={Number(process.env.NEXT_PUBLIC_TADS_FULLSCREEN_WIDGET_ID || '13283')}
-          mode="fullscreen"
-          title={t(lang, 'tadsFullscreenTitle')}
-          actionLabel={t(lang, 'tadsWatchAdReward')}
-          loadingLabel={t(lang, 'tadsRewardLoading')}
-          description={t(lang, 'tadsUnavailable')}
+        <HybridRewardedAd
           initData={initData}
           isVerified={isVerified}
+          title={t(lang, 'tadsWatchAdReward')}
+          actionLabel={t(lang, 'tadsWatchAdReward')}
+          loadingLabel={t(lang, 'tadsRewardLoading')}
           onRewarded={handleAdRewarded}
-          onRewardError={handleAdRewardError}
-        />
-      </div>
+          onError={handleAdRewardError}
+        />      </div>
 
       <SellModal open={sellOpen} onClose={() => setSellOpen(false)} initData={initData} isVerified={isVerified} />
     </div>
