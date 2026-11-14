@@ -13,6 +13,12 @@ export async function GET(req: NextRequest) {
     await ensurePlayerSchema();
     const db = getTurso();
     const telegramId = String(identity.id);
+    const db = getTurso();
+    const telegramId = String(identity.id);
+    const account = await db.execute({ sql: 'SELECT status FROM players WHERE telegram_id = ?', args: [telegramId] });
+    if (account.rows.length && String(account.rows[0].status) !== 'active') {
+      return NextResponse.json({ error: 'player_suspended' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
+    }
     const existing = await db.execute({ sql: 'SELECT referral_code FROM players WHERE telegram_id = ?', args: [telegramId] });
     const referralCode = existing.rows[0]?.referral_code?.toString() ?? randomBytes(6).toString('hex');
     await db.execute({
