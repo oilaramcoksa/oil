@@ -1,42 +1,55 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, pbkdf2Sync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-export const runtime='nodejs';
-export const dynamic='force-dynamic';
-const COOKIE='aramco_admin';
-function configuredHash(){
-  const hash=process.env.ADMIN_PASSWORD_HASH;
-  if(hash && /^[a-f0-9]{64}$/i.test(hash)) return hash.toLowerCase();
-  const password=process.env.ADMIN_PASSWORD;
-  return password ? createHash('sha256').update(password).digest('hex') : null;
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+const COOKIE = 'aramco_admin';
+
+function verifyPassword(password: string, stored: string): boolean {
+  // Format: pbkdf2_sha256$iterations$salt_hex$derived_key_hex
+  const [algorithm, iterationsRaw, saltHex, keyHex, ...rest] = stored.split('$');
+  if (algorithm !== 'pbkdf2_sha256' || rest.length || !/^\d+$/.test(iterationsRaw ?? '') ||
+      !/^[a-f0-9]{32,128}$/i.test(saltHex ?? '') || !/^[a-f0-9]{64}$/i.test(keyHex ?? '')) return false;
+  const iterations = Number(iterationsRaw);
+  if (!Number.isSafeInteger(iterations) || iterations < 300000 || iterations > 2000000) return false;
+  const expected = Buffer.from(keyHex, 'hex');
+  const actual = pbkdf2Sync(password, Buffer.from(saltHex, 'hex'), iterations, expected.length, 'sha256');
+  return timingSafeEqual(actual, expected);
 }
-function sessionToken(){
-  const secret=process.env.ADMIN_SESSION_SECRET;
-  if(!secret || secret.length<32) return null;
-  const nonce=randomBytes(32).toString('hex');
-  const issued=String(Date.now());
-  const payload=`${issued}.${nonce}`;
-  const signature=createHmac('sha256',secret).update(payload).digest('hex');
-  return Buffer.from(`${payload}.${signature}`).toString('base64url');
-}
-export async function POST(req:NextRequest){
-  let body:{password?:unknown};
-  try{body=await req.json();}catch{return NextResponse.json({error:'invalid_body'},{status:400});}
-  const password=typeof body.password==='string'?body.password:'';
-  const expected=configuredHash();
-  if(!expected||!process.env.ADMIN_SESSION_SECRET||process.env.ADMIN_SESSION_SECRET.length<32)
-    return NextResponse.json({error:'admin_not_configured'},{status:503});
-  if(!password||password.length>256) return NextResponse.json({error:'invalid_credentials'},{status:401});
-  const actual=createHash('sha256').update(password).digest('hex');
-  if(!timingSafeEqual(Buffer.from(actual,'hex'),Buffer.from(expected,'hex')))
-    return NextResponse.json({error:'invalid_credentials'},{status:401});
-  const value=sessionToken();
-  if(!value) return NextResponse.json({error:'admin_session_not_configured'},{status:503});
-  const response=NextResponse.json({ok:true});
-  response.cookies.set(COOKIE,value,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'strict',path:'/api/admin',maxAge:60*60*8});
+
+export async function POST(req: NextRequest) {
+  let body: { password?: unknown };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid_body' }, { status: 400 }); }
+  const password = typeof body.password === 'string' ? body.password : '';
+  const stored = process.env.ADMIN_PASSWORD_HASH ?? '';
+  const secret = process.env.ADMIN_SESSION_SECRET ?? '';
+  if (!stored || !secret || secret.length < 32) return NextResponse.json({ error: 'admin_not_configured' }, { status: 503 });
+  if (!password || password.length > 256 || !verifyPassword(password, stored)) {
+    return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
+  }
+  const issued = String(Date.now());
+  const nonce = randomBytes(32).toString('hex');
+  const payload = `${issued}.${nonce}`;
+  const signature = createHmac('sha256', secret).update(payload).digest('hex');
+  const cookie = Buffer.from(`${payload}.${signature}`).toString('base64url');
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set(COOKIE, cookie, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/api/admin',
+    maxAge: 60 * 60 * 8,
+  });
   return response;
 }
-export async function DELETE(){
-  const response=NextResponse.json({ok:true});
-  response.cookies.set(COOKIE,'',{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'strict',path:'/api/admin',maxAge:0});
+
+export async function DELETE() {
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set(COOKIE, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/api/admin',
+    maxAge: 0,
+  });
   return response;
 }
