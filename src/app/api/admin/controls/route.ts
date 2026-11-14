@@ -206,63 +206,129 @@ export async function POST(req: NextRequest) {
           status==='rejected'?`سبب الرفض: ${reason||'لم يتم توضيح السبب'}`:'تم اعتماد طلب السحب وتسجيله في سجلات الإدارة.',
           'withdrawal',{id,currency:body.currency??'ton',txHash:hash});
       } else if (action === 'payment') {
-        const id=String(body.id??'');
-        const status=String(body.status??'');
-        const txHash=noteText(body.txHash);
-        const row=await tx.execute({sql:`SELECT * FROM payment_transactions WHERE id=? AND status='pending'`,args:[id]});
-        if(!row.rows.length){await tx.rollback();return fail('payment_not_pending',409);}
-        const p=row.rows[0], telegramId=String(p.telegram_id), pkg=String(p.package_id??'');
-        if(!['confirmed','rejected'].includes(status)){await tx.rollback();return fail('invalid_status');}
-        if(status==='rejected'&&!noteText(body.reason,true)){await tx.rollback();return fail('reason_required');}
-        if(status==='confirmed'){
-          const payload=JSON.parse(String(p.provider_payload_json??'{}'));
-          if(payload.kind==='shop_part'){
-            const part=pkg;
-            const valid=['oil_pump','fuel_station','oil_truck'].includes(part);
-            if(!valid){await tx.rollback();return fail('invalid_part',400);}
-            await tx.execute({sql:'INSERT INTO player_parts(telegram_id,part_id,quantity) VALUES(?,?,1) ON CONFLICT(telegram_id,part_id) DO UPDATE SET quantity=quantity+1',args:[telegramId,part]});
-            await notify(tx,telegramId,'🧰 تمت الموافقة على شراء القطعة','تم تفعيل القطعة في حسابك وأصبحت متاحة في اللعبة.','part',{partId:part});
-          }else{
-            const pkgDef=PACKAGES.find(x=>x.id===pkg);
-            if(!pkgDef){await tx.rollback();return fail('invalid_package');}
-            const expiry=new Date(Date.now()+UPGRADE_DURATION_MS).toISOString();
-            await tx.execute({sql:'INSERT INTO player_upgrades(id,telegram_id,package_id,payment_id,expires_at,status) VALUES(?,?,?,?,?,'active')',args:[randomUUID(),telegramId,pkg,id,expiry]});
-            const snapshot=await tx.execute({sql:'SELECT state_json FROM player_game_snapshots WHERE telegram_id=?',args:[telegramId]});
-            if(snapshot.rows.length){
-              let state:any={};try{state=JSON.parse(String(snapshot.rows[0].state_json));}catch{}
-              state.upgrades=Array.isArray(state.upgrades)?state.upgrades:[];
-              state.upgrades.push({packageId:pkg,purchasedAt:Date.now(),expiresAt:Date.now()+UPGRADE_DURATION_MS,paidWith:'gram',txHash:txHash??id});
-              await tx.execute({sql:'UPDATE player_game_snapshots SET state_json=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',args:[JSON.stringify(state),telegramId]});
+        const id = String(body.id ?? '');
+        const paymentStatus = String(body.status ?? '');
+        const txHash = noteText(body.txHash);
+        if (!id || !['confirmed', 'rejected'].includes(paymentStatus)) {
+          await tx.rollback();
+          return fail('invalid_payment_action');
+        }
+        if (paymentStatus === 'rejected' && !reason) {
+          await tx.rollback();
+          return fail('reason_required');
+        }
+        const result = await tx.execute({
+          sql: "SELECT * FROM payment_transactions WHERE id = ? AND status = 'pending'",
+          args: [id],
+        });
+        if (!result.rows.length) {
+          await tx.rollback();
+          return fail('payment_not_pending', 409);
+        }
+        const payment = result.rows[0];
+        const telegramId = String(payment.telegram_id);
+        const packageId = String(payment.package_id ?? '');
+        if (paymentStatus === 'confirmed') {
+          let payload: Record<string, unknown> = {};
+          try {
+            const parsed = JSON.parse(String(payment.provider_payload_json ?? '{}'));
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) payload = parsed as Record<string, unknown>;
+          } catch {
+            await tx.rollback();
+            return fail('invalid_payment_metadata', 409);
+          }
+          if (payload.kind === 'shop_part') {
+            if (!['oil_pump', 'fuel_station', 'oil_truck'].includes(packageId)) {
+              await tx.rollback();
+              return fail('invalid_part', 400);
             }
-            await notify(tx,telegramId,'⚡ تمت الموافقة على الترقية','تم تفعيل باقة السرعة الجديدة في حسابك.','upgrade',{packageId:pkg});
+            await tx.execute({
+              sql: "INSERT INTO player_parts(telegram_id,part_id,quantity) VALUES(?,?,1) ON CONFLICT(telegram_id,part_id) DO UPDATE SET quantity=quantity+1,updated_at=CURRENT_TIMESTAMP",
+              args: [telegramId, packageId],
+            });
+            await notify(tx, telegramId, '🧰 تمت الموافقة على شراء القطعة', 'تم تفعيل القطعة في حسابك وأصبحت متاحة في مشهد اللعبة.', 'part', { partId: packageId });
+          } else {
+            const pkg = PACKAGES.find((item) => item.id === packageId);
+            if (!pkg) {
+              await tx.rollback();
+              return fail('invalid_package');
+            }
+            const now = Date.now();
+            const expiresAt = new Date(now + UPGRADE_DURATION_MS).toISOString();
+            await tx.execute({
+              sql: "INSERT INTO player_upgrades(id,telegram_id,package_id,payment_id,purchased_at,expires_at,status) VALUES(?,?,?,?,? ,?,'active')",
+              args: [randomUUID(), telegramId, packageId, id, new Date(now).toISOString(), expiresAt],
+            });
+            const snapshot = await tx.execute({
+              sql: 'SELECT state_json FROM player_game_snapshots WHERE telegram_id = ?',
+              args: [telegramId],
+            });
+            if (snapshot.rows.length) {
+              let state: Record<string, unknown> = {};
+              try {
+                const parsed = JSON.parse(String(snapshot.rows[0].state_json));
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) state = parsed as Record<string, unknown>;
+              } catch { /* Preserve the upgrade in the relational table even if a legacy snapshot is malformed. */ }
+              const upgrades = Array.isArray(state.upgrades) ? state.upgrades : [];
+              state.upgrades = [...upgrades, { packageId, purchasedAt: now, expiresAt: now + UPGRADE_DURATION_MS, paidWith: 'gram', txHash: txHash ?? id }];
+              await tx.execute({
+                sql: 'UPDATE player_game_snapshots SET state_json = ?, revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?',
+                args: [JSON.stringify(state), telegramId],
+              });
+            }
+            await notify(tx, telegramId, '⚡ تمت الموافقة على الترقية', 'تم تفعيل باقة السرعة الجديدة في حسابك.', 'upgrade', { packageId });
           }
         }
-        const updated=await tx.execute({sql:'UPDATE payment_transactions SET status=?,tx_hash=?,confirmed_at=CASE WHEN ?=\'confirmed\' THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=? AND status=\'pending\'',args:[status,txHash,status,id]});
-        if(Number(updated.rowsAffected)!==1){await tx.rollback();return fail('payment_status_conflict',409);}
-        if(status==='rejected') await notify(tx,telegramId,'❌ تم رفض طلب الشراء',`سبب الرفض: ${reason??'تعذر التحقق من الدفعة'}`,'payment',{id});
-      if (action === 'broadcast_coins') {
-        const qty=Number(body.amount), why=noteText(body.reason,true);
-        if(!Number.isSafeInteger(qty)||qty<=0||qty>1_000_000_000||!why){await tx.rollback();return fail('invalid_broadcast_reward');}
-        const users=await tx.execute("SELECT telegram_id FROM players WHERE status='active'");
-        for(const row of users.rows){
-          const uid=String(row.telegram_id);
-          await tx.execute({sql:'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',args:[qty,uid]});
-          const after=await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[uid]});
-          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','admin_broadcast_grant',?,?,'admin_broadcast',?,?,?)",
-            args:[randomUUID(),uid,qty,Number(after.rows[0]?.coins_balance??0),randomUUID(),`admin-broadcast:${uid}:${randomUUID()}`,JSON.stringify({reason:why})]});
-          await notify(tx,uid,String(body.title||'🎁 مكافأة جماعية'),`تمت إضافة ${qty.toLocaleString('en-US')} عملة إلى رصيدك. السبب: ${why}`,'reward',{amount:qty,reason:why});
+        const updated = await tx.execute({
+          sql: "UPDATE payment_transactions SET status = ?, tx_hash = ?, confirmed_at = CASE WHEN ? = 'confirmed' THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id = ? AND status = 'pending'",
+          args: [paymentStatus, txHash, paymentStatus, id],
+        });
+        if (Number(updated.rowsAffected) !== 1) {
+          await tx.rollback();
+          return fail('payment_status_conflict', 409);
+        }
+        if (paymentStatus === 'rejected') {
+          await notify(tx, telegramId, '❌ تم رفض طلب الشراء', `سبب الرفض: ${reason}`, 'payment', { id });
+        }
+      } else if (action === 'broadcast_coins') {
+        const quantity = Number(body.amount);
+        const why = noteText(body.reason, true);
+        if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 1_000_000_000 || !why) {
+          await tx.rollback();
+          return fail('invalid_broadcast_reward');
+        }
+        const users = await tx.execute("SELECT telegram_id FROM players WHERE status = 'active'");
+        for (const row of users.rows) {
+          const telegramId = String(row.telegram_id);
+          await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [telegramId] });
+          await tx.execute({
+            sql: 'UPDATE player_wallets SET coins_balance = coins_balance + ?, updated_at = CURRENT_TIMESTAMP WHERE telegram_id = ?',
+            args: [quantity, telegramId],
+          });
+          const current = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id = ?', args: [telegramId] });
+          const balance = Number(current.rows[0]?.coins_balance ?? 0);
+          const referenceId = randomUUID();
+          await tx.execute({
+            sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','admin_broadcast_grant',?,?,'admin_broadcast',?,?,?)",
+            args: [randomUUID(), telegramId, quantity, balance, referenceId, `admin-broadcast:${referenceId}`, JSON.stringify({ reason: why })],
+          });
+          await notify(tx, telegramId, String(body.title || '🎁 مكافأة جماعية'), `تمت إضافة ${quantity.toLocaleString('en-US')} عملة إلى رصيدك. السبب: ${why}`, 'reward', { amount: quantity, reason: why });
         }
       } else if (action === 'broadcast') {
-        const title=String(body.title??'').trim().slice(0,100);
-        const message=String(body.message??'').trim().slice(0,1000);
-        if(!title||!message){await tx.rollback();return fail('message_required');}
-        const users=await tx.execute("SELECT telegram_id FROM players WHERE status='active'");
-        for(const row of users.rows) await notify(tx,String(row.telegram_id),title,message,'announcement');
+        const title = String(body.title ?? '').trim().slice(0, 100);
+        const message = String(body.message ?? '').trim().slice(0, 1000);
+        if (!title || !message) {
+          await tx.rollback();
+          return fail('message_required');
+        }
+        const users = await tx.execute("SELECT telegram_id FROM players WHERE status = 'active'");
+        for (const row of users.rows) {
+          await notify(tx, String(row.telegram_id), title, message, 'announcement');
+        }
       } else {
         await tx.rollback();
         return fail('unknown_action',404);
       }
-      await audit(tx,action, action==='withdrawal'?'withdrawal':action==='payment'?'payment':'player', target||String(body.id??'all'), body);
       await tx.execute({
         sql: 'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
         args: [randomUUID(), 'admin_session', action, action==='withdrawal'?'withdrawal':action==='payment'?'payment':'player', target||String(body.id??'all'), JSON.stringify(body)],
