@@ -1,4 +1,4 @@
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { PACKAGES, UPGRADE_DURATION_MS } from '@/lib/wallets';
@@ -216,12 +216,24 @@ export async function POST(req: NextRequest) {
         const updated=await tx.execute({sql:'UPDATE payment_transactions SET status=?,tx_hash=?,confirmed_at=CASE WHEN ?=\'confirmed\' THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=? AND status=\'pending\'',args:[status,txHash,status,id]});
         if(Number(updated.rowsAffected)!==1){await tx.rollback();return fail('payment_status_conflict',409);}
         if(status==='rejected') await notify(tx,telegramId,'❌ تم رفض طلب الشراء',`سبب الرفض: ${reason??'تعذر التحقق من الدفعة'}`,'payment',{id});
+      if (action === 'broadcast_coins') {
+        const qty=Number(body.amount), why=noteText(body.reason,true);
+        if(!Number.isSafeInteger(qty)||qty<=0||qty>1_000_000_000||!why){await tx.rollback();return fail('invalid_broadcast_reward');}
+        const users=await tx.execute("SELECT telegram_id FROM players WHERE status='active'");
+        for(const row of users.rows){
+          const uid=String(row.telegram_id);
+          await tx.execute({sql:'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',args:[qty,uid]});
+          const after=await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[uid]});
+          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','admin_broadcast_grant',?,?,'admin_broadcast',?,?,?)",
+            args:[randomUUID(),uid,qty,Number(after.rows[0]?.coins_balance??0),randomUUID(),`admin-broadcast:${uid}:${randomUUID()}`,JSON.stringify({reason:why})]});
+          await notify(tx,uid,String(body.title||'🎁 مكافأة جماعية'),`تمت إضافة ${qty.toLocaleString('en-US')} عملة إلى رصيدك. السبب: ${why}`,'reward',{amount:qty,reason:why});
+        }
       } else if (action === 'broadcast') {
         const title=String(body.title??'').trim().slice(0,100);
         const message=String(body.message??'').trim().slice(0,1000);
         if(!title||!message){await tx.rollback();return fail('message_required');}
         const users=await tx.execute("SELECT telegram_id FROM players WHERE status='active'");
-        for(const p of users.rows) await notify(tx,String(p.telegram_id),title,message,'announcement');
+        for(const row of users.rows) await notify(tx,String(row.telegram_id),title,message,'announcement');
       } else {
         await tx.rollback();
         return fail('unknown_action',404);
