@@ -37,7 +37,11 @@ export async function GET(req: NextRequest) {
     await ensureDatabaseSchema();
     const db = getTurso();
     const id = String(identity.id);
-    const [result, wallet, ledger] = await Promise.all([
+    const player = await db.execute({ sql: 'SELECT status FROM players WHERE telegram_id = ?', args: [id] });
+    if (!player.rows.length || String(player.rows[0].status) !== 'active') {
+      return NextResponse.json({ error: 'player_suspended' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
+    }
+    const [result, wallet, ledger, gameSettings] = await Promise.all([
       db.execute({
         sql: 'SELECT state_json, revision, updated_at FROM player_game_snapshots WHERE telegram_id = ?',
         args: [id],
@@ -50,6 +54,10 @@ export async function GET(req: NextRequest) {
         sql: `SELECT id, asset, entry_type, amount, created_at, metadata_json
               FROM ledger_entries WHERE telegram_id = ?
               ORDER BY created_at DESC LIMIT 50`,
+        args: [id],
+      }),
+      db.execute({
+        sql: 'SELECT base_oil_per_tap, base_capacity FROM player_game_state WHERE telegram_id = ?',
         args: [id],
       }),
     ]);
@@ -73,6 +81,7 @@ export async function GET(req: NextRequest) {
       updatedAt: row?.updated_at?.toString() ?? null,
       state,
       wallet: w ? { ...walletState, locked: Number(w.coins_locked) } : null,
+      gameSettings: gameSettings.rows[0] ? { baseOilPerTap: Number(gameSettings.rows[0].base_oil_per_tap), baseCapacity: Number(gameSettings.rows[0].base_capacity) } : null,
       ledgerTransactions: ledger.rows.map((entry) => {
         const entryType = String(entry.entry_type);
         const labelByType: Record<string, string> = {
@@ -118,6 +127,10 @@ export async function PUT(req: NextRequest) {
     await ensureDatabaseSchema();
     const db = getTurso();
     const id = String(identity.id);
+    const player = await db.execute({ sql: 'SELECT status FROM players WHERE telegram_id = ?', args: [id] });
+    if (!player.rows.length || String(player.rows[0].status) !== 'active') {
+      return NextResponse.json({ error: 'player_suspended' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
+    }
     const wallet = await db.execute({
       sql: 'SELECT coins_balance, oil_balance FROM player_wallets WHERE telegram_id = ?',
       args: [id],
