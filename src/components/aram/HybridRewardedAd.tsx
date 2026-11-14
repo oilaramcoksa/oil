@@ -19,7 +19,7 @@ type AdexiumInstance = {
 };
 declare global {
   interface Window {
-    tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean; onShowReward?: () => void; onAdsNotFound?: () => void }) => { showAd?: () => Promise<unknown> } | Promise<{ showAd?: () => Promise<unknown> }>;
+    tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean; onShowReward?: () => void; onAdsNotFound?: () => void }) => { showAd?: () => Promise<unknown> } | Promise<{ showAd?: () => Promise<unknown> }> };
     AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => AdexiumInstance;
   }
 }
