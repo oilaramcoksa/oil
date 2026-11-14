@@ -6,7 +6,6 @@ import { PACKAGES, UPGRADE_DURATION_MS } from '@/lib/wallets';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function digest(value: string) { return createHash('sha256').update(value).digest(); }
 function authorized(req: NextRequest) {
   const expected = process.env.ADMIN_TOKEN;
   const supplied = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
@@ -17,12 +16,6 @@ function fail(message: string, status = 400) { return NextResponse.json({ error:
 function noteText(v: unknown, required = false) {
   const value = typeof v === 'string' ? v.trim().slice(0, 500) : '';
   return required && !value ? null : value;
-}
-async function audit(tx: Awaited<ReturnType<ReturnType<typeof getTurso>['transaction']>>, action: string, targetType: string, targetId: string, details: unknown) {
-  await tx.execute({
-    sql: 'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
-    args: [randomUUID(), 'admin_session', action, targetType, targetId, JSON.stringify(details)],
-  });
 }
 async function notify(tx: Awaited<ReturnType<ReturnType<typeof getTurso>['transaction']>>, telegramId: string, title: string, message: string, kind: string, meta: unknown = {}) {
   await tx.execute({
@@ -243,6 +236,10 @@ export async function POST(req: NextRequest) {
         return fail('unknown_action',404);
       }
       await audit(tx,action, action==='withdrawal'?'withdrawal':action==='payment'?'payment':'player', target||String(body.id??'all'), body);
+      await tx.execute({
+        sql: 'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
+        args: [randomUUID(), 'admin_session', action, action==='withdrawal'?'withdrawal':action==='payment'?'payment':'player', target||String(body.id??'all'), JSON.stringify(body)],
+      });
       await tx.commit();
       return NextResponse.json({ok:true});
     }catch(error){await tx.rollback();throw error;}
