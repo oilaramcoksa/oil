@@ -711,13 +711,19 @@ export const useGame = create<GameState>()(
         try {
           const response = await fetch('/api/players/me', { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' });
           if (!response.ok) return;
-          const data = await response.json() as { parts?: Record<string, number> };
+          const data = await response.json() as { parts?: Record<string, number>; gameSettings?: { baseOilPerTap?: number; baseCapacity?: number } | null };
           const parts = data.parts ?? {};
-          set({ parts: {
-            oil_pump: Math.max(0, Number(parts.oil_pump ?? 0)),
-            fuel_station: Math.max(0, Number(parts.fuel_station ?? 0)),
-            oil_truck: Math.max(0, Number(parts.oil_truck ?? 0)),
-          } });
+          const baseRate = Number(data.gameSettings?.baseOilPerTap ?? baseOilPerTap);
+          const capacity = Number(data.gameSettings?.baseCapacity ?? baseCapacity);
+          set({
+            parts: {
+              oil_pump: Math.max(0, Number(parts.oil_pump ?? 0)),
+              fuel_station: Math.max(0, Number(parts.fuel_station ?? 0)),
+              oil_truck: Math.max(0, Number(parts.oil_truck ?? 0)),
+            },
+            baseOilPerTap: Number.isFinite(baseRate) && baseRate >= 1 ? baseRate : baseOilPerTap,
+            baseCapacity: Number.isFinite(capacity) && capacity >= 1 ? capacity : baseCapacity,
+          });
         } catch { /* Retry at the next cloud sync interval. */ }
       },
 
