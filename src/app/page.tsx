@@ -16,6 +16,7 @@ import { TournamentsSheet } from '@/components/aram/TournamentsSheet';
 import { useTelegram } from '@/hooks/use-telegram';
 import { Toaster } from 'sonner';
 import { GameCloudSync } from '@/components/aram/GameCloudSync';
+import { AdminNotices } from '@/components/aram/AdminNotices';
 import { ArenaScreen } from '@/components/aram/screens/ArenaScreen';
 import { SwapScreen } from '@/components/aram/screens/SwapScreen';
 
@@ -78,6 +79,7 @@ export default function Home() {
   return (
     <div className="aram-app aram-bg flex flex-col" dir={dirOf(lang)}>
       {isVerified && user && <GameCloudSync initData={initData} userId={user.id} userName={user.username || user.first_name || 'Player'} />}
+      {isVerified && <AdminNotices initData={initData} isVerified={isVerified} />}
       <TopBar
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenTournaments={() => setTournamentsOpen(true)}
