@@ -27,6 +27,8 @@ type LastResult = {
   wheelStopDegrees: number;
   entries: Entry[];
 };
+type HistoryEntry = { telegramId: string; username: string; stake: number; outcome: 'win' | 'loss' | 'refund'; amount: number; multiplier: number };
+type HistoryRound = { id: string; status: string; occurredAt: string; total: number; winnerTelegramId: string | null; winnerType: string | null; entries: HistoryEntry[] };
 type ArenaState = {
   round: Round | null;
   balance: number;
@@ -50,9 +52,31 @@ export function ArenaScreen({
   const [amount, setAmount] = useState('100');
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [history, setHistory] = useState<HistoryRound[]>([]);
   const [replaying, setReplaying] = useState(false);
   const [replayNonce, setReplayNonce] = useState(0);
   const headers = useMemo(() => ({ 'X-Telegram-Init-Data': initData }), [initData]);
+
+  const refreshHistory = useCallback(async () => {
+    if (!isVerified || !initData) return;
+    const response = await fetch('/api/arena/history', { headers, cache: 'no-store' });
+    if (!response.ok) throw new Error('arena_history_failed');
+    const data = await response.json() as { rounds?: HistoryRound[] };
+    setHistory(Array.isArray(data.rounds) ? data.rounds : []);
+  }, [headers, initData, isVerified]);
+
+  useEffect(() => {
+    if (!isVerified) return;
+    let stopped = false;
+    const load = async () => {
+      try { if (!stopped) await refreshHistory(); }
+      catch (error) { console.error('arena_history_refresh_failed', error); }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 10_000);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [isVerified, refreshHistory]);
+
 
   const refresh = useCallback(async () => {
     if (!isVerified || !initData) return;
@@ -381,6 +405,57 @@ export function ArenaScreen({
                 <div className="text-[9px] font-semibold text-[#805b3c]">{(75 * entry.amount / Math.max(total, 1)).toFixed(1)}%</div>
               </div>
             </div>
+          ))}
+        </section>
+
+        <section className="mt-4 space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-sm font-black text-[#633715]">{t(lang, 'arenaBetHistory')}</h3>
+            <span className="text-[10px] font-bold text-[#9a7659]">{history.length}</span>
+          </div>
+          {history.length === 0 ? (
+            <div className="rounded-xl border border-white/70 bg-white/65 p-4 text-center text-xs text-[#9a7659]">{t(lang, 'arenaHistoryEmpty')}</div>
+          ) : history.map((item, index) => (
+            <article key={item.id} className="overflow-hidden rounded-xl border border-amber-900/10 bg-white/85 p-3 text-[#633715] shadow-[0_5px_16px_rgba(120,53,15,.08)]">
+              <div className="mb-2 flex items-center justify-between gap-2 border-b border-amber-900/10 pb-2">
+                <div className="text-xs font-black">{t(lang, 'arenaHistoryRound')} #{history.length - index}</div>
+                <time className="text-[9px] font-semibold text-[#987354]" dateTime={item.occurredAt}>
+                  {new Date(item.occurredAt).toLocaleString(lang === 'ar' ? 'ar-EG' : lang === 'ru' ? 'ru-RU' : 'en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                </time>
+              </div>
+              <div className="mb-2 flex items-center justify-between text-[10px] text-[#987354]">
+                <span>{t(lang, 'arenaHistoryPot')}: <b className="text-amber-800">{item.total.toLocaleString()}</b></span>
+                <span>{item.entries.length} {t(lang, 'arenaPlayers')}</span>
+              </div>
+              <div className="space-y-2">
+                {item.entries.map((entry) => (
+                  <div key={entry.telegramId} className="flex items-center justify-between gap-2 rounded-lg border border-amber-900/5 bg-[#fffaf1] px-2.5 py-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-[11px] font-extrabold">{entry.username}{entry.telegramId === telegramUserId ? ' · ' + t(lang, 'arenaYou') : ''}</div>
+                      <div className="mt-0.5 text-[9px] text-[#987354]">{t(lang, 'arenaHistoryStake')}: {entry.stake.toLocaleString()}</div>
+                    </div>
+                    <div className="shrink-0 text-end">
+                      {entry.outcome === 'win' ? (
+                        <>
+                          <div className="text-xs font-black text-emerald-700">+{entry.amount.toLocaleString()}</div>
+                          <div className="text-[9px] font-bold text-emerald-700">{t(lang, 'arenaHistoryWon')} · {entry.multiplier.toFixed(2)}X</div>
+                        </>
+                      ) : entry.outcome === 'refund' ? (
+                        <>
+                          <div className="text-xs font-black text-amber-700">+{entry.amount.toLocaleString()}</div>
+                          <div className="text-[9px] font-bold text-amber-700">{t(lang, 'arenaHistoryRefund')}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-xs font-black text-red-600">-{entry.amount.toLocaleString()}</div>
+                          <div className="text-[9px] font-bold text-red-600">{t(lang, 'arenaHistoryLost')} · 1.00X</div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
           ))}
         </section>
 
