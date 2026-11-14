@@ -326,6 +326,27 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       )`,
     ],
   },
+
+  {
+    version: 9,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS player_login_days (
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        day_key TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(telegram_id, day_key)
+      )`,
+      `CREATE TABLE IF NOT EXISTS referral_daily_commissions (
+        referee_telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        day_key TEXT NOT NULL,
+        revenue_coins INTEGER NOT NULL DEFAULT 0 CHECK(revenue_coins >= 0),
+        commission_coins INTEGER NOT NULL DEFAULT 0 CHECK(commission_coins >= 0),
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(referee_telegram_id, day_key)
+      )`,
+      'CREATE INDEX IF NOT EXISTS idx_referral_daily_commissions_day ON referral_daily_commissions(day_key)',
+    ],
+  },
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {
