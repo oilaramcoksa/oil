@@ -258,7 +258,7 @@ export const useGame = create<GameState>()(
           const pkg = PACKAGES.find((p) => p.id === u.packageId);
           return acc + (pkg?.oilPerTap ?? 0);
         }, 0);
-        const perTap = baseOilPerTap + upgradeTap;
+        const perTap = s.baseOilPerTap + upgradeTap;
         const newTotal = Math.min(totalCap, s.oil + perTap);
         const oilAdded = newTotal - s.oil;
 
@@ -804,8 +804,8 @@ export function effectiveCapacity(upgrades: UpgradeRecord[], base: number = base
   return base + filterActiveUpgrades(upgrades, now).length * 250;
 }
 
-export function effectiveOilPerTap(upgrades: UpgradeRecord[], now: number = Date.now()): number {
-  return baseOilPerTap + filterActiveUpgrades(upgrades, now).reduce((acc, u) => {
+export function effectiveOilPerTap(upgrades: UpgradeRecord[], now: number = Date.now(), base: number = baseOilPerTap): number {
+  return base + filterActiveUpgrades(upgrades, now).reduce((acc, u) => {
     const pkg = PACKAGES.find((p) => p.id === u.packageId);
     return acc + (pkg?.oilPerTap ?? 0);
   }, 0);
