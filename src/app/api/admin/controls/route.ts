@@ -1,4 +1,4 @@
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { PACKAGES, UPGRADE_DURATION_MS } from '@/lib/wallets';
@@ -7,9 +7,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function authorized(req: NextRequest): boolean {
-  // Backward-compatible bearer token, compared in constant time.
-  const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
   const token = process.env.ADMIN_TOKEN ?? '';
+  const bearer = req.headers.get('authorization')?.replace(/^Bearer\\s+/i, '') ?? '';
   if (token.length >= 32 && bearer.length === token.length &&
       timingSafeEqual(Buffer.from(bearer), Buffer.from(token))) return true;
 
@@ -19,13 +18,13 @@ function authorized(req: NextRequest): boolean {
   let decoded = '';
   try { decoded = Buffer.from(value, 'base64url').toString('utf8'); } catch { return false; }
   const [issued, nonce, signature, ...rest] = decoded.split('.');
-  if (rest.length || !/^\d+$/.test(issued ?? '') ||
+  if (rest.length || !/^\\d+$/.test(issued ?? '') ||
       !/^[a-f0-9]{64}$/i.test(nonce ?? '') ||
       !/^[a-f0-9]{64}$/i.test(signature ?? '')) return false;
   const timestamp = Number(issued);
   if (!Number.isSafeInteger(timestamp) || Date.now() - timestamp > 8 * 60 * 60 * 1000 ||
       timestamp > Date.now() + 60_000) return false;
-  const expected = createHash('sha256').update(secret).update('.').update(issued + '.' + nonce).digest('hex');
+  const expected = createHmac('sha256', secret).update(issued + '.' + nonce).digest('hex');
   const supplied = Buffer.from(signature, 'hex');
   const computed = Buffer.from(expected, 'hex');
   return supplied.length === computed.length && timingSafeEqual(supplied, computed);
