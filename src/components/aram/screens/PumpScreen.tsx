@@ -38,6 +38,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
   const baseOilPerTap = useGame((s) => s.baseOilPerTap);
   const baseCapacity = useGame((s) => s.baseCapacity);
   const parts = useGame((s) => s.parts);
+  const specialParts = useGame((s) => s.specialParts);
   const cycleEndsAt = useGame((s) => s.cycleEndsAt);
   const tapPump = useGame((s) => s.tapPump);
   const processPassive = useGame((s) => s.processPassive);
@@ -65,7 +66,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
   }, []);
 
   const cap = effectiveCapacity(upgrades);
-  const perTap = effectiveOilPerTap(upgrades, Date.now(), baseOilPerTap);
+  const perTap = Math.floor(effectiveOilPerTap(upgrades, Date.now(), baseOilPerTap) * (specialParts.new_background ? 5 : 1) * (specialParts.vip_badge ? 4 : 1));
   const coinsPerHour = effectiveCoinsPerHour(upgrades);
   const oilRatio = oil / cap;
   const isFull = oil >= cap;
@@ -138,7 +139,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
 
       {/* Scene */}
       <div className="relative max-w-md mx-auto w-full px-2">
-        <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} />
+        <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts} />
 
         {/* Floating +oil numbers */}
         <AnimatePresence>
