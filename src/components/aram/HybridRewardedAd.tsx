@@ -131,12 +131,17 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     clearTimer();
     timeoutRef.current = setTimeout(() => {
       if (!completedRef.current && pendingRef.current && providerRef.current === 'tads') {
-        pendingRef.current = false;
-        busyRef.current = false;
-        setBusy(false);
-        onError('no_ad_available');
+        if (!fallbackRef.current) {
+          fallbackRef.current = true;
+          switchToAdexiumRef.current();
+        } else {
+          pendingRef.current = false;
+          busyRef.current = false;
+          setBusy(false);
+          onError('no_ad_available');
+        }
       }
-    }, 30000);
+    }, 15000);
     try {
       renderTadsWidget({ id: String(TADS_WID), type: 'fullscreen' });
     } catch (error) {
