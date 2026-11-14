@@ -300,6 +300,8 @@ const ar: Dict = {
   // Store screen
   storeTitle: 'المتجر',
   upgradePackages: 'باقات الترقية',
+  monthlyGrowthHint: 'زيادة شهرية تقديرية في العملات',
+  monthlyGrowthDisclaimer: 'قيمة تقديرية وفق أداء اللعبة، وليست دخلًا نقديًا أو عائدًا مضمونًا.',
   paymentMethods: 'طرق الدفع',
   selectPackage: 'اختر الباقة',
   selectCurrency: 'اختر العملة',
@@ -693,6 +695,8 @@ const en: Dict = {
   
   storeTitle: 'Store',
   upgradePackages: 'Upgrade Packages',
+  monthlyGrowthHint: 'Estimated monthly coin growth',
+  monthlyGrowthDisclaimer: 'An in-game estimate based on game performance, not guaranteed cash income or returns.',
   paymentMethods: 'Payment Methods',
   selectPackage: 'Choose package',
   selectCurrency: 'Choose currency',
@@ -1082,6 +1086,8 @@ const ru: Dict = {
   
   storeTitle: 'Магазин',
   upgradePackages: 'Пакеты улучшений',
+  monthlyGrowthHint: 'Ориентировочный месячный прирост монет',
+  monthlyGrowthDisclaimer: 'Расчётная игровая оценка, а не гарантированный денежный доход или доходность.',
   paymentMethods: 'Способы оплаты',
   selectPackage: 'Выбери пакет',
   selectCurrency: 'Выбери валюту',
