@@ -136,6 +136,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ payments: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
+
+    if (section === 'referrals') {
+      const rows = await db.execute({
+        sql: `SELECT r.id,r.referrer_telegram_id,r.referee_telegram_id,r.status,r.reward_coins,r.created_at,
+                     a.username AS referrer_username,a.first_name AS referrer_name,
+                     b.username AS referee_username,b.first_name AS referee_name
+              FROM referrals r
+              JOIN players a ON a.telegram_id=r.referrer_telegram_id
+              JOIN players b ON b.telegram_id=r.referee_telegram_id
+              ORDER BY r.created_at DESC LIMIT 500`,
+      });
+      return NextResponse.json({ referrals: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
     if (section === 'audit') {
       const rows = await db.execute('SELECT * FROM admin_audit_logs ORDER BY created_at DESC LIMIT 150');
       return NextResponse.json({ logs: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
