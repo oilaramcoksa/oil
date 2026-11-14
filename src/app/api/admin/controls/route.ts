@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 function authorized(req: NextRequest): boolean {
   const token = process.env.ADMIN_TOKEN ?? '';
-  const bearer = req.headers.get('authorization')?.replace(/^Bearer\\s+/i, '') ?? '';
+  const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
   if (token.length >= 32 && bearer.length === token.length &&
       timingSafeEqual(Buffer.from(bearer), Buffer.from(token))) return true;
 
@@ -18,7 +18,7 @@ function authorized(req: NextRequest): boolean {
   let decoded = '';
   try { decoded = Buffer.from(value, 'base64url').toString('utf8'); } catch { return false; }
   const [issued, nonce, signature, ...rest] = decoded.split('.');
-  if (rest.length || !/^\\d+$/.test(issued ?? '') ||
+  if (rest.length || !/^\d+$/.test(issued ?? '') ||
       !/^[a-f0-9]{64}$/i.test(nonce ?? '') ||
       !/^[a-f0-9]{64}$/i.test(signature ?? '')) return false;
   const timestamp = Number(issued);
