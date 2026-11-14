@@ -126,7 +126,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       setBusy(false);
       onError('tads_unavailable');
     }
-  }, [clearTimer, onError, startAdexium]);
+  }, [clearTimer, onError]);
 
   const startAdexium = useCallback(async () => {
     const failover = () => {
