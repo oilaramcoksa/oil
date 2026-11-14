@@ -14,7 +14,7 @@ export function FriendsScreen() {
   const { tg, haptic, notify, initData } = useTelegram();
   const [copied, setCopied] = useState(false);
   const [referralCode, setReferralCode] = useState('');
-  const [referrals, setReferrals] = useState<{ id: string; name: string; joinedAt: number; earned: number; active: boolean }[]>([]);
+  const [referrals, setReferrals] = useState<{ id: string; name: string; joinedAt: number; earned: number; active: boolean; status?: string }[]>([]);
 
   useEffect(() => {
     if (!initData) return;
@@ -75,7 +75,7 @@ export function FriendsScreen() {
         </div>
         <div>
           <h2 className="text-lg font-black text-[#2a1c0a]">{t(lang, 'friendsTitle')}</h2>
-          <p className="text-[11px] text-amber-900/60 font-bold">{t(lang, 'referralReward')}</p>
+          <p className="text-[11px] text-amber-900/60 font-bold">{lang === 'ar' ? 'عمولة 5% من إيرادات أصدقائك النشطين مدى الحياة' : lang === 'ru' ? 'Пожизненная комиссия 5% от дохода активных друзей' : 'Lifetime 5% commission from active friends’ earnings'}</p>
         </div>
       </div>
 
@@ -162,6 +162,9 @@ export function FriendsScreen() {
                   <div className="text-sm font-bold text-[#2a1c0a] truncate">{r.name}</div>
                   <div className="text-[10px] text-amber-900/50 font-bold">
                     {t(lang, 'joined')} · {timeAgo(r.joinedAt, lang)}
+                  </div>
+                  <div className={`mt-1 text-[9px] font-black ${r.status === 'rewarded' ? 'text-emerald-700' : r.status === 'qualified' ? 'text-sky-700' : 'text-amber-700'}`}>
+                    {r.status === 'rewarded' ? (lang === 'ar' ? 'نشط · عمولة 5% مدى الحياة' : 'Active · lifetime 5%') : r.status === 'qualified' ? (lang === 'ar' ? 'مؤهل · تُحتسب الإيرادات اليومية' : 'Qualified · daily earnings count') : (lang === 'ar' ? 'بحاجة إلى تسجيل الدخول 3 أيام متتالية' : 'Needs 3 consecutive login days')}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-black">
