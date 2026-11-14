@@ -75,6 +75,7 @@ interface GameState {
   referrals: Referral[];
   transactions: Transaction[];
   parts: { oil_pump: number; fuel_station: number; oil_truck: number };
+  specialParts: { new_background: boolean; vip_badge: boolean; wheel_expansion_until: number | null };
 
   // withdrawals (TON)
   tonAddress: string;                 // last address the player used
@@ -196,6 +197,7 @@ export const useGame = create<GameState>()(
       referrals: [],
       transactions: [],
       parts: { oil_pump: 0, fuel_station: 0, oil_truck: 0 },
+      specialParts: { new_background: false, vip_badge: false, wheel_expansion_until: null },
 
       tonAddress: '',
       withdrawals: [],
@@ -263,8 +265,9 @@ export const useGame = create<GameState>()(
           const pkg = PACKAGES.find((p) => p.id === u.packageId);
           return acc + (pkg?.oilPerTap ?? 0);
         }, 0);
-        const partMultiplier = Math.max(1, 1 + Math.max(0, s.parts.oil_pump) * 0.5);
-      const perTap = Math.floor((s.baseOilPerTap + upgradeTap) * partMultiplier);
+        const legacyMultiplier = Math.max(1, 1 + Math.max(0, s.parts.oil_pump) * 0.5);
+        const specialMultiplier = (s.specialParts.new_background ? 5 : 1) * (s.specialParts.vip_badge ? 4 : 1);
+        const perTap = Math.floor((s.baseOilPerTap + upgradeTap) * legacyMultiplier * specialMultiplier);
         const newTotal = Math.min(totalCap, s.oil + perTap);
         const oilAdded = newTotal - s.oil;
 
@@ -715,15 +718,21 @@ export const useGame = create<GameState>()(
         try {
           const response = await fetch('/api/players/me', { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' });
           if (!response.ok) return;
-          const data = await response.json() as { parts?: Record<string, number>; gameSettings?: { baseOilPerTap?: number; baseCapacity?: number } | null };
+          const data = await response.json() as { parts?: Record<string, number>; specialParts?: Record<string, {owned?:boolean;expiresAt?:number|null}>; gameSettings?: { baseOilPerTap?: number; baseCapacity?: number } | null };
           const parts = data.parts ?? {};
           const baseRate = Number(data.gameSettings?.baseOilPerTap ?? baseOilPerTap);
           const capacity = Number(data.gameSettings?.baseCapacity ?? baseCapacity);
+          const special = data.specialParts ?? {};
           set({
             parts: {
               oil_pump: Math.max(0, Number(parts.oil_pump ?? 0)),
               fuel_station: Math.max(0, Number(parts.fuel_station ?? 0)),
               oil_truck: Math.max(0, Number(parts.oil_truck ?? 0)),
+            },
+            specialParts: {
+              new_background: special.new_background?.owned === true,
+              vip_badge: special.vip_badge?.owned === true,
+              wheel_expansion_until: special.wheel_expansion?.expiresAt ?? null,
             },
             baseOilPerTap: Number.isFinite(baseRate) && baseRate >= 1 ? baseRate : baseOilPerTap,
             baseCapacity: Number.isFinite(capacity) && capacity >= 1 ? capacity : baseCapacity,
