@@ -300,13 +300,18 @@ export async function POST(req: NextRequest) {
             if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) payload = parsed as Record<string, unknown>;
           } catch { await tx.rollback(); return fail('invalid_payment_metadata', 409); }
 
-          if (payload.kind === 'shop_part') {
-            if (!['oil_pump', 'fuel_station', 'oil_truck'].includes(packageId)) { await tx.rollback(); return fail('invalid_part', 400); }
+          const rawPartId = String(payload.partId ?? payload.itemId ?? payload.productId ?? packageId).trim();
+          const normalizedPartId = rawPartId.replace(/^(?:shop_part[:_]|part[:_])/, '');
+          const isShopPart = payload.kind === 'shop_part' || payload.type === 'shop_part' ||
+            payload.category === 'shop_part' || ['oil_pump', 'fuel_station', 'oil_truck'].includes(normalizedPartId);
+          if (isShopPart) {
+            if (!['oil_pump', 'fuel_station', 'oil_truck'].includes(normalizedPartId)) { await tx.rollback(); return fail('invalid_part', 400); }
             await tx.execute({
               sql: 'INSERT INTO player_parts(telegram_id,part_id,quantity) VALUES(?,?,1) ON CONFLICT(telegram_id,part_id) DO UPDATE SET quantity=quantity+1,updated_at=CURRENT_TIMESTAMP',
-              args: [telegramId, packageId],
+              args: [telegramId, normalizedPartId],
             });
-            await notify(tx, telegramId, '🧰 تمت الموافقة على شراء القطعة', 'تم تفعيل القطعة في حسابك وأصبحت متاحة في مشهد اللعبة.', 'part', { partId: packageId });
+            const partNames: Record<string, string> = { oil_pump: 'مضخة النفط', fuel_station: 'محطة الوقود', oil_truck: 'شاحنة النفط' };
+            await notify(tx, telegramId, '🧰 تمت الموافقة على شراء القطعة', `تم تفعيل قطعة ${partNames[normalizedPartId]} في حسابك، وأصبحت متاحة في مشهد اللعبة.`, 'part', { partId: normalizedPartId });
           } else {
             if (!PACKAGES.some((pkg) => pkg.id === packageId)) { await tx.rollback(); return fail('invalid_package'); }
             const now = Date.now();
@@ -352,6 +357,8 @@ export async function POST(req: NextRequest) {
         if (!title || !message) { await tx.rollback(); return fail('message_required'); }
         const users = await tx.execute("SELECT telegram_id FROM players WHERE status='active'");
         for (const row of users.rows) await notify(tx, String(row.telegram_id), title, message, 'announcement');
+        await tx.commit();
+        return NextResponse.json({ ok: true, delivered: users.rows.length }, { headers: { 'Cache-Control': 'no-store' } });
       } else {
         await tx.rollback();
         return fail('unknown_action', 404);
