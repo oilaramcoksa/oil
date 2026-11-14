@@ -7,14 +7,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const TADS_REWARDED_WIDGET_ID = 13283;
-const ADSGRAM_REWARDED_BLOCK_ID = '59642';
-const ADSGRAM_INTERSTITIAL_BLOCK_ID = 'int-59643';
 const REWARD_COINS = 100;
 const CYCLE_LIMIT = 30;
-const ADSGRAM_LIMIT = 20;
-const TADS_LIMIT = 10;
+const TADS_LIMIT = 30;
 const CYCLE_HOURS = 12;
-const CYCLE_TABLE = 'ad_reward_cycles_v2';
+const CYCLE_TABLE = 'ad_reward_cycles_v3';
 
 function fail(error: string, status = 400) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -31,20 +28,20 @@ async function ensureAdCycleTable() {
   await db.execute(`CREATE TABLE IF NOT EXISTS ${CYCLE_TABLE} (
     telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
     views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 30),
-    adsgram_views INTEGER NOT NULL DEFAULT 0 CHECK(adsgram_views >= 0 AND adsgram_views <= 20),
-    tads_views INTEGER NOT NULL DEFAULT 0 CHECK(tads_views >= 0 AND tads_views <= 10),
+    tads_views INTEGER NOT NULL DEFAULT 0 CHECK(tads_views >= 0 AND tads_views <= 30),
     cooldown_until TEXT,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`);
-  // Preserve the old shared counter while moving to the 30-view split quota.
   await db.execute(`INSERT OR IGNORE INTO ${CYCLE_TABLE}
-    (telegram_id, views, adsgram_views, tads_views, cooldown_until, updated_at)
-    SELECT telegram_id, views, 0, 0, cooldown_until, updated_at FROM ad_reward_cycles`);
+    (telegram_id, views, tads_views, cooldown_until, updated_at)
+    SELECT telegram_id, MIN(views, 30), MIN(views, 30), cooldown_until, updated_at FROM ad_reward_cycles_v2`);
+  await db.execute(`INSERT OR IGNORE INTO ${CYCLE_TABLE}
+    (telegram_id, views, tads_views, cooldown_until, updated_at)
+    SELECT telegram_id, MIN(views, 30), MIN(views, 30), cooldown_until, updated_at FROM ad_reward_cycles`);
 }
 
 function cycleResponse(
   used: number,
-  adsgramUsed: number,
   tadsUsed: number,
   cooldownUntilMs: number | null,
 ) {
@@ -57,7 +54,6 @@ function cycleResponse(
     locked,
     rewardPerAd: REWARD_COINS,
     totalCycleReward: CYCLE_LIMIT * REWARD_COINS,
-    adsgram: { used: locked ? ADSGRAM_LIMIT : adsgramUsed, limit: ADSGRAM_LIMIT, remaining: locked ? 0 : Math.max(0, ADSGRAM_LIMIT - adsgramUsed) },
     tads: { used: locked ? TADS_LIMIT : tadsUsed, limit: TADS_LIMIT, remaining: locked ? 0 : Math.max(0, TADS_LIMIT - tadsUsed) },
   };
 }
@@ -71,12 +67,12 @@ export async function GET(req: NextRequest) {
     const db = getTurso();
     await db.execute({
       sql: `UPDATE ${CYCLE_TABLE}
-        SET views=0, adsgram_views=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP
+        SET views=0=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP
         WHERE telegram_id=? AND cooldown_until IS NOT NULL AND datetime(cooldown_until) <= datetime('now')`,
       args: [String(user.id)],
     });
     const result = await db.execute({
-      sql: `SELECT views, adsgram_views, tads_views,
+      sql: `SELECT views, tads_views,
         CASE WHEN cooldown_until IS NOT NULL AND datetime(cooldown_until) > datetime('now')
         THEN CAST(strftime('%s', cooldown_until) AS INTEGER) * 1000 ELSE NULL END AS cooldown_until_ms
         FROM ${CYCLE_TABLE} WHERE telegram_id=?`,
@@ -84,7 +80,7 @@ export async function GET(req: NextRequest) {
     });
     const row = result.rows[0];
     return NextResponse.json(cycleResponse(
-      Number(row?.views ?? 0), Number(row?.adsgram_views ?? 0), Number(row?.tads_views ?? 0),
+      Number(row?.views ?? 0), Number(row?.tads_views ?? 0),
       row?.cooldown_until_ms == null ? null : Number(row.cooldown_until_ms),
     ), { headers: { 'Cache-Control': 'no-store, private' } });
   } catch (error) {
@@ -97,16 +93,13 @@ export async function POST(req: NextRequest) {
   const user = verifiedPlayerFromRequest(req);
   if (!user) return fail('telegram_auth_required', 401);
 
-  let body: { widgetId?: unknown; claimId?: unknown; provider?: unknown; adFormat?: unknown };
+  let body: { widgetId?: unknown; claimId?: unknown };
   try { body = await req.json(); } catch { return fail('invalid_body'); }
-  const provider = body.provider === 'adsgram' ? 'adsgram' : body.provider === 'tads' || body.provider == null ? 'tads' : null;
-  const adFormat = body.adFormat === 'interstitial' && provider === 'adsgram' ? 'interstitial' : 'reward';
-  if (!provider) return fail('invalid_ad_provider', 400);
-  const expectedWidgetId = provider === 'adsgram'
-    ? (adFormat === 'interstitial' ? ADSGRAM_INTERSTITIAL_BLOCK_ID : ADSGRAM_REWARDED_BLOCK_ID)
-    : TADS_REWARDED_WIDGET_ID;
+  const provider = 'tads';
+  const adFormat = 'reward';
+  const expectedWidgetId = TADS_REWARDED_WIDGET_ID;
+  const rewardCoins = REWARD_COINS;
   if (String(body.widgetId) !== String(expectedWidgetId)) return fail('invalid_reward_widget', 400);
-  const rewardCoins = provider === 'adsgram' && adFormat === 'interstitial' ? 50 : REWARD_COINS;
   const claimId = typeof body.claimId === 'string' ? body.claimId : '';
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId)) return fail('invalid_claim_id');
 
@@ -124,7 +117,7 @@ export async function POST(req: NextRequest) {
       if (previous.rows.length) {
         const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
         const cycle = await tx.execute({
-          sql: `SELECT views, adsgram_views, tads_views,
+          sql: `SELECT views, tads_views,
             CASE WHEN cooldown_until IS NOT NULL AND datetime(cooldown_until) > datetime('now')
             THEN CAST(strftime('%s', cooldown_until) AS INTEGER) * 1000 ELSE NULL END AS cooldown_until_ms
             FROM ${CYCLE_TABLE} WHERE telegram_id=?`,
@@ -135,16 +128,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           ok: true, duplicate: true, reward: Number(previous.rows[0].reward_coins),
           wallet: { coins: Number(wallet.rows[0]?.coins_balance ?? 0) },
-          cycle: cycleResponse(Number(row?.views ?? 0), Number(row?.adsgram_views ?? 0), Number(row?.tads_views ?? 0), row?.cooldown_until_ms == null ? null : Number(row.cooldown_until_ms)),
+          cycle: cycleResponse(Number(row?.views ?? 0), Number(row?.tads_views ?? 0), row?.cooldown_until_ms == null ? null : Number(row.cooldown_until_ms)),
         }, { headers: { 'Cache-Control': 'no-store' } });
       }
 
       const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [telegramId] });
       if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
       await tx.execute({ sql: `INSERT OR IGNORE INTO ${CYCLE_TABLE}(telegram_id) VALUES (?)`, args: [telegramId] });
-      let cycle = await tx.execute({ sql: `SELECT views, adsgram_views, tads_views, cooldown_until FROM ${CYCLE_TABLE} WHERE telegram_id=?`, args: [telegramId] });
+      let cycle = await tx.execute({ sql: `SELECT views, tads_views, cooldown_until FROM ${CYCLE_TABLE} WHERE telegram_id=?`, args: [telegramId] });
       let used = Number(cycle.rows[0]?.views ?? 0);
-      let adsgramUsed = Number(cycle.rows[0]?.adsgram_views ?? 0);
       let tadsUsed = Number(cycle.rows[0]?.tads_views ?? 0);
       const cooldownUntil = cycle.rows[0]?.cooldown_until;
       if (cooldownUntil) {
@@ -152,16 +144,14 @@ export async function POST(req: NextRequest) {
         if (Number(active.rows[0]?.active ?? 0) === 1) {
           const until = await tx.execute({ sql: "SELECT CAST(strftime('%s', ?) AS INTEGER) * 1000 AS ms", args: [String(cooldownUntil)] });
           await tx.rollback();
-          return NextResponse.json({ error: 'ad_cycle_cooldown', cycle: cycleResponse(CYCLE_LIMIT, ADSGRAM_LIMIT, TADS_LIMIT, Number(until.rows[0]?.ms)) }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
+          return NextResponse.json({ error: 'ad_cycle_cooldown', cycle: cycleResponse(CYCLE_LIMIT, TADS_LIMIT, Number(until.rows[0]?.ms)) }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
         }
-        await tx.execute({ sql: `UPDATE ${CYCLE_TABLE} SET views=0, adsgram_views=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`, args: [telegramId] });
-        used = 0; adsgramUsed = 0; tadsUsed = 0;
+        await tx.execute({ sql: `UPDATE ${CYCLE_TABLE} SET views=0=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`, args: [telegramId] });
+        used = 0; tadsUsed = 0;
       }
-      const providerUsed = provider === 'adsgram' ? adsgramUsed : tadsUsed;
-      const providerLimit = provider === 'adsgram' ? ADSGRAM_LIMIT : TADS_LIMIT;
-      if (used >= CYCLE_LIMIT || providerUsed >= providerLimit) {
+      if (used >= CYCLE_LIMIT || tadsUsed >= TADS_LIMIT) {
         await tx.rollback();
-        return fail(provider === 'adsgram' ? 'adsgram_cycle_limit_reached' : 'tads_cycle_limit_reached', 429);
+        return fail('tads_cycle_limit_reached', 429);
       }
 
       const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
@@ -171,7 +161,6 @@ export async function POST(req: NextRequest) {
       if (!Number.isSafeInteger(oldCoins) || oldCoins < 0 || !Number.isSafeInteger(newCoins)) { await tx.rollback(); return fail('invalid_wallet_balance', 409); }
 
       const nextUsed = used + 1;
-      const nextAdsgram = adsgramUsed + (provider === 'adsgram' ? 1 : 0);
       const nextTads = tadsUsed + (provider === 'tads' ? 1 : 0);
       const completesCycle = nextUsed === CYCLE_LIMIT;
       const claimRowId = randomUUID();
@@ -180,16 +169,16 @@ export async function POST(req: NextRequest) {
         args: [claimRowId, telegramId, claimId, String(expectedWidgetId), rewardCoins],
       });
       await tx.execute({
-        sql: `UPDATE ${CYCLE_TABLE} SET views=?, adsgram_views=?, tads_views=?,
+        sql: `UPDATE ${CYCLE_TABLE} SET views=?=?, tads_views=?,
           cooldown_until=CASE WHEN ?=1 THEN datetime('now', '+12 hours') ELSE NULL END,
           updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`,
-        args: [nextUsed, nextAdsgram, nextTads, completesCycle ? 1 : 0, telegramId],
+        args: [nextUsed, nextTads, completesCycle ? 1 : 0, telegramId],
       });
       await tx.execute({
         sql: 'UPDATE player_wallets SET coins_balance=?, lifetime_coins_earned=lifetime_coins_earned+?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
         args: [newCoins, rewardCoins, telegramId],
       });
-      const metadata = JSON.stringify({ provider, adFormat, widgetId: expectedWidgetId, claimId, reward: rewardCoins, cycleView: nextUsed, adsgramViews: nextAdsgram, tadsViews: nextTads, cycleLimit: CYCLE_LIMIT, cycleHours: CYCLE_HOURS });
+      const metadata = JSON.stringify({ provider, adFormat, widgetId: expectedWidgetId, claimId, reward: rewardCoins, cycleView: nextUsed, tadsViews: nextTads, cycleLimit: CYCLE_LIMIT, cycleHours: CYCLE_HOURS });
       await tx.execute({
         sql: `INSERT INTO ledger_entries(id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'coins', 'ad_reward', ?, ?, 'ad_reward', ?, ?, ?)`,
@@ -217,7 +206,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: true, duplicate: false, reward: rewardCoins, baseReward: rewardCoins,
         wallet: { coins: newCoins },
-        cycle: cycleResponse(nextUsed, nextAdsgram, nextTads, cooldown.rows[0]?.ms == null ? null : Number(cooldown.rows[0].ms)),
+        cycle: cycleResponse(nextUsed, nextTads, cooldown.rows[0]?.ms == null ? null : Number(cooldown.rows[0].ms)),
       }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
       await tx.rollback();
