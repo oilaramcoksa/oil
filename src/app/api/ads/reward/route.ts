@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
         if (Number(active.rows[0]?.active ?? 0) === 1) {
           const until = await tx.execute({ sql: "SELECT CAST(strftime('%s', ?) AS INTEGER) * 1000 AS ms", args: [String(cooldownUntil)] });
           await tx.rollback();
-          return NextResponse.json({ error: 'ad_cycle_cooldown', cycle: cycleResponse(CYCLE_LIMIT, TADS_LIMIT, Number(until.rows[0]?.ms)) }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
+          return NextResponse.json({ error: 'ad_cycle_cooldown', cycle: cycleResponse(CYCLE_LIMIT, TADS_LIMIT, adexiumUsed, Number(until.rows[0]?.ms)) }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
         }
         await tx.execute({ sql: `UPDATE ${CYCLE_TABLE} SET views=0, tads_views=0, adexium_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`, args: [telegramId] });
         used = 0; tadsUsed = 0; adexiumUsed = 0;
