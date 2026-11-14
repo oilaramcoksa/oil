@@ -143,7 +143,12 @@ const coinsPerOil = 5; // 1 oil = 5 coins (in-game only)
 const baseCoinsPerHour = 60; // passive coin rate with no upgrades
 
 function todayStr(d = new Date()): string {
-  return d.toISOString().slice(0, 10);
+  // Use the player's local calendar date. UTC ISO slicing shifts the date
+  // around local midnight and can keep the seven-day login reward on Day 1.
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 function weekKey(d = new Date()): string {
   // ISO week year + week number
@@ -511,11 +516,9 @@ export const useGame = create<GameState>()(
           // === Login streak logic ===
           // Day 1: 1 coin, Day 2: 2 coins, ... Day 7: 7 coins, then restart from 1.
           // Reset to 1 if a day was missed (not consecutive).
-          const yesterdayStr = (() => {
-            const d = new Date();
-            d.setDate(d.getDate() - 1);
-            return d.toISOString().slice(0, 10);
-          })();
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = todayStr(yesterday);
           let newStreak: number;
           if (s.lastLoginDay === yesterdayStr) {
             // Consecutive — increment, cap at 7, then restart from 1
