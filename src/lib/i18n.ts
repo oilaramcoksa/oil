@@ -397,6 +397,14 @@ const ar: Dict = {
   arenaPromoBadge: 'الساحة مفتوحة',
   arenaPromoDesc: 'أدر العجلة ونافس اللاعبين على الفوز بمجموع الجولة.',
   arenaPromoAction: 'ادخل الساحة الآن',
+  arenaBetHistory: 'سجل الرهانات العام',
+  arenaHistoryEmpty: 'لا توجد جولات مكتملة حتى الآن',
+  arenaHistoryRound: 'الجولة',
+  arenaHistoryPot: 'إجمالي الجولة',
+  arenaHistoryStake: 'الرهان',
+  arenaHistoryWon: 'فاز',
+  arenaHistoryLost: 'خسر',
+  arenaHistoryRefund: 'تم رد الرهان',
 };
 
 const en: Dict = {
@@ -772,6 +780,14 @@ const en: Dict = {
   arenaPromoBadge: 'ARENA OPEN',
   arenaPromoDesc: 'Spin the wheel and compete with players to win the round pot.',
   arenaPromoAction: 'Enter the arena',
+  arenaBetHistory: 'Public betting history',
+  arenaHistoryEmpty: 'No completed rounds yet',
+  arenaHistoryRound: 'Round',
+  arenaHistoryPot: 'Round total',
+  arenaHistoryStake: 'Stake',
+  arenaHistoryWon: 'Won',
+  arenaHistoryLost: 'Lost',
+  arenaHistoryRefund: 'Stake refunded',
 };
 
 const ru: Dict = {
@@ -1147,6 +1163,14 @@ const ru: Dict = {
   arenaPromoBadge: 'АРЕНА ОТКРЫТА',
   arenaPromoDesc: 'Крутите колесо и соревнуйтесь с игроками за общий банк раунда.',
   arenaPromoAction: 'Войти на арену',
+  arenaBetHistory: 'Общая история ставок',
+  arenaHistoryEmpty: 'Завершённых раундов пока нет',
+  arenaHistoryRound: 'Раунд',
+  arenaHistoryPot: 'Общий банк',
+  arenaHistoryStake: 'Ставка',
+  arenaHistoryWon: 'Выигрыш',
+  arenaHistoryLost: 'Проигрыш',
+  arenaHistoryRefund: 'Ставка возвращена',
 };
 
 export const dictionaries: Record<Lang, Dict> = { ar, en, ru };
