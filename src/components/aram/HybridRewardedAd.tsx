@@ -44,6 +44,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
   const completedRef = useRef(false);
   const fallbackRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const switchToAdexiumRef = useRef<() => void>(() => undefined);
   const providerRef = useRef<Provider>('adexium');
   const busyRef = useRef(false);
 
@@ -121,10 +122,15 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       renderTadsWidget({ id: String(TADS_WID), type: 'fullscreen' });
     } catch (error) {
       clearTimer();
-      pendingRef.current = false;
-      busyRef.current = false;
-      setBusy(false);
-      onError('tads_unavailable');
+      if (!fallbackRef.current) {
+        fallbackRef.current = true;
+        switchToAdexiumRef.current();
+      } else {
+        pendingRef.current = false;
+        busyRef.current = false;
+        setBusy(false);
+        onError('tads_unavailable');
+      }
     }
   }, [clearTimer, onError]);
 
@@ -207,6 +213,8 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       failover();
     }
   }, [clearTimer, onError, postReward, startTads]);
+
+  useEffect(() => { switchToAdexiumRef.current = () => { void startAdexium(); }; }, [startAdexium]);
 
   const start = useCallback(async () => {
     if (busyRef.current || !isVerified || !initData || (cycle?.cooldownUntil && cycle.cooldownUntil > Date.now())) return;
