@@ -69,7 +69,7 @@ export default function AdminPage() {
     try{
       const res=await fetch('/api/admin/controls',{method:'POST',headers,credentials:'same-origin',body:JSON.stringify(payload)});
       const data=await res.json();if(!res.ok)throw new Error(data.error||'فشلت العملية');
-      setNotice('تم تنفيذ العملية بنجاح');setReason('');setAmount('');setDecisionReason('');setTxHash('');setActionDialog(null);
+      setNotice(data.delivered !== undefined ? `تم إرسال الرسالة بنجاح إلى ${Number(data.delivered).toLocaleString('ar-EG')} لاعب نشط` : 'تم تنفيذ العملية بنجاح');setReason('');setAmount('');setDecisionReason('');setTxHash('');setActionDialog(null);
       await load(section);
     }catch(e){setError(e instanceof Error?e.message:'حدث خطأ');}
     finally{setBusy(false);}
