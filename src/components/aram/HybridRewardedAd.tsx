@@ -116,7 +116,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     clearTimer();
     if (!fallbackRef.current) {
       fallbackRef.current = true;
-      void startAdexium();
+      switchToAdexiumRef.current();
     } else {
       pendingRef.current = false;
       busyRef.current = false;
