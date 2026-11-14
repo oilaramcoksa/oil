@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
 import { TadsAd } from '@/components/aram/TadsAd';
-import { AdsgramTaskAd } from '@/components/aram/AdsgramTaskAd';
 
 type AdProgress = { used: number; limit: number; remaining: number; cooldownUntil: number | null; locked: boolean; rewardPerAd: number; totalCycleReward: number };
 
@@ -215,7 +214,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
             </div>
             <div>
               <h3 className="text-sm font-black text-[#2a1c0a]">{t(lang, 'adMissionsTitle')}</h3>
-              <p className="text-[10px] text-amber-900/60 font-bold">30 إعلانًا كل 12 ساعة · AdsGram: 20 / TADS: 10</p>
+              <p className="text-[10px] text-amber-900/60 font-bold">30 إعلانًا من TADS كل 12 ساعة</p>
             </div>
           </div>
           <span className="text-xs font-black text-amber-800 tabular-nums">{adProgress ? `${adProgress.used}/30` : (adProgressLoading ? '…/30' : '0/30')}</span>
@@ -251,20 +250,8 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         ) : (
           <p className="text-center text-xs font-bold text-amber-900/60">{t(lang, 'telegramRequired')}</p>
         )}
-        {isVerified && initData && (
-          <AdsgramTaskAd
-            initData={initData}
-            isVerified={isVerified}
-            onReward={() => {
-              haptic('medium');
-              notify('success');
-              toast.success('تم إكمال مهمة AdsGram، وستتم معالجة المكافأة عبر المنصة.');
-            }}
-            onError={() => toast.error('تعذر تحميل مهمة AdsGram. حاول لاحقًا.')}
-          />
-        )}
         <p className="mt-2 text-center text-[10px] font-bold text-amber-900/60">
-          {adProgress?.locked ? 'اكتملت 30/30 مشاهدة، وسيُعاد تفعيل المشاهدة بعد انتهاء 12 ساعة.' : `المتبقي: ${adProgress?.remaining ?? 30} إعلانًا`}
+          {adProgress?.locked ? 'اكتملت 30/30 مشاهدة من TADS، وسيُعاد تفعيل المشاهدة بعد انتهاء 12 ساعة.' : `المتبقي: ${adProgress?.remaining ?? 30} إعلانًا`}
         </p>
       </div>
 
