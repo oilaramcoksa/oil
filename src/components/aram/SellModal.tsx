@@ -79,7 +79,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
             await new Promise<void>((resolve, reject) => {
               const started = Date.now();
               const poll = window.setInterval(() => {
-                if (window.tads?.init) { window.clearInterval(poll); resolve(); }
+                if ((window as SaleTadsWindow).tads?.init) { window.clearInterval(poll); resolve(); }
                 else if (Date.now() - started > 5000) { window.clearInterval(poll); reject(new Error('tads_timeout')); }
               }, 100);
             });
@@ -105,7 +105,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
             window.setTimeout(() => reject(new Error('adexium_timeout')), 5000);
           });
         }
-        if (!window.AdexiumWidget) throw new Error('adexium_unavailable');
+        if (!(window as SaleTadsWindow).AdexiumWidget) throw new Error('adexium_unavailable');
         const ad = new (window as SaleTadsWindow).AdexiumWidget!({ wid: 'fac3402b-57c4-45be-9d1d-5589a334852d', adFormat: 'interstitial', debug: false });
         await new Promise<void>((resolve, reject) => {
           let settled = false;
