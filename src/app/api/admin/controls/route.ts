@@ -150,6 +150,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ referrals: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
+    if (section === 'shorts') {
+      await db.execute(`CREATE TABLE IF NOT EXISTS shorts_entries (
+        id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        video_url TEXT NOT NULL UNIQUE, video_title TEXT NOT NULL DEFAULT '', declared_views INTEGER NOT NULL DEFAULT 0,
+        previous_rank INTEGER, status TEXT NOT NULL DEFAULT 'approved', last_reported_at INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`);
+      const rows = await db.execute(`SELECT e.*,p.username,p.first_name FROM shorts_entries e
+        JOIN players p ON p.telegram_id=e.telegram_id
+        WHERE (?='all' OR e.status=?) ORDER BY e.declared_views DESC LIMIT 500`, [status,status]);
+      return NextResponse.json({ shorts: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
     if (section === 'audit') {
       const rows = await db.execute('SELECT * FROM admin_audit_logs ORDER BY created_at DESC LIMIT 150');
       return NextResponse.json({ logs: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
@@ -378,6 +391,14 @@ export async function POST(req: NextRequest) {
         if (paymentStatus === 'rejected') {
           await notify(tx, telegramId, '❌ تم رفض طلب الشراء', `سبب الرفض: ${reason}`, 'payment', { id });
         }
+      } else if (action === 'shorts_review') {
+        const id = String(body.id ?? '');
+        const nextStatus = String(body.status ?? '');
+        if (!id || !['approved','rejected'].includes(nextStatus)) { await tx.rollback(); return fail('invalid_shorts_review'); }
+        const updated = await tx.execute({sql:'UPDATE shorts_entries SET status=? WHERE id=?',[nextStatus,id]});
+        if (Number(updated.rowsAffected) !== 1) { await tx.rollback(); return fail('shorts_entry_not_found',404); }
+        const entry = await tx.execute({sql:'SELECT telegram_id FROM shorts_entries WHERE id=?',[id]});
+        if (entry.rows.length) await notify(tx,String(entry.rows[0].telegram_id),nextStatus==='approved'?'✅ تم اعتماد مشاركتك':'⚠️ تم استبعاد مشاركتك',nextStatus==='approved'?'تم اعتماد فيديو YouTube Shorts في المسابقة.':'تم استبعاد الفيديو من لوحة المتصدرين بعد مراجعة الإدارة.','announcement',{entryId:id});
       } else if (action === 'broadcast_coins') {
         const quantity = Number(body.amount);
         if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 1_000_000_000 || !reason) {
