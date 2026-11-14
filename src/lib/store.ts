@@ -807,8 +807,8 @@ export function effectiveSpeed(upgrades: UpgradeRecord[], now: number = Date.now
   }, 0);
 }
 
-export function effectiveCapacity(upgrades: UpgradeRecord[], base: number = baseCapacity, now: number = Date.now()): number {
-  return base + filterActiveUpgrades(upgrades, now).length * 250;
+export function effectiveCapacity(upgrades: UpgradeRecord[], base: number = baseCapacity, now: number = Date.now(), stationParts = 0): number {
+  return base + filterActiveUpgrades(upgrades, now).length * 250 + Math.max(0, stationParts) * 250;
 }
 
 export function effectiveOilPerTap(upgrades: UpgradeRecord[], now: number = Date.now(), base: number = baseOilPerTap): number {
