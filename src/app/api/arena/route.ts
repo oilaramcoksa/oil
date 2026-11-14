@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 import { postLedgerEntry } from '@/lib/ledger';
@@ -49,44 +49,30 @@ async function readEntries(db: ReturnType<typeof getTurso>, roundId: string): Pr
   }));
 }
 
-function chooseOutcome(entries: ArenaEntryRow[], total: number) {
-  const seed = randomBytes(32).toString('hex');
+function sha256(value: string) {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
 
-  if (total > 10_000) {
-    return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 45 };
-  }
-
-  const roll = randomInt(0, 1_000_000);
-  if (roll < HOUSE_SLICE * 1_000_000) {
-    return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 45 };
-  }
-
-  const playerRoll = ((roll / 1_000_000) - HOUSE_SLICE) / (1 - HOUSE_SLICE);
-  const target = playerRoll * total;
+function chooseOutcome(entries: ArenaEntryRow[], total: number, roundId: string, seed: string) {
+  // Version 1 is deterministic: the seed commitment is stored before the round accepts entries.
+  const draw = BigInt('0x' + sha256('aramco-arena-v1:' + roundId + ':' + seed).slice(0, 16)) % 1_000_000_000_000n;
+  const houseThreshold = 250_000_000_000n;
+  if (draw < houseThreshold) return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 45 };
+  const playerDraw = Number(draw - houseThreshold) / Number(1_000_000_000_000n - houseThreshold);
+  const target = playerDraw * total;
   let cumulative = 0;
   let winner = entries[entries.length - 1];
-
-  for (const entry of entries) {
-    cumulative += entry.amount;
-    if (target < cumulative) {
-      winner = entry;
-      break;
-    }
-  }
-
-  const beforeWinner = entries
-    .slice(0, entries.findIndex((entry) => entry.telegram_id === winner.telegram_id))
-    .reduce((sum, entry) => sum + entry.amount, 0);
-  const winnerCenter = (HOUSE_SLICE * 360) +
-    ((beforeWinner + winner.amount / 2) / total) * ((1 - HOUSE_SLICE) * 360);
+  for (const entry of entries) { cumulative += entry.amount; if (target < cumulative) { winner = entry; break; } }
+  const winnerIndex = entries.findIndex((entry) => entry.telegram_id === winner.telegram_id);
+  const beforeWinner = entries.slice(0, winnerIndex).reduce((sum, entry) => sum + entry.amount, 0);
+  const winnerCenter = 90 + ((beforeWinner + winner.amount / 2) / total) * 270;
   const stopDegrees = (360 - winnerCenter + 360) % 360;
+  return { seed, winnerType: 'player' as const, winnerId: winner.telegram_id, stopDegrees };
+}
 
-  return {
-    seed,
-    winnerType: 'player' as const,
-    winnerId: winner.telegram_id,
-    stopDegrees,
-  };
+function resultProofHash(roundId: string, seed: string, winnerType: string, winnerId: string | null, total: number, stopDegrees: number, entries: ArenaEntryRow[]) {
+  const canonicalEntries = [...entries].sort((a, b) => a.telegram_id.localeCompare(b.telegram_id)).map((entry) => [entry.telegram_id, entry.amount]);
+  return sha256(JSON.stringify({ version: 1, roundId, seed, winnerType, winnerId, total, stopDegrees, entries: canonicalEntries }));
 }
 
 /**
@@ -125,7 +111,7 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
   }
 
   const dueCountdowns = await db.execute({
-    sql: "SELECT id FROM arena_rounds WHERE status='countdown' AND starts_at <= ? ORDER BY created_at LIMIT 10",
+    sql: "SELECT id, outcome_seed, algorithm_version FROM arena_rounds WHERE status='countdown' AND starts_at <= ? ORDER BY created_at LIMIT 10",
     args: [now],
   });
 
@@ -155,12 +141,16 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
       continue;
     }
 
-    const outcome = chooseOutcome(entries, total);
+    const seed = candidate.outcome_seed == null ? randomBytes(32).toString('hex') : String(candidate.outcome_seed);
+        const algorithmVersion = Number(candidate.algorithm_version ?? 0);
+        const outcome = chooseOutcome(entries, total, roundId, seed);
+        const commitment = sha256(seed);
+        const proofHash = algorithmVersion === 1 ? resultProofHash(roundId, seed, outcome.winnerType, outcome.winnerId, total, outcome.stopDegrees, entries) : null;
     await db.execute({
       sql: `UPDATE arena_rounds
             SET status='spinning', spin_started_at=?, total_entries=?,
                 winner_telegram_id=?, winner_type=?, winning_amount=?,
-                outcome_seed=?, wheel_stop_degrees=?
+                outcome_seed=?, seed_commitment=COALESCE(seed_commitment, ?), outcome_proof_hash=?, wheel_stop_degrees=?
             WHERE id=? AND status='countdown' AND starts_at<=?`,
       args: [
         now,
@@ -168,7 +158,9 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
         outcome.winnerId,
         outcome.winnerType,
         outcome.winnerType === 'player' ? total : 0,
-        outcome.seed,
+        seed,
+        commitment,
+        proofHash,
         outcome.stopDegrees,
         roundId,
         now,
@@ -276,6 +268,11 @@ export async function GET(req: NextRequest) {
         winnerTelegramId: personalRow.winner_telegram_id == null ? null : String(personalRow.winner_telegram_id),
         totalEntries: Number(personalRow.total_entries),
         wheelStopDegrees: personalRow.wheel_stop_degrees == null ? 0 : Number(personalRow.wheel_stop_degrees),
+        completedAt: personalRow.completed_at == null ? null : String(personalRow.completed_at),
+        seedCommitment: personalRow.seed_commitment == null ? null : String(personalRow.seed_commitment),
+        outcomeSeed: Number(personalRow.algorithm_version ?? 0) === 1 ? String(personalRow.outcome_seed ?? '') : null,
+        algorithmVersion: Number(personalRow.algorithm_version ?? 0),
+        resultProofHash: personalRow.outcome_proof_hash == null ? null : String(personalRow.outcome_proof_hash),
         entries: personalEntries.map(toPublicEntry),
       };
     }
@@ -293,6 +290,8 @@ export async function GET(req: NextRequest) {
           winnerType: activeRound.winner_type == null ? null : String(activeRound.winner_type),
           winnerTelegramId: activeRound.winner_telegram_id == null ? null : String(activeRound.winner_telegram_id),
           wheelStopDegrees: activeRound.wheel_stop_degrees == null ? null : Number(activeRound.wheel_stop_degrees),
+          seedCommitment: activeRound.seed_commitment == null ? null : String(activeRound.seed_commitment),
+          algorithmVersion: Number(activeRound.algorithm_version ?? 0),
         },
         balance,
         entries: entries.map(toPublicEntry),
@@ -357,9 +356,10 @@ export async function POST(req: NextRequest) {
         roundId = String(activeRound.id);
       } else {
         roundId = randomUUID();
+        const committedSeed = randomBytes(32).toString('hex');
         await tx.execute({
-          sql: "INSERT INTO arena_rounds(id, status) VALUES (?, 'open')",
-          args: [roundId],
+          sql: "INSERT INTO arena_rounds(id, status, outcome_seed, seed_commitment, algorithm_version) VALUES (?, 'open', ?, ?, 1)",
+          args: [roundId, committedSeed, sha256(committedSeed)],
         });
       }
 
