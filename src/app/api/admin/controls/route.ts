@@ -122,10 +122,22 @@ export async function POST(req: NextRequest) {
         if (asset === 'coins') {
           await tx.execute({sql:`INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?, 'coins','admin_grant',?,?,'admin',?,?,?)`,
             args:[randomUUID(),target,amount,balance,randomUUID(),`admin-grant:${randomUUID()}`,JSON.stringify({reason})]});
+          const snap=await tx.execute({sql:'SELECT state_json FROM player_game_snapshots WHERE telegram_id=?',args:[target]});
+          if(snap.rows.length){
+            let st:Record<string,unknown>={};try{st=JSON.parse(String(snap.rows[0].state_json)) as Record<string,unknown>;}catch{}
+            st.coins=balance;
+            await tx.execute({sql:'UPDATE player_game_snapshots SET state_json=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',args:[JSON.stringify(st),target]});
+          }
           await notify(tx,target,'🎁 مكافأة من إدارة اللعبة',`تمت إضافة ${amount.toLocaleString('en-US')} عملة إلى رصيدك. السبب: ${reason}`,'reward',{amount,reason});
         } else {
           await tx.execute({sql:`INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?, 'admin_oil_grant',?,?,?)`,
             args:[randomUUID(),target,amount,JSON.stringify({reason}),`admin-oil:${randomUUID()}`]});
+          const snap=await tx.execute({sql:'SELECT state_json FROM player_game_snapshots WHERE telegram_id=?',args:[target]});
+          if(snap.rows.length){
+            let st:Record<string,unknown>={};try{st=JSON.parse(String(snap.rows[0].state_json)) as Record<string,unknown>;}catch{}
+            st.oil=balance;
+            await tx.execute({sql:'UPDATE player_game_snapshots SET state_json=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',args:[JSON.stringify(st),target]});
+          }
           await notify(tx,target,'🛢️ تمت إضافة نفط إلى حسابك',`أضافت الإدارة ${amount} وحدة نفط. السبب: ${reason}`,'reward',{amount,reason});
         }
       } else if (action === 'ban' || action === 'unban') {
@@ -138,6 +150,12 @@ export async function POST(req: NextRequest) {
         const speed = Number(body.speed);
         await tx.execute({sql:'INSERT OR IGNORE INTO player_game_state(telegram_id) VALUES(?)',args:[target]});
         await tx.execute({sql:'UPDATE player_game_state SET base_oil_per_tap=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',args:[speed,target]});
+        const gs=await tx.execute({sql:'SELECT state_json FROM player_game_snapshots WHERE telegram_id=?',args:[target]});
+        if(gs.rows.length){
+          let state:Record<string,unknown>={};try{state=JSON.parse(String(gs.rows[0].state_json)) as Record<string,unknown>;}catch{}
+          state.baseOilPerTap=speed;
+          await tx.execute({sql:'UPDATE player_game_snapshots SET state_json=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',args:[JSON.stringify(state),target]});
+        }
         await notify(tx,target,'⚡ تم تحديث سرعة المضخة',`تم ضبط سرعة المضخة الأساسية إلى ${speed.toLocaleString('en-US')} وحدة لكل ضغطة.`,'upgrade');
       } else if (action === 'withdrawal') {
         const id=String(body.id??'');
