@@ -35,6 +35,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
   const oil = useGame((s) => s.oil);
   const coins = useGame((s) => s.coins);
   const upgrades = useGame((s) => s.upgrades);
+  const parts = useGame((s) => s.parts);
   const cycleEndsAt = useGame((s) => s.cycleEndsAt);
   const tapPump = useGame((s) => s.tapPump);
   const processPassive = useGame((s) => s.processPassive);
@@ -135,7 +136,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
 
       {/* Scene */}
       <div className="relative max-w-md mx-auto w-full px-2">
-        <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} />
+        <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} />
 
         {/* Floating +oil numbers */}
         <AnimatePresence>
