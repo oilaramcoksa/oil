@@ -108,7 +108,6 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
   const startTads = useCallback(() => {
     providerRef.current = 'tads';
     pendingRef.current = true;
-    fallbackRef.current = true;
     clearTimer();
     timeoutRef.current = setTimeout(() => {
       if (!completedRef.current && pendingRef.current) {
@@ -127,9 +126,14 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       setBusy(false);
       onError('tads_unavailable');
     }
-  }, [clearTimer, onError]);
+  }, [clearTimer, onError, startAdexium]);
 
   const startAdexium = useCallback(async () => {
+    const failover = () => {
+      if (!pendingRef.current || fallbackRef.current) return;
+      fallbackRef.current = true;
+      startTads();
+    };
     providerRef.current = 'adexium';
     taskIdRef.current = null;
     try {
@@ -158,13 +162,13 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       ad.on('adReceived', (creative) => {
         if (!pendingRef.current || providerRef.current !== 'adexium') return;
         const id = creative?.id;
-        if (!id) { fallback(); return; }
+        if (!id) { failover(); return; }
         taskIdRef.current = id;
         clearTimer();
-        try { ad.displayAd(creative!); } catch { fallback(); }
+        try { ad.displayAd(creative!); } catch { failover(); }
       });
       ad.on('noAdFound', () => {
-        if (pendingRef.current && providerRef.current === 'adexium') fallback();
+        if (pendingRef.current && providerRef.current === 'adexium') failover();
       });
       ad.on('adPlaybackCompleted', () => {
         const taskId = taskIdRef.current;
@@ -179,21 +183,14 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
         }
       });
       timeoutRef.current = setTimeout(() => {
-        if (pendingRef.current && providerRef.current === 'adexium' && !taskIdRef.current) fallback();
+        if (pendingRef.current && providerRef.current === 'adexium' && !taskIdRef.current) failover();
       }, 10000);
       ad.requestRewardedAd('interstitial');
     } catch (error) {
       console.warn('Adexium failed; falling back to TADS', error);
-      fallback();
+      failover();
     }
-  // fallback is assigned immediately before invoking this callback at runtime.
-  }, [clearTimer, postReward]);
-
-  const fallback = useCallback(() => {
-    if (!pendingRef.current || fallbackRef.current) return;
-    fallbackRef.current = true;
-    startTads();
-  }, [startTads]);
+  }, [clearTimer, postReward, startTads]);
 
   const start = useCallback(async () => {
     if (busyRef.current || !isVerified || !initData || (cycle?.cooldownUntil && cycle.cooldownUntil > Date.now())) return;
@@ -218,10 +215,15 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
   const handleTadsNoAd = useCallback(() => {
     if (pendingRef.current && providerRef.current === 'tads' && !completedRef.current) {
       clearTimer();
-      pendingRef.current = false;
-      busyRef.current = false;
-      setBusy(false);
-      onError('no_ad_available');
+      if (!fallbackRef.current) {
+        fallbackRef.current = true;
+        void startAdexium();
+      } else {
+        pendingRef.current = false;
+        busyRef.current = false;
+        setBusy(false);
+        onError('no_ad_available');
+      }
     }
   }, [clearTimer, onError]);
 
