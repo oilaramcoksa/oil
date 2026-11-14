@@ -2,7 +2,6 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { PACKAGES, UPGRADE_DURATION_MS } from '@/lib/wallets';
-import { getVerifiedTelegramUser } from '@/lib/telegram-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
