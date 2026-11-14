@@ -25,6 +25,14 @@ async function ensureAdCycleTable() {
     cooldown_until TEXT,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS ad_reward_cycles_v2 (
+    telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+    views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 30),
+    adsgram_views INTEGER NOT NULL DEFAULT 0 CHECK(adsgram_views >= 0 AND adsgram_views <= 20),
+    tads_views INTEGER NOT NULL DEFAULT 0 CHECK(tads_views >= 0 AND tads_views <= 10),
+    cooldown_until TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
   await db.execute(`CREATE TABLE IF NOT EXISTS ${CYCLE_TABLE} (
     telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
     views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 30),
@@ -146,7 +154,7 @@ export async function POST(req: NextRequest) {
           await tx.rollback();
           return NextResponse.json({ error: 'ad_cycle_cooldown', cycle: cycleResponse(CYCLE_LIMIT, TADS_LIMIT, Number(until.rows[0]?.ms)) }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
         }
-        await tx.execute({ sql: `UPDATE ${CYCLE_TABLE} SET views=0=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`, args: [telegramId] });
+        await tx.execute({ sql: `UPDATE ${CYCLE_TABLE} SET views=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`, args: [telegramId] });
         used = 0; tadsUsed = 0;
       }
       if (used >= CYCLE_LIMIT || tadsUsed >= TADS_LIMIT) {
