@@ -50,6 +50,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const partsRows = await db.execute({
+      sql: 'SELECT part_id, quantity FROM player_parts WHERE telegram_id = ?',
+      args: [telegramId],
+    });
+    const parts = Object.fromEntries(partsRows.rows.map((row) => [String(row.part_id), Number(row.quantity)]));
     const stats = await db.execute({
       sql: `SELECT COALESCE(taps,0) AS taps, COALESCE(sells,0) AS sells,
                    COALESCE(coins_earned,0) AS coins_earned
@@ -76,6 +81,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       player: { telegramId, username: identity.username ?? null, firstName: identity.first_name ?? null, lastName: identity.last_name ?? null },
       referralCode,
+      parts,
       referralCount: referrals.length,
       referrals,
       monthlyStats: stats.rows[0] ?? { taps: 0, sells: 0, coins_earned: 0 },
