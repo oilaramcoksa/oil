@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     const db = getTurso();
     await db.execute({
       sql: `UPDATE ${CYCLE_TABLE}
-        SET views=0=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP
+        SET views=0, tads_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP
         WHERE telegram_id=? AND cooldown_until IS NOT NULL AND datetime(cooldown_until) <= datetime('now')`,
       args: [String(user.id)],
     });
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
       if (!Number.isSafeInteger(oldCoins) || oldCoins < 0 || !Number.isSafeInteger(newCoins)) { await tx.rollback(); return fail('invalid_wallet_balance', 409); }
 
       const nextUsed = used + 1;
-      const nextTads = tadsUsed + (provider === 'tads' ? 1 : 0);
+      const nextTads = tadsUsed + 1;
       const completesCycle = nextUsed === CYCLE_LIMIT;
       const claimRowId = randomUUID();
       await tx.execute({
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
         args: [claimRowId, telegramId, claimId, String(expectedWidgetId), rewardCoins],
       });
       await tx.execute({
-        sql: `UPDATE ${CYCLE_TABLE} SET views=?=?, tads_views=?,
+        sql: `UPDATE ${CYCLE_TABLE} SET views=?, tads_views=?,
           cooldown_until=CASE WHEN ?=1 THEN datetime('now', '+12 hours') ELSE NULL END,
           updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`,
         args: [nextUsed, nextTads, completesCycle ? 1 : 0, telegramId],
