@@ -147,41 +147,44 @@ export async function POST(req: NextRequest) {
         await tx.execute({sql:'UPDATE player_game_state SET base_oil_per_tap=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',args:[speed,target]});
         await notify(tx,target,'⚡ تم تحديث سرعة المضخة',`تم ضبط سرعة المضخة الأساسية إلى ${speed.toLocaleString('en-US')} وحدة لكل ضغطة.`,'upgrade');
       } else if (action === 'withdrawal') {
-        const id = String(body.id ?? '');
-        const status = String(body.status ?? '');
-        const table = body.currency === 'usdt' ? 'usdt_withdrawal_requests' : 'withdrawal_requests';
+        const id=String(body.id??'');
+        const status=String(body.status??'');
+        const isUsdt=body.currency==='usdt';
+        const table=isUsdt?'usdt_withdrawal_requests':'withdrawal_requests';
         if (!id || !['paid','rejected'].includes(status)) { await tx.rollback(); return fail('invalid_request'); }
-        const row = await tx.execute({sql:`SELECT telegram_id,coins,units FROM withdrawal_requests WHERE id=? AND status='pending'`,args:[id]});
+        const row=await tx.execute({sql:`SELECT telegram_id,coins,usd_micros FROM ${table} WHERE id=? AND status='pending'`,args:[id]});
         if (!row.rows.length) { await tx.rollback(); return fail('not_pending_or_missing',409); }
-        const telegramId=String(row.rows[0].telegram_id), coins=Number(row.rows[0].coins);
-        if (table==='withdrawal_requests') {
+        const telegramId=String(row.rows[0].telegram_id);
+        if(isUsdt){
+          const micros=Number(row.rows[0].usd_micros);
+          const wallet=await tx.execute({sql:'SELECT usd_locked_micros FROM player_wallets WHERE telegram_id=?',args:[telegramId]});
+          if(Number(wallet.rows[0]?.usd_locked_micros??0)<micros){await tx.rollback();return fail('locked_balance_inconsistent',409);}
+          await tx.execute({sql:status==='rejected'
+            ?'UPDATE player_wallets SET usd_locked_micros=usd_locked_micros-?,usd_micros=usd_micros+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?'
+            :'UPDATE player_wallets SET usd_locked_micros=usd_locked_micros-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+            args:status==='rejected'?[micros,micros,telegramId]:[micros,telegramId]});
+        } else {
+          const coins=Number(row.rows[0].coins);
           const wallet=await tx.execute({sql:'SELECT coins_locked FROM player_wallets WHERE telegram_id=?',args:[telegramId]});
-          if (Number(wallet.rows[0]?.coins_locked ?? 0)<coins) { await tx.rollback(); return fail('locked_balance_inconsistent',409); }
+          if(Number(wallet.rows[0]?.coins_locked??0)<coins){await tx.rollback();return fail('locked_balance_inconsistent',409);}
           await tx.execute({sql:status==='rejected'
             ?'UPDATE player_wallets SET coins_locked=coins_locked-?,coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?'
             :'UPDATE player_wallets SET coins_locked=coins_locked-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
             args:status==='rejected'?[coins,coins,telegramId]:[coins,telegramId]});
           if(status==='rejected'){
-            const walletAfter=await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[telegramId]});
+            const after=await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[telegramId]});
             await tx.execute({sql:`INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?, 'coins','withdrawal_refund',?,?,'withdrawal',?,?,?)`,
-              args:[randomUUID(),telegramId,coins,Number(walletAfter.rows[0]?.coins_balance??0),id,`admin-withdrawal-refund:${id}`,JSON.stringify({reason:reason})]});
+              args:[randomUUID(),telegramId,coins,Number(after.rows[0]?.coins_balance??0),id,`admin-withdrawal-refund:${id}`,JSON.stringify({reason})]});
           }
-        } else {
-          const usd=await tx.execute({sql:'SELECT usd_locked_micros FROM player_wallets WHERE telegram_id=?',args:[telegramId]});
-          const micros=Number(row.rows[0].usd_micros ?? 0);
-          if (Number(usd.rows[0]?.usd_locked_micros ?? 0)<micros) { await tx.rollback(); return fail('locked_balance_inconsistent',409); }
-          await tx.execute({sql:status==='rejected'
-            ?'UPDATE player_wallets SET usd_locked_micros=usd_locked_micros-?,usd_micros=usd_micros+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?'
-            :'UPDATE player_wallets SET usd_locked_micros=usd_locked_micros-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
-            args:status==='rejected'?[micros,micros,telegramId]:[micros,telegramId]});
         }
-        const txHash=noteText(body.txHash);
-        if(status==='paid' && !txHash){ await tx.rollback(); return fail('tx_hash_required'); }
+        const hash=noteText(body.txHash);
+        if(status==='paid'&&!hash){await tx.rollback();return fail('tx_hash_required');}
         const updated=await tx.execute({sql:`UPDATE ${table} SET status=?,tx_hash=?,admin_note=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'`,
-          args:[status,txHash,reason,id]});
+          args:[status,hash,reason,id]});
         if(Number(updated.rowsAffected)!==1){await tx.rollback();return fail('status_conflict',409);}
-        if(status==='rejected') await notify(tx,telegramId,'❌ تم رفض طلب السحب',`سبب الرفض: ${reason}`,'withdrawal',{id});
-        else await notify(tx,telegramId,'✅ تمت الموافقة على طلب السحب','تم اعتماد طلبك وتسجيل عملية السحب.','withdrawal',{id,txHash});
+        await notify(tx,telegramId,status==='rejected'?'❌ تم رفض طلب السحب':'✅ تمت الموافقة على طلب السحب',
+          status==='rejected'?`سبب الرفض: ${reason||'لم يتم توضيح السبب'}`:'تم اعتماد طلب السحب وتسجيله في سجلات الإدارة.',
+          'withdrawal',{id,currency:body.currency??'ton',txHash:hash});
       } else if (action === 'payment') {
         const id=String(body.id??'');
         const status=String(body.status??'');
