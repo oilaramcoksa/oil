@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { t } from '@/lib/i18n';
 import { useTelegram } from '@/hooks/use-telegram';
 import { Button } from '@/components/ui/button';
+import { TadsWidget, renderTadsWidget } from 'react-tads-widget';
 import { Truck, X, Droplet, Coins, Check } from 'lucide-react';
 
 type SaleAdexiumInstance = {
@@ -24,7 +25,6 @@ type SaleAdexiumInstance = {
 };
 type SaleTadsWindow = Window & {
   AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => SaleAdexiumInstance;
-  tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean }) => { showAd?: () => Promise<unknown> } | Promise<{ showAd?: () => Promise<unknown> }> };
 };
 interface Props {
   open: boolean;
@@ -65,29 +65,12 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
     // If Adexium has no fill or fails to load, immediately try TADS. The sale itself
     // remains available even when both networks have no ad.
     void (async () => {
-      const showTadsFallback = async () => {
+      const showTadsFallback = () => {
         try {
-          if (!(window as SaleTadsWindow).tads?.init) {
-            let script = document.querySelector<HTMLScriptElement>('script[data-tads-sdk="true"]');
-            if (!script) {
-              script = document.createElement('script');
-              script.src = 'https://w.tads.me/widget.js';
-              script.async = true;
-              script.dataset.tadsSdk = 'true';
-              document.head.appendChild(script);
-            }
-            await new Promise<void>((resolve, reject) => {
-              const started = Date.now();
-              const poll = window.setInterval(() => {
-                if ((window as SaleTadsWindow).tads?.init) { window.clearInterval(poll); resolve(); }
-                else if (Date.now() - started > 5000) { window.clearInterval(poll); reject(new Error('tads_timeout')); }
-              }, 100);
-            });
-          }
-          const controller = await (window as SaleTadsWindow).tads?.init({ widgetId: 13283, type: 'fullscreen', debug: false });
-          if (typeof controller?.showAd !== 'function') throw new Error('tads_controller_not_ready');
-          await controller.showAd();
-        } catch (error) { console.info('TADS sale interstitial unavailable', error); }
+          renderTadsWidget({ id: '13283', type: 'fullscreen' });
+        } catch (error) {
+          console.info('TADS sale interstitial unavailable', error);
+        }
       };
       try {
         let script = document.querySelector<HTMLScriptElement>('script[data-adexium-sdk="true"]');
@@ -215,6 +198,9 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
             className="relative w-full max-w-md bg-gradient-to-b from-[#2a1c0a] to-[#0c0703] rounded-t-3xl sm:rounded-3xl overflow-hidden aram-safe-bottom"
             style={{ aspectRatio: '4 / 5', maxHeight: '90vh' }}
           >
+            <div className="sr-only" aria-hidden="true">
+              <TadsWidget id="13283" type="fullscreen" debug={false} onAdsNotFound={() => console.info('TADS sale ad not found')} />
+            </div>
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-2">
