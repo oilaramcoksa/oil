@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Loader2, Play, ShieldCheck } from 'lucide-react';
+import { TadsWidget, renderTadsWidget } from 'react-tads-widget';
 
 const ADEXIUM_WID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
 const TADS_WID = 13283;
@@ -19,7 +20,6 @@ type AdexiumInstance = {
 };
 declare global {
   interface Window {
-    tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean; onShowReward?: () => void; onAdsNotFound?: () => void }) => { showAd?: () => Promise<unknown> } | Promise<{ showAd?: () => Promise<unknown> }> };
     AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => AdexiumInstance;
   }
 }
@@ -107,60 +107,43 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     }
   }, [clearTimer, initData, loadCycle, onError, onRewarded]);
 
+  const handleTadsReward = useCallback(() => {
+    if (pendingRef.current && providerRef.current === 'tads') void postReward('tads');
+  }, [postReward]);
+
+  const handleTadsNoAd = useCallback(() => {
+    if (!pendingRef.current || providerRef.current !== 'tads' || completedRef.current) return;
+    clearTimer();
+    if (!fallbackRef.current) {
+      fallbackRef.current = true;
+      void startAdexium();
+    } else {
+      pendingRef.current = false;
+      busyRef.current = false;
+      setBusy(false);
+      onError('no_ad_available');
+    }
+  }, [clearTimer, onError]);
+
   const startTads = useCallback(() => {
     providerRef.current = 'tads';
     pendingRef.current = true;
     clearTimer();
     timeoutRef.current = setTimeout(() => {
-      if (!completedRef.current && pendingRef.current) {
+      if (!completedRef.current && pendingRef.current && providerRef.current === 'tads') {
         pendingRef.current = false;
         busyRef.current = false;
         setBusy(false);
         onError('no_ad_available');
       }
-    }, 120000);
-    void (async () => {
-      try {
-        const waitForTads = async () => {
-          if (window.tads?.init) return;
-          let script = document.querySelector<HTMLScriptElement>('script[data-tads-sdk="true"]');
-          if (!script) {
-            script = document.createElement('script');
-            script.src = 'https://w.tads.me/widget.js';
-            script.async = true;
-            script.dataset.tadsSdk = 'true';
-            document.head.appendChild(script);
-          }
-          await new Promise<void>((resolve, reject) => {
-            const started = Date.now();
-            const poll = window.setInterval(() => {
-              if (window.tads?.init) { window.clearInterval(poll); resolve(); }
-              else if (Date.now() - started > 8000) { window.clearInterval(poll); reject(new Error('tads_sdk_timeout')); }
-            }, 100);
-          });
-        };
-        await waitForTads();
-        const controller = await window.tads!.init({
-          widgetId: TADS_WID, type: 'fullscreen', debug: false,
-          onShowReward: () => { if (pendingRef.current && providerRef.current === 'tads') void postReward('tads'); },
-          onAdsNotFound: () => {
-            if (pendingRef.current && providerRef.current === 'tads' && !completedRef.current) {
-              clearTimer();
-              if (!fallbackRef.current) { fallbackRef.current = true; void startAdexium(); }
-              else { pendingRef.current = false; busyRef.current = false; setBusy(false); onError('no_ad_available'); }
-            }
-          },
-        });
-        if (typeof controller?.showAd !== 'function') throw new Error('tads_controller_not_ready');
-        await controller.showAd();
-      } catch (error) {
-        console.warn('TADS failed; falling back to Adexium', error);
-        clearTimer();
-        if (!fallbackRef.current) { fallbackRef.current = true; switchToAdexiumRef.current(); }
-        else { pendingRef.current = false; busyRef.current = false; setBusy(false); onError('tads_unavailable'); }
-      }
-    })();
-  }, [clearTimer, onError]);
+    }, 30000);
+    try {
+      renderTadsWidget({ id: String(TADS_WID), type: 'fullscreen' });
+    } catch (error) {
+      console.warn('TADS fullscreen could not be opened', error);
+      handleTadsNoAd();
+    }
+  }, [clearTimer, handleTadsNoAd, onError]);
 
   const startAdexium = useCallback(async () => {
     const failover = () => {
@@ -183,7 +166,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       if (!window.AdexiumWidget) {
         if (!script) {
           script = document.createElement('script');
-          script.src = 'https://cdn.tgads.space/assets/js/adexium-widget.min.js';
+          script.src = 'https://cdn.adexium.tech/assets/js/tg-ads-co-widget.min.js';
           script.async = true;
           script.dataset.adexiumSdk = 'true';
           document.head.appendChild(script);
@@ -265,7 +248,13 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
 
   return (
     <div className="w-full">
-
+      <TadsWidget
+        id={String(TADS_WID)}
+        type="fullscreen"
+        debug={false}
+        onShowReward={handleTadsReward}
+        onAdsNotFound={handleTadsNoAd}
+      />
       <button type="button" onClick={start} disabled={!isVerified || !initData || busy || locked || cycle?.remaining === 0}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-[#33213b] to-[#563126] px-4 py-3 text-sm font-black text-amber-50 shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : locked ? <ShieldCheck className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
