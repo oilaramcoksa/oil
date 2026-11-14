@@ -182,7 +182,7 @@ export function TadsAd({
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-2 text-xs font-black text-[#3b210c] shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               {adPending || rewarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-              {locked ? `اكتملت 10/10 · إعادة التفعيل ${countdown}` : (rewarding ? (loadingLabel ?? 'جاري إضافة المكافأة...') : (actionLabel ?? title))}
+              {locked ? `اكتملت 30/30 · إعادة التفعيل ${countdown}` : (rewarding ? (loadingLabel ?? 'جاري إضافة المكافأة...') : (actionLabel ?? title))}
             </button>
           </div>
         )}
@@ -206,7 +206,7 @@ export function TadsAd({
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-[#33213b] to-[#563126] px-4 py-3 text-sm font-black text-amber-50 shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {adPending || rewarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-        {locked ? `اكتملت 10/10 · إعادة التفعيل ${countdown}` : (rewarding ? (loadingLabel ?? 'جاري إضافة المكافأة...') : (actionLabel ?? title))}
+        {locked ? `اكتملت 30/30 · إعادة التفعيل ${countdown}` : (rewarding ? (loadingLabel ?? 'جاري إضافة المكافأة...') : (actionLabel ?? title))}
       </button>
       {description && <p className="mt-1 text-center text-[10px] font-bold text-amber-900/55">{description}</p>}
     </div>
