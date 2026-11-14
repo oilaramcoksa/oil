@@ -81,6 +81,14 @@ export async function GET(req: NextRequest) {
       args: [telegramId],
     });
     const parts = Object.fromEntries(partsRows.rows.map((row) => [String(row.part_id), Number(row.quantity)]));
+    await db.execute(`CREATE TABLE IF NOT EXISTS player_special_parts (
+      telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+      part_id TEXT NOT NULL CHECK(part_id IN ('new_background','vip_badge','wheel_expansion')),
+      purchased_at INTEGER NOT NULL, expires_at INTEGER, payment_id TEXT NOT NULL UNIQUE,
+      PRIMARY KEY(telegram_id,part_id,payment_id)
+    )`);
+    const specialRows = await db.execute({sql:'SELECT part_id,MAX(expires_at) AS expires_at FROM player_special_parts WHERE telegram_id=? AND (expires_at IS NULL OR expires_at>?) GROUP BY part_id',[telegramId,Date.now()]});
+    const specialParts = Object.fromEntries(specialRows.rows.map(row=>[String(row.part_id),{owned:true,expiresAt:row.expires_at==null?null:Number(row.expires_at)}]));
     const gameSettings = await db.execute({
       sql: 'SELECT base_oil_per_tap, base_capacity FROM player_game_state WHERE telegram_id = ?',
       args: [telegramId],
@@ -112,6 +120,7 @@ export async function GET(req: NextRequest) {
       player: { telegramId, username: identity.username ?? null, firstName: identity.first_name ?? null, lastName: identity.last_name ?? null },
       referralCode,
       parts,
+      specialParts,
       gameSettings: gameSettings.rows[0] ? { baseOilPerTap: Number(gameSettings.rows[0].base_oil_per_tap), baseCapacity: Number(gameSettings.rows[0].base_capacity) } : null,
       referralCount: referrals.length,
       referrals,
