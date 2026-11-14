@@ -297,7 +297,7 @@ export const useGame = create<GameState>()(
         const rateCoinsPerHour = baseCoinsPerHour + filterActiveUpgrades(s.upgrades, now).reduce((acc, u) => {
           const pkg = PACKAGES.find((p) => p.id === u.packageId);
           return acc + (pkg?.perHour ?? 0);
-        }, 0);
+        }, 0) + Math.max(0, s.parts.oil_truck) * 30;
         const rateLitersPerHour = rateCoinsPerHour / coinsPerOil;
         const totalCap = s.baseCapacity + filterActiveUpgrades(s.upgrades, now).length * 250 + Math.max(0, s.parts.fuel_station) * 250;
 
