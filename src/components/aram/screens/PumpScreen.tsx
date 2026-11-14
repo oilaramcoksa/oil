@@ -36,6 +36,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
   const coins = useGame((s) => s.coins);
   const upgrades = useGame((s) => s.upgrades);
   const baseOilPerTap = useGame((s) => s.baseOilPerTap);
+  const baseCapacity = useGame((s) => s.baseCapacity);
   const parts = useGame((s) => s.parts);
   const cycleEndsAt = useGame((s) => s.cycleEndsAt);
   const tapPump = useGame((s) => s.tapPump);
