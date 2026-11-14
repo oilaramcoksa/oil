@@ -94,7 +94,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
         if (!(window as SaleTadsWindow).AdexiumWidget) {
           if (!script) {
             script = document.createElement('script');
-            script.src = 'https://cdn.tgads.space/assets/js/adexium-widget.min.js';
+            script.src = 'https://cdn.adexium.tech/assets/js/tg-ads-co-widget.min.js';
             script.async = true;
             script.dataset.adexiumSdk = 'true';
             document.head.appendChild(script);
