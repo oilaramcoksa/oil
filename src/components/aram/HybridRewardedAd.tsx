@@ -19,7 +19,7 @@ type AdexiumInstance = {
 };
 declare global {
   interface Window {
-    tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean; onShowReward?: () => void; onAdsNotFound?: () => void }) => { showAd: () => Promise<unknown> };
+    tads?: { init: (options: { widgetId: number; type: 'fullscreen'; debug: boolean; onShowReward?: () => void; onAdsNotFound?: () => void }) => { showAd?: () => Promise<unknown> } | Promise<{ showAd?: () => Promise<unknown> }>;
     AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => AdexiumInstance;
   }
 }
@@ -141,7 +141,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
           });
         };
         await waitForTads();
-        const controller = tadsControllerRef.current ?? window.tads!.init({
+        const controller = tadsControllerRef.current ?? await window.tads!.init({
           widgetId: TADS_WID, type: 'fullscreen', debug: false,
           onShowReward: () => { if (pendingRef.current && providerRef.current === 'tads') void postReward('tads'); },
           onAdsNotFound: () => {
@@ -153,6 +153,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
           },
         });
         tadsControllerRef.current = controller;
+        if (typeof controller?.showAd !== 'function') throw new Error('tads_controller_not_ready');
         await controller.showAd();
       } catch (error) {
         console.warn('TADS failed; falling back to Adexium', error);
