@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TonConnectUI } from '@tonconnect/ui';
 import { ShieldCheck, Wallet, Loader2, CheckCircle2 } from 'lucide-react';
 
 type Props = {
@@ -24,7 +23,7 @@ const MANIFEST = '/api/mining/activation/tonconnect-manifest.json';
 
 export function MiningFeeGate({ initData, onActivated }: Props) {
   const [status, setStatus] = useState<Status | null>(null);
-  const [wallet, setWallet] = useState<TonConnectUI | null>(null);
+  const [wallet, setWallet] = useState<import('@tonconnect/ui').TonConnectUI | null>(null);
   const [address, setAddress] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -44,15 +43,27 @@ export function MiningFeeGate({ initData, onActivated }: Props) {
   }, [initData, onActivated]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const connector = new TonConnectUI({ manifestUrl: new URL(MANIFEST, window.location.origin).toString() });
-    setWallet(connector);
-    const unsubscribe = connector.onStatusChange(w => {
-      setAddress(w?.account?.address || '');
+    let alive = true;
+    let connector: import('@tonconnect/ui').TonConnectUI | null = null;
+    let unsubscribe: (() => void) | undefined;
+    void import('@tonconnect/ui').then(({ TonConnectUI }) => {
+      if (!alive) return;
+      connector = new TonConnectUI({
+        manifestUrl: new URL(MANIFEST, window.location.origin).toString(),
+        restoreConnection: true,
+      });
+      setWallet(connector);
+      unsubscribe = connector.onStatusChange(w => {
+        if (alive) setAddress(w?.account?.address || '');
+      });
+    }).catch(error => {
+      console.error('ton_connect_ui_init_failed', error);
+      if (alive) setError('تعذر تحميل واجهة ربط محفظة TON. أعد المحاولة بعد تحديث اللعبة.');
     });
     return () => {
-      unsubscribe();
-      void connector.disconnect();
+      alive = false;
+      unsubscribe?.();
+      if (connector) void connector.disconnect();
     };
   }, []);
 
