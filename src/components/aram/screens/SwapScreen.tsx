@@ -42,7 +42,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
   useEffect(() => { void refresh(); const id = window.setInterval(() => void refresh(), 20000); return () => window.clearInterval(id); }, [refresh]);
 
   const coinsAmount = Math.max(0, Math.floor(Number(coinsInput) || 0));
-  const convertedMicros = coinsAmount * 10;
+  const convertedMicros = coinsAmount * 1000;
   const usdAmount = Math.round(Number(usdInput) * 1_000_000);
   const canSwap = coinsAmount > 0 && coinsAmount <= wallet.coins && Number.isSafeInteger(convertedMicros) && !busy;
   const tronValid = /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address.trim());
@@ -97,7 +97,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
           <div><h2 className="text-xl font-black text-[#542b12]">{t(lang, 'swapTitle')}</h2><p className="text-xs font-bold text-amber-900/60">{t(lang, 'swapRate')}</p></div>
         </header>
         <section className="aram-card rounded-2xl p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between"><h3 className="font-black text-[#633715]">{t(lang, 'swapConvert')}</h3><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">100,000 = $1</span></div>
+          <div className="mb-2 flex items-center justify-between"><h3 className="font-black text-[#633715]">{t(lang, 'swapConvert')}</h3><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">100,000 عملة = 100 دولار</span></div>
           <label className="mb-1 block text-xs font-bold text-amber-900/70">{t(lang, 'swapCoinsInput')}</label>
           <div className="flex gap-2"><input inputMode="numeric" type="number" min="1" step="1" value={coinsInput} onChange={(e) => setCoinsInput(e.target.value)} placeholder="100000" className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-3 text-lg font-black text-[#542b12] outline-none focus:border-amber-500"/><button type="button" onClick={() => setCoinsInput(String(wallet.coins))} className="rounded-xl bg-amber-100 px-3 text-xs font-black text-amber-900">{t(lang, 'swapMax')}</button></div>
           <div className="my-3 flex items-center justify-center gap-2 text-amber-700"><ArrowDownToLine size={16}/><span className="text-xs font-bold">{t(lang, 'swapYouReceive')}</span></div>
