@@ -6,7 +6,7 @@
 // paid (with the TON transaction hash) or rejected (coins are refunded).
 
 export const COINS_PER_USD = 1_000;
-export const MIN_UNITS = 1;          // minimum = 1 USD = 100,000 coins
+export const MIN_UNITS = 1;          // minimum = 1 USD = 1,000 coins
 export const MAX_UNITS_PER_REQUEST = 1000;
 
 export type WithdrawalStatus = 'pending' | 'paid' | 'rejected';
