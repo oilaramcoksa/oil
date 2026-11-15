@@ -381,7 +381,6 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       "INSERT OR IGNORE INTO app_settings(setting_key,setting_value) VALUES('mining_fee_enabled','1')",
     ],
   },
-,
   {
     version: 12,
     statements: [
