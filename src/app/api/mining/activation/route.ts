@@ -124,11 +124,14 @@ export async function POST(req: NextRequest) {
       const createdAt = Date.parse(String(payment.created_at).replace(' ','T')+'Z') / 1000;
       const incoming = transactions.find((item) => {
         const msg = item.in_msg;
+        const isPaymentComment = typeof msg?.message === 'string' &&
+          msg.message.trim() === 'ARMCO MINING ' + paymentId;
         return !!msg &&
           msg.destination === RECEIVER &&
           msg.source === String(payment.sender_address) &&
           BigInt(msg.value ?? '0') >= BigInt(FEE_NANOTON) &&
           Number(item.utime ?? 0) >= createdAt - 30 &&
+          isPaymentComment &&
           !!item.transaction_id?.hash;
       });
       if (!incoming?.transaction_id?.hash) return fail('payment_not_found_yet',202);
