@@ -121,6 +121,8 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   }, [initData]);
 
   const handleTap = () => {
+    // Once a 12-hour cycle ends, the accumulated oil must be sold before another cycle can start.
+    if (!active && oil > 0) return;
     if (!feeActivated) {
       setFeeGateOpen(true);
       return;
@@ -140,7 +142,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   };
 
   const handleSell = () => {
-    if (oil <= 0) return;
+    if (active || oil <= 0) return;
     haptic('medium');
     setSellOpen(true);
   };
@@ -401,12 +403,20 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
       {/* Action buttons */}
       <div className="max-w-md mx-auto w-full px-3 mt-2 pb-4 grid grid-cols-2 gap-2">
         <Button
-          onClick={handleSell}
-          disabled={oil <= 0}
-          className="h-14 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-base disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
+          onClick={active ? undefined : oil > 0 ? handleSell : handleTap}
+          disabled={active}
+          className={`h-14 rounded-2xl font-black text-sm sm:text-base shadow-lg transition-all ${active
+            ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white/90 opacity-80 cursor-not-allowed'
+            : oil > 0
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white'
+              : 'bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-[#2a1c0a]'}`}
         >
-          <Droplet className="w-5 h-5 mr-1.5" />
-          {t(lang, 'sell')}
+          {active ? <Clock className="w-5 h-5 mr-1.5 animate-pulse" /> : oil > 0 ? <Droplet className="w-5 h-5 mr-1.5" /> : <Power className="w-5 h-5 mr-1.5" />}
+          {active
+            ? `${t(lang, 'sellLocked')} · ${formatHHMMSS(secRem)}`
+            : oil > 0
+              ? t(lang, 'sell')
+              : t(lang, 'startMining')}
         </Button>
         <Button
           onClick={() => { haptic('light'); onGoToStore(); }}
