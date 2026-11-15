@@ -7,6 +7,6 @@ export async function GET() {
   return NextResponse.json({
     url: origin,
     name: 'ARMCO OIL',
-    iconUrl: origin + '/logo.svg',
+    iconUrl: origin + '/story.png',
   }, { headers: { 'Cache-Control': 'public, max-age=3600' } });
 }
