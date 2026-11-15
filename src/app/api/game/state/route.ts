@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
         sql: 'SELECT base_oil_per_tap, base_capacity FROM player_game_state WHERE telegram_id = ?',
         args: [id],
       }),
-      db.execute({ sql: 'SELECT cycle_ends_at FROM player_game_state WHERE telegram_id = ?', args: [id] }),
+      db.execute({ sql: 'SELECT cycle_ends_at, last_tick_at FROM player_game_state WHERE telegram_id = ?', args: [id] }),
     ]);
     const row = result.rows[0];
     const w = wallet.rows[0];
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     // replace a ledger-backed balance with zero or an older client-side value.
     state = { ...(state ?? {}), ...(walletState ?? { oil: 0, coins: 0 }) };
     const authoritativeCycleEnd = Number(miningCycle.rows[0]?.cycle_ends_at ?? 0) || null;
-    state = { ...(state ?? {}), cycleEndsAt: authoritativeCycleEnd };
+    state = { ...(state ?? {}), cycleEndsAt: authoritativeCycleEnd, lastTickAt: Number(miningCycle.rows[0]?.last_tick_at ?? 0) || null };
 
     return NextResponse.json({
       exists: !!row,
