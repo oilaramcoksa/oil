@@ -28,9 +28,10 @@ interface Props {
   onGoToArena: () => void;
   initData: string;
   isVerified: boolean;
+  onOpenShorts: () => void;
 }
 
-export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: Props) {
+export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, isVerified }: Props) {
   const lang = useGame((s) => s.lang);
   const oil = useGame((s) => s.oil);
   const coins = useGame((s) => s.coins);
@@ -46,8 +47,27 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
   const { haptic, notify } = useTelegram();
 
   const [sellOpen, setSellOpen] = useState(false);
+  const [shortsVisible, setShortsVisible] = useState(false);
   const [floats, setFloats] = useState<{ id: number; v: number }[]>([]);
   const fidRef = useRef(0);
+
+  // Contest visibility is controlled centrally by the admin API.
+  useEffect(() => {
+    let disposed = false;
+    const check = async () => {
+      try {
+        const response = await fetch('/api/shorts-contest?mode=status', { cache: 'no-store' });
+        if (!response.ok) throw new Error('contest_status_unavailable');
+        const data = await response.json() as { visible?: boolean };
+        if (!disposed) setShortsVisible(data.visible === true);
+      } catch {
+        if (!disposed) setShortsVisible(false);
+      }
+    };
+    void check();
+    const id = window.setInterval(() => void check(), 10_000);
+    return () => { disposed = true; window.clearInterval(id); };
+  }, []);
 
   // Tick passive income every 5 seconds (and also on mount).
   useEffect(() => {
@@ -140,6 +160,21 @@ export function PumpScreen({ onGoToStore, onGoToArena, initData, isVerified }: P
       {/* Scene */}
       <div className="relative max-w-md mx-auto w-full px-2">
         <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts} />
+        {shortsVisible && (
+          <motion.button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); haptic('medium'); onOpenShorts(); }}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: [1, 1.08, 1], opacity: 1, rotate: [0, -3, 3, 0] }}
+            transition={{ scale: { duration: 1, repeat: Infinity, ease: 'easeInOut' }, rotate: { duration: 1, repeat: Infinity, ease: 'easeInOut' }, opacity: { duration: 0.2 } }}
+            whileTap={{ scale: 0.92 }}
+            className="absolute left-[2.5%] top-[25%] z-30 h-16 w-16 overflow-hidden rounded-2xl border-2 border-red-400 bg-black shadow-[0_0_20px_rgba(239,68,68,.65)]"
+            aria-label={t(lang, 'shortsTitle')}
+            title={t(lang, 'shortsTitle')}
+          >
+            <img src="/images/shop/live.png" alt="" className="h-full w-full object-contain" />
+          </motion.button>
+        )}
 
         {/* Floating +oil numbers */}
         <AnimatePresence>
