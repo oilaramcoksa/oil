@@ -48,7 +48,7 @@ async function publishSaleToTelegram(input: {
     '<b>🛢️ ARMCO OIL — عملية بيع جديدة</b>',
     '',
     `👤 <b>الحساب:</b> ${escapeHtml(displayName)}`,
-    `🪙 <b>الكمية المباعة:</b> ${input.sold.toLocaleString('en-US')} برميل`,
+    `🛢️ <b>كمية البترول المباعة:</b> ${input.sold.toLocaleString('en-US')} لتر (حوالي ${Math.floor(input.sold / 20).toLocaleString('en-US')} برميل)`,
     `💰 <b>العملات المكتسبة:</b> ${input.coinsEarned.toLocaleString('en-US')}`,
     `💵 <b>القيمة التقديرية:</b> ${usdValue.toFixed(4)}`,
     `🕒 <b>الوقت:</b> ${escapeHtml(timestamp)} (توقيت الرياض)`,
