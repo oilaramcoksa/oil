@@ -363,7 +363,6 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       'CREATE INDEX IF NOT EXISTS idx_referral_daily_commissions_day ON referral_daily_commissions(day_key)',
     ],
   },
-  ,
   {
     version: 11,
     statements: [
