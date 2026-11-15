@@ -81,7 +81,7 @@ export async function checkAndRevokeMembership(
           (id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json)
           VALUES(?,?,'coins','task_penalty',?,?,'task',?,?,?)`,
         args: [randomUUID(), telegramId, -deducted, newBalance, config.dbId,
-          `task-penalty:${config.dbId}:${telegramId}`,
+          `task-penalty:${config.dbId}:${telegramId}:${randomUUID()}`,
           JSON.stringify({ taskId, reason: 'telegram_membership_left', requestedDeduction: config.reward })],
       });
     }
