@@ -121,6 +121,7 @@ interface GameState {
   applyServerSale: (sold: number, coinsEarned: number, walletCoins: number) => void;
   applyServerAdReward: (reward: number, walletCoins: number) => void;
   applyServerTaskReward: (reward: number, walletCoins: number, taskId: string) => void;
+  syncServerWalletCoins: (walletCoins: number) => void;
   buyUpgrade: (pkg: UpgradePackage['id'], wallet: CryptoWallet['code'], txHash: string) => void;
   claimTask: (taskId: string) => { ok: boolean; reward?: number };
   addReferral: (name: string) => void;
@@ -363,6 +364,11 @@ export const useGame = create<GameState>()(
           coinsEarnedThisMonth: s.coinsEarnedThisMonth + reward,
           transactions: [tx, ...s.transactions].slice(0, 50),
         });
+      },
+
+      syncServerWalletCoins: (walletCoins) => {
+        if (!Number.isSafeInteger(walletCoins) || walletCoins < 0) return;
+        set({ coins: walletCoins });
       },
 
       applyServerTaskReward: (reward, walletCoins, taskId) => {
