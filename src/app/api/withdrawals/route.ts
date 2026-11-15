@@ -7,6 +7,12 @@ import { COINS_PER_USD, MIN_UNITS, MAX_UNITS_PER_REQUEST, isValidTonAddress } fr
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const WITHDRAWAL_COOLDOWN_MS = 48 * 60 * 60 * 1000;
+function timestamp(value: unknown): number {
+  const raw = String(value ?? '');
+  return Date.parse(raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z') || 0;
+}
+
 function jsonError(error: string, status: number) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
@@ -17,25 +23,29 @@ export async function GET(req: NextRequest) {
   try {
     await ensureDatabaseSchema();
     const db = getTurso();
-    const [rows, wallet] = await Promise.all([
+    const [rows, wallet, rowsLatest] = await Promise.all([
       db.execute({
         sql: `SELECT id, units, coins, ton_address, status, tx_hash, admin_note, created_at, updated_at
               FROM withdrawal_requests WHERE telegram_id = ? ORDER BY created_at DESC LIMIT 50`,
         args: [String(user.id)],
       }),
       db.execute({ sql: 'SELECT coins_balance, coins_locked, oil_balance FROM player_wallets WHERE telegram_id = ?', args: [String(user.id)] }),
+      db.execute({ sql: 'SELECT created_at FROM withdrawal_requests WHERE telegram_id = ? ORDER BY created_at DESC LIMIT 1', args: [String(user.id)] }),
     ]);
     const withdrawals = rows.rows.map((row) => ({
       id: String(row.id), units: Number(row.units), coins: Number(row.coins), usd: Number(row.units),
       tonAddress: String(row.ton_address), status: String(row.status),
       txHash: row.tx_hash ? String(row.tx_hash) : null,
       adminNote: row.admin_note ? String(row.admin_note) : null,
-      createdAt: Date.parse(String(row.created_at)) || 0,
-      updatedAt: Date.parse(String(row.updated_at)) || 0,
+      createdAt: timestamp(row.created_at),
+      updatedAt: timestamp(row.updated_at),
     }));
     const w = wallet.rows[0];
+    const lastWithdrawalAt = timestamp(rowsLatest.rows[0]?.created_at);
+    const nextWithdrawalAt = lastWithdrawalAt ? lastWithdrawalAt + WITHDRAWAL_COOLDOWN_MS : null;
     return NextResponse.json({
       withdrawals,
+      nextWithdrawalAt,
       wallet: w ? { coins: Number(w.coins_balance), coinsLocked: Number(w.coins_locked), oil: Number(w.oil_balance) } : null,
       source: 'turso',
     }, { headers: { 'Cache-Control': 'no-store, private' } });
@@ -98,6 +108,16 @@ export async function POST(req: NextRequest) {
       if (!player.rows.length || player.rows[0].status !== 'active') {
         await tx.rollback();
         return jsonError('player_not_active', 403);
+      }
+      const lastRequest = await tx.execute({
+        sql: 'SELECT created_at FROM withdrawal_requests WHERE telegram_id=? ORDER BY created_at DESC LIMIT 1',
+        args: [telegramId],
+      });
+      const lastRequestAt = timestamp(lastRequest.rows[0]?.created_at);
+      const remainingMs = lastRequestAt ? lastRequestAt + WITHDRAWAL_COOLDOWN_MS - Date.now() : 0;
+      if (remainingMs > 0) {
+        await tx.rollback();
+        return NextResponse.json({ error: 'withdrawal_cooldown', remainingMs, nextWithdrawalAt: lastRequestAt + WITHDRAWAL_COOLDOWN_MS }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
       }
       const debit = await tx.execute({
         sql: `UPDATE player_wallets
