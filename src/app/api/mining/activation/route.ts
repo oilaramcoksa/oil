@@ -94,22 +94,13 @@ export async function POST(req: NextRequest) {
 
     if (action === 'create') {
       if (!sender || sender.length > 128 || !canonicalAddress(sender)) return fail('wallet_address_required');
-      const pending = await db.execute({
-        sql: "SELECT id FROM mining_fee_payments WHERE telegram_id=? AND status='pending' AND created_at > datetime('now','-30 minutes') ORDER BY created_at DESC LIMIT 1",
-        args: [id],
+      // A payment intent is immutable: never recycle an old comment, otherwise a
+      // previous on-chain payment could satisfy a newly created intent.
+      const paymentId = randomUUID();
+      await db.execute({
+        sql: "INSERT INTO mining_fee_payments(id,telegram_id,tx_hash,sender_address,recipient_address,amount_nanoton,status) VALUES(?,?,?, ?,?,?, 'pending')",
+        args: [paymentId,id,'pending:'+paymentId,sender,RECEIVER,FEE_NANOTON],
       });
-      const paymentId = pending.rows[0]?.id ? String(pending.rows[0].id) : randomUUID();
-      if (!pending.rows.length) {
-        await db.execute({
-          sql: "INSERT INTO mining_fee_payments(id,telegram_id,tx_hash,sender_address,recipient_address,amount_nanoton,status) VALUES(?,?,?, ?,?,?, 'pending')",
-          args: [paymentId,id,'pending:'+paymentId,sender,RECEIVER,FEE_NANOTON],
-        });
-      } else {
-        await db.execute({
-          sql: "UPDATE mining_fee_payments SET sender_address=? WHERE id=? AND status='pending'",
-          args: [sender,paymentId],
-        });
-      }
       return NextResponse.json({ ok:true, paymentId, amountNanoton:FEE_NANOTON, destination:RECEIVER, network:'-239' }, { headers:{'Cache-Control':'no-store'} });
     }
 
