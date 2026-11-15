@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return fail('invalid_body'); }
   const action = clean(body.action);
   const sender = clean(body.walletAddress);
-  if (!RECEIVER) return fail('mining_fee_wallet_not_configured',503);
+
 
   try {
     await ensureDatabaseSchema();
@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'create') {
+      if (!RECEIVER) return fail('mining_fee_wallet_not_configured',503);
       if (!sender || sender.length > 128 || !canonicalAddress(sender)) return fail('wallet_address_required');
       // A payment intent is immutable: never recycle an old comment, otherwise a
       // previous on-chain payment could satisfy a newly created intent.
@@ -105,6 +106,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'verify') {
+      if (!RECEIVER) return fail('mining_fee_wallet_not_configured',503);
       const paymentId = clean(body.paymentId);
       if (!paymentId || paymentId.length > 64) return fail('invalid_payment_id');
       const paymentResult = await db.execute({
