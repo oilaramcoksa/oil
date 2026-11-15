@@ -1,0 +1,35 @@
+name: Telegram Membership Verification
+
+on:
+  schedule:
+    - cron: "17 */10 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: telegram-membership-verification
+  cancel-in-progress: false
+
+jobs:
+  verify-memberships:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Telegram channel and group memberships
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SITE_URL:-}" ]; then
+            echo "Missing repository variable SITE_URL (example: https://your-game.vercel.app)"
+            exit 1
+          fi
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "Missing repository secret CRON_SECRET"
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-delay 10 --retry-all-errors \
+            --max-time 120 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${SITE_URL%/}/api/cron/telegram-membership"
