@@ -9,7 +9,7 @@ function verifyTelegramInitData(initData: string, botToken: string) {
   if (!hash || !/^[a-f0-9]{64}$/i.test(hash)) return null;
   params.delete('hash');
   const authDate = Number(params.get('auth_date'));
-  if (!Number.isFinite(authDate) || Math.abs(Date.now() / 1000 - authDate) > 86400) return null;
+  if (!Number.isFinite(authDate) || authDate > Math.floor(Date.now() / 1000) + 60 || Math.floor(Date.now() / 1000) - authDate > 3600) return null;
   const dataCheckString = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => key + '=' + value).join('\n');
   const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
   const calculated = createHmac('sha256', secretKey).update(dataCheckString).digest();
