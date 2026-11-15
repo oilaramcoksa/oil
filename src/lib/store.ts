@@ -119,7 +119,8 @@ interface GameState {
   tapPump: () => { oilAdded: number; newTotal: number; full: boolean; cycleStarted: boolean };
   sellOil: () => { sold: number; coinsEarned: number };
   applyServerSale: (sold: number, coinsEarned: number, walletCoins: number) => void;
-  applyServerAdReward: (reward: number, walletCoins: number) => void;\n  applyServerTaskReward: (reward: number, walletCoins: number, taskId: string) => void;
+  applyServerAdReward: (reward: number, walletCoins: number) => void;
+  applyServerTaskReward: (reward: number, walletCoins: number, taskId: string) => void;
   buyUpgrade: (pkg: UpgradePackage['id'], wallet: CryptoWallet['code'], txHash: string) => void;
   claimTask: (taskId: string) => { ok: boolean; reward?: number };
   addReferral: (name: string) => void;
