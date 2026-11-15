@@ -167,4 +167,4 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
       </div>
     </div>
   );
-}}
+}
