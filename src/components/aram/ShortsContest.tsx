@@ -8,7 +8,6 @@ import { t, dirOf, type Lang } from '@/lib/i18n';
 type Entry={id:string;telegramId:string;name:string;videoUrl:string;title:string;views:number;rank:number;previousRank:number|null;updatedAt:number};
 type MyEntry={id:string;video_url:string;status:'pending'|'approved'|'rejected';declared_views:number;created_at:string};
 type Data={contest:{starts_at:number;ends_at:number};participants:number;totalViews:number;entries:Entry[];myEntry:MyEntry|null;refreshSeconds:number};
-const DESCRIPTION='I love introducing you to Aramco Oil, a game where you collect oil and coins.\n\n#aramcooil\n#aramcooilgame\n#tggame';
 const statusKeys={pending:{label:'shortsPending',detail:'shortsPendingDetail',icon:Hourglass,style:'text-amber-300'},approved:{label:'shortsApproved',detail:'shortsApprovedDetail',icon:CheckCircle2,style:'text-emerald-300'},rejected:{label:'shortsRejected',detail:'shortsRejectedDetail',icon:XCircle,style:'text-rose-300'}};
 export function ShortsContest({onClose}:{onClose:()=>void}) {
  const {initData}=useTelegram();
@@ -20,7 +19,7 @@ export function ShortsContest({onClose}:{onClose:()=>void}) {
  const remaining=data?Math.max(0,data.contest.ends_at-now):0;
  const days=Math.floor(remaining/86400000),hours=Math.floor((remaining%86400000)/3600000);
  const submit=async()=>{setBusy(true);setError('');try{const r=await fetch('/api/shorts-contest',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({videoUrl:url})});const j=await r.json();if(!r.ok)throw new Error(j.error==='one_video_per_player'?tr('shortsAlreadySubmitted'):j.error==='video_already_registered'?tr('shortsDuplicate'):j.error==='invalid_shorts_url'?tr('shortsInvalidUrl'):tr('shortsSubmitError'));setUrl('');await load();}catch(e){setError(e instanceof Error?e.message:tr('shortsSubmitError'));}finally{setBusy(false);}};
- const copy=async()=>{try{await navigator.clipboard.writeText(DESCRIPTION);setCopied(true);window.setTimeout(()=>setCopied(false),1800);}catch{setError(tr('shortsCopyError'));}};
+ const copy=async()=>{try{await navigator.clipboard.writeText(tr('shortsVideoDescription'));setCopied(true);window.setTimeout(()=>setCopied(false),1800);}catch{setError(tr('shortsCopyError'));}};
  const mine=data?.myEntry;
  const status=mine?statusKeys[mine.status]:null;
  const StatusIcon=status?.icon;
@@ -39,7 +38,7 @@ export function ShortsContest({onClose}:{onClose:()=>void}) {
    <section className="mt-4 rounded-3xl border border-white/10 bg-[#121724] p-4 shadow-xl">
     <div className="mb-4 flex items-center gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-400/10 font-black text-amber-300">01</div><div><h2 className="font-black text-amber-200">{tr('shortsInstructions')}</h2><p className="text-[11px] text-white/45">{tr('shortsInstructionsHint')}</p></div></div>
     <div className="space-y-3">{steps.map((step,i)=><div key={step.title} className="flex gap-3"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-amber-300/30 bg-amber-300/10 text-sm font-black text-amber-200">{i+1}</div><div className="min-w-0 flex-1 border-b border-white/5 pb-3"><p className="text-sm font-bold">{step.title}</p><p className="mt-1 text-xs leading-6 text-white/55">{step.desc}</p></div></div>)}</div>
-    <div className="mt-3 rounded-2xl border border-white/10 bg-black/25 p-3"><p className="mb-2 text-xs font-bold text-white/70">{tr('shortsDescriptionLabel')}</p><p dir="ltr" className="whitespace-pre-wrap text-start text-sm leading-7 text-white/80">{DESCRIPTION}</p><button onClick={()=>void copy()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-500 py-3 font-black text-[#211506]"><Copy size={16}/>{copied?tr('shortsCopied'):tr('shortsCopy')}</button></div>
+    <div className="mt-3 rounded-2xl border border-white/10 bg-black/25 p-3"><p className="mb-2 text-xs font-bold text-white/70">{tr('shortsDescriptionLabel')}</p><p dir="ltr" className="whitespace-pre-wrap text-start text-sm leading-7 text-white/80">{tr('shortsVideoDescription')}</p><button onClick={()=>void copy()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-500 py-3 font-black text-[#211506]"><Copy size={16}/>{copied?tr('shortsCopied'):tr('shortsCopy')}</button></div>
    </section>
    <section className="mt-4 rounded-3xl border border-white/10 bg-[#121724] p-4"><h2 className="mb-3 font-black text-amber-200">{tr('shortsPrizes')}</h2><div className="grid grid-cols-3 gap-2 text-center">{prizes.map(([medal,label,value])=><div key={label} className="rounded-2xl border border-amber-200/10 bg-gradient-to-b from-amber-400/10 to-black/20 p-3"><div className="text-2xl">{medal}</div><p className="mt-1 text-[10px] text-white/55">{tr(label)}</p><b className="mt-1 block text-sm text-amber-200">{value}</b><p className="text-[10px] text-white/40">{tr('shortsCoins')}</p></div>)}</div></section>
    <section className="mt-4 rounded-3xl border border-white/10 bg-[#121724] p-4"><h2 className="mb-3 font-black">{tr('shortsSubmission')}</h2>
