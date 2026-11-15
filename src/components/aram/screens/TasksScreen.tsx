@@ -23,7 +23,9 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const { haptic, notify } = useTelegram();
   const [luckyReward, setLuckyReward] = useState<number | null>(null);
   const [adProgress, setAdProgress] = useState<AdProgress | null>(null);
-  const [adProgressLoading, setAdProgressLoading] = useState(true);\n  const [telegramClaims, setTelegramClaims] = useState({ channel: false, group: false });\n  const [telegramTaskLoading, setTelegramTaskLoading] = useState<'channel' | 'group' | null>(null);
+  const [adProgressLoading, setAdProgressLoading] = useState(true);
+  const [telegramClaims, setTelegramClaims] = useState({ channel: false, group: false });
+  const [telegramTaskLoading, setTelegramTaskLoading] = useState<'channel' | 'group' | null>(null);
 
   useEffect(() => {
     if (!isVerified || !initData) {
