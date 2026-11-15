@@ -184,7 +184,7 @@ export async function PUT(req: NextRequest) {
     }
     state.cycleEndsAt = acceptedCycleEnd;
     // A delayed client save from the sold cycle must never restore its old oil.
-    if (currentCycleSale.rows.length && acceptedCycleEnd === serverCycleEnd) {
+    if (startNewCycle || (currentCycleSale.rows.length && acceptedCycleEnd === serverCycleEnd)) {
       state.oil = 0;
       oil = 0;
     }
