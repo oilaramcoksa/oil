@@ -19,6 +19,7 @@ import { useTelegram } from '@/hooks/use-telegram';
 import { Toaster } from 'sonner';
 import { GameCloudSync } from '@/components/aram/GameCloudSync';
 import { AdminNotices } from '@/components/aram/AdminNotices';
+import { ArenaInviteNotice } from '@/components/aram/ArenaInviteNotice';
 
 
 
@@ -93,6 +94,7 @@ export default function Home() {
     <div className="aram-app aram-bg flex flex-col" dir={dirOf(lang)}>
       {isVerified && user && <GameCloudSync initData={initData} userId={user.id} userName={user.username || user.first_name || 'Player'} />}
       {isVerified && <AdminNotices initData={initData} isVerified={isVerified} />}
+      {isVerified && user && <ArenaInviteNotice initData={initData} isVerified={isVerified} telegramUserId={String(user.id)} onGoToArena={() => setTab('arena')} />}
       {shortsOpen && <ShortsContest onClose={() => setShortsOpen(false)} />}
       <TopBar
         onOpenSettings={() => setSettingsOpen(true)}
