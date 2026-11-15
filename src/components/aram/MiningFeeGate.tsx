@@ -70,10 +70,12 @@ export function MiningFeeGate({ initData, onActivated }: Props) {
       });
       const created = await createResponse.json();
       if (!createResponse.ok) throw new Error(created.error || 'تعذر إنشاء طلب الدفع');
+      const { comment } = await import('@ton/ton');
+      const note = comment('ARMCO MINING ' + created.paymentId).toBoc().toString('base64');
       await wallet.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
         network: '-239',
-        messages: [{ address: created.destination, amount: created.amountNanoton }],
+        messages: [{ address: created.destination, amount: created.amountNanoton, payload: note }],
       });
 
       let activated = false;
