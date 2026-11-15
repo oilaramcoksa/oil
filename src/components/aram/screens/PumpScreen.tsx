@@ -99,10 +99,14 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
 
   const [feeActivated, setFeeActivated] = useState(false);
   const [feeChecked, setFeeChecked] = useState(false);
+  const [feeGateOpen, setFeeGateOpen] = useState(false);
   const handleFeeActivated = useCallback(() => {
     setFeeActivated(true);
     setFeeChecked(true);
-  }, []);
+    setFeeGateOpen(false);
+    const result = tapPump();
+    if (result.cycleStarted) notify('success');
+  }, [tapPump, notify]);
 
   useEffect(() => {
     let active = true;
@@ -120,7 +124,10 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   }, [initData]);
 
   const handleTap = () => {
-    if (!feeActivated) return;
+    if (!feeActivated) {
+      setFeeGateOpen(true);
+      return;
+    }
     const r = tapPump();
     haptic('light');
     if (r.cycleStarted) {
@@ -158,7 +165,6 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
 
   return (
     <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain pb-3">
-      {!feeChecked || !feeActivated ? <MiningFeeGate initData={initData} onActivated={handleFeeActivated} /> : <>
       {/* Stats strip */}
       <div className="px-3 pt-2 pb-1 max-w-md mx-auto w-full">
         <div className="grid grid-cols-3 gap-2">
@@ -426,7 +432,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         />      </div>
 
       <SellModal open={sellOpen} onClose={() => setSellOpen(false)} initData={initData} isVerified={isVerified} />
-      </>}
+      {feeGateOpen && <MiningFeeGate initData={initData} onActivated={handleFeeActivated} onClose={() => setFeeGateOpen(false)} />}
     </div>
   );
 }
