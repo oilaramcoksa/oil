@@ -5,7 +5,7 @@ import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const MICRO_USD_PER_COIN = 10; // 100,000 coins = 1 USD
+const MICRO_USD_PER_COIN = 1000; // 100,000 coins = 100 USD
 
 function errorJson(error: string, status = 400) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
