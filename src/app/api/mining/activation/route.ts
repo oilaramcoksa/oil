@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
       amount: FEE_TON, currency: 'TON', destination: RECEIVER,
       savedWalletAddress: player.rows[0].ton_wallet_address ? String(player.rows[0].ton_wallet_address) : '',
       network: 'TON Mainnet',
-      message: 'للدعم والحفاظ على استمرارية الشبكة وحمايتها من الحسابات الآلية، يلزم دفع رسوم تفعيل رمزية لمرة واحدة قدرها 0.1 TON تُدفع مرة واحدة مدى الحياة قبل بدء التعدين.',
+      message: 'للدعم والحفاظ على استمرارية الشبكة وحمايتها من الحسابات الآلية، يلزم دفع رسوم تفعيل لمرة واحدة مدى الحياة قدرها 0.1 TON قبل بدء التعدين.',
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('mining_activation_status_failed', error);
