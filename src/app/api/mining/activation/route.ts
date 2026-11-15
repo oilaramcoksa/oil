@@ -105,6 +105,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok:true, paymentId, amountNanoton:FEE_NANOTON, destination:RECEIVER, network:'-239' }, { headers:{'Cache-Control':'no-store'} });
     }
 
+    if (action === 'cancel') {
+      const paymentId = clean(body.paymentId);
+      if (!paymentId || paymentId.length > 64) return fail('invalid_payment_id');
+      await db.execute({
+        sql: "UPDATE mining_fee_payments SET status='expired' WHERE id=? AND telegram_id=? AND status='pending'",
+        args: [paymentId,id],
+      });
+      return NextResponse.json({ok:true},{headers:{'Cache-Control':'no-store'}});
+    }
+
     if (action === 'verify') {
       if (!RECEIVER) return fail('mining_fee_wallet_not_configured',503);
       const paymentId = clean(body.paymentId);
