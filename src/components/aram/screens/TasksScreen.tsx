@@ -16,7 +16,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const lang = useGame((s) => s.lang);
   const tasks = useGame((s) => s.tasks);
   const claimTask = useGame((s) => s.claimTask);
-  const applyServerAdReward = useGame((s) => s.applyServerAdReward);
+  const applyServerTaskReward = useGame((s) => s.applyServerTaskReward);
   const loginStreak = useGame((s) => s.loginStreak);
   const luckyBoxLastOpened = useGame((s) => s.luckyBoxLastOpened);
   const openLuckyBox = useGame((s) => s.openLuckyBox);
@@ -96,7 +96,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
       }
       setTelegramClaims((old) => ({ ...old, [taskId]: true }));
       if (!data.alreadyClaimed && typeof data.walletCoins === 'number') {
-        applyServerAdReward(data.reward, data.walletCoins);
+        applyServerTaskReward(data.reward, data.walletCoins, taskId);
         toast.success(`+${data.reward} ${t(lang, 'coins')}`);
         haptic('heavy');
         notify('success');
