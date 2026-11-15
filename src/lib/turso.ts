@@ -484,6 +484,35 @@ export async function ensureDatabaseSchema(): Promise<void> {
       `);
       await db.execute(`INSERT OR IGNORE INTO player_game_state(telegram_id)
         SELECT telegram_id FROM players`);
+      // Seed authoritative mining-cycle deadlines from existing cloud snapshots
+      // once, preserving players' already-running or completed 12-hour cycles.
+      await db.execute(`
+        UPDATE player_game_state
+        SET cycle_ends_at = (
+              SELECT CAST(json_extract(s.state_json, '$.cycleEndsAt') AS INTEGER)
+              FROM player_game_snapshots s
+              WHERE s.telegram_id = player_game_state.telegram_id
+                AND json_valid(s.state_json)
+                AND json_type(s.state_json, '$.cycleEndsAt') IN ('integer','real')
+                AND CAST(json_extract(s.state_json, '$.cycleEndsAt') AS INTEGER) > 0
+            ),
+            cycle_started_at = (
+              SELECT CAST(json_extract(s.state_json, '$.cycleEndsAt') AS INTEGER) - 43200000
+              FROM player_game_snapshots s
+              WHERE s.telegram_id = player_game_state.telegram_id
+                AND json_valid(s.state_json)
+                AND json_type(s.state_json, '$.cycleEndsAt') IN ('integer','real')
+                AND CAST(json_extract(s.state_json, '$.cycleEndsAt') AS INTEGER) > 0
+            )
+        WHERE cycle_ends_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM player_game_snapshots s
+            WHERE s.telegram_id = player_game_state.telegram_id
+              AND json_valid(s.state_json)
+              AND json_type(s.state_json, '$.cycleEndsAt') IN ('integer','real')
+              AND CAST(json_extract(s.state_json, '$.cycleEndsAt') AS INTEGER) > 0
+          )
+      `);
       await db.execute(`INSERT OR IGNORE INTO player_monthly_stats(telegram_id, month_key)
         SELECT telegram_id, strftime('%Y-%m','now') FROM players`);
     })().catch((error) => {
