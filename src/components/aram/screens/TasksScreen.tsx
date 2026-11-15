@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGame, type TaskState } from '@/lib/store';
 import { t } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
 import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
+import { showActionInterstitial } from '@/lib/action-ad';
 
 type AdProgress = { used: number; limit: number; remaining: number; cooldownUntil: number | null; locked: boolean; rewardPerAd: number; totalCycleReward: number };
 
@@ -22,6 +23,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const luckyBoxLastOpened = useGame((s) => s.luckyBoxLastOpened);
   const openLuckyBox = useGame((s) => s.openLuckyBox);
   const { haptic, notify, tg } = useTelegram();
+  const claimAdBusyRef = useRef(false);
   const [luckyReward, setLuckyReward] = useState<number | null>(null);
   const [adProgress, setAdProgress] = useState<AdProgress | null>(null);
   const [adProgressLoading, setAdProgressLoading] = useState(true);
@@ -233,8 +235,12 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
     }
   };
 
-  const handleClaim = (id: string) => {
+  const handleClaim = async (id: string) => {
+    if (claimAdBusyRef.current) return;
+    claimAdBusyRef.current = true;
+    await showActionInterstitial();
     const r = claimTask(id);
+    claimAdBusyRef.current = false;
     if (r.ok) {
       haptic('heavy');
       notify('success');
