@@ -31,7 +31,6 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const [telegramTaskLoading, setTelegramTaskLoading] = useState<'channel' | 'group' | null>(null);
   const [storyUrl, setStoryUrl] = useState('');
   const [storyInfo, setStoryInfo] = useState<{ canSubmit: boolean; pending: { story_url: string; submitted_at: string } | null; latest: { status: string; review_reason?: string | null } | null; nextAllowedAt: number | null } | null>(null);
-  const [storyLoading, setStoryLoading] = useState(false);
   const [storySubmitting, setStorySubmitting] = useState(false);
 
   useEffect(() => {
@@ -150,7 +149,6 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const submitStoryLink = async () => {
     if (!initData || !storyUrl.trim() || storySubmitting) return;
     setStorySubmitting(true);
-    setStoryLoading(true);
     try {
       const response = await fetch('/api/tasks/story', {
         method: 'POST',
@@ -172,7 +170,6 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
       toast.error(lang === 'ar' ? 'تعذر الاتصال بالخادم.' : 'Server connection failed.');
     } finally {
       setStorySubmitting(false);
-      setStoryLoading(false);
     }
   };
 
