@@ -95,7 +95,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const now = Date.now();
   const active = isCycleActive(cycleEndsAt, now);
   const secRem = cycleSecondsRemaining(cycleEndsAt, now);
-  const cycleProgress = active ? 1 - secRem / CYCLE_SECONDS : 0;
+  const cycleProgress = cycleEndsAt ? (active ? 1 - secRem / CYCLE_SECONDS : 1) : 0;
 
   const [feeActivated, setFeeActivated] = useState(false);
   const [feeGateOpen, setFeeGateOpen] = useState(false);
@@ -310,7 +310,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
             <motion.div
               animate={{ width: `${cycleProgress * 100}%` }}
               transition={{ duration: 0.3 }}
-              className={`h-full rounded-full ${active ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-red-400'}`}
+              className={`h-full rounded-full ${cycleEndsAt ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-red-400'}`}
             />
           </div>
 
