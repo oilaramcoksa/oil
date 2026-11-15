@@ -1,6 +1,6 @@
 // Wallet addresses for crypto upgrades (provided by the user).
 // Users pay real crypto to buy in-game upgrades (speed boosts).
-// Game coins can be withdrawn in TON (100,000 coins = 1 USD) through the
+// Game coins can be withdrawn in TON (100,000 coins = 100 USD) through the
 // withdrawal section of the wallet screen — see lib/withdraw.ts.
 
 export interface CryptoWallet {
@@ -68,8 +68,8 @@ export const WALLETS: CryptoWallet[] = [
 //   - fast_oil:  ~2M coins over 60 days  → perHour ≈ 1388
 // These rates are SILENTLY tuned; users only see the perHour number.
 //
-// !! PAYOUT LIABILITY — now that coins are withdrawable at 100,000 = $1,
-// ~2M coins is ~$20 of payout liability per package, while the package
+// !! PAYOUT LIABILITY — now that coins are withdrawable at 100,000 = $100,
+// ~2M coins is ~$2,000 of payout liability per package, while the package
 // itself costs $3 / $10 / $25. Re-tune perHour (or the withdrawal rate) so
 // that the maximum payout per package stays comfortably BELOW its price,
 // otherwise withdrawals can only be funded by new players' purchases.
