@@ -482,6 +482,31 @@ export async function ensureDatabaseSchema(): Promise<void> {
           AND NOT EXISTS (SELECT 1 FROM coin_swaps s WHERE s.telegram_id = player_wallets.telegram_id)
           AND EXISTS (SELECT 1 FROM player_game_snapshots s WHERE s.telegram_id = player_wallets.telegram_id)
       `);
+      // Preserve pre-ledger balances as immutable opening entries. This does not
+      // change a player's balance; it establishes the exact existing wallet value
+      // as the starting point for all subsequent server-side mining and sales.
+      await db.execute(`
+        INSERT INTO ledger_entries
+          (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
+        SELECT lower(hex(randomblob(16))), w.telegram_id, 'oil', 'opening_balance',
+               w.oil_balance, w.oil_balance, 'migration', w.telegram_id,
+               'opening_balance:oil:' || w.telegram_id,
+               '{"source":"legacy_wallet_snapshot","preserved":true}'
+        FROM player_wallets w
+        WHERE w.oil_balance > 0
+          AND NOT EXISTS (SELECT 1 FROM ledger_entries l WHERE l.telegram_id=w.telegram_id AND l.asset='oil')
+      `);
+      await db.execute(`
+        INSERT INTO ledger_entries
+          (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
+        SELECT lower(hex(randomblob(16))), w.telegram_id, 'coins', 'opening_balance',
+               w.coins_balance, w.coins_balance, 'migration', w.telegram_id,
+               'opening_balance:coins:' || w.telegram_id,
+               '{"source":"legacy_wallet_snapshot","preserved":true}'
+        FROM player_wallets w
+        WHERE w.coins_balance > 0
+          AND NOT EXISTS (SELECT 1 FROM ledger_entries l WHERE l.telegram_id=w.telegram_id AND l.asset='coins')
+      `);
       await db.execute(`INSERT OR IGNORE INTO player_game_state(telegram_id)
         SELECT telegram_id FROM players`);
       // Seed authoritative mining-cycle deadlines from existing cloud snapshots
