@@ -22,6 +22,7 @@ import { t } from '@/lib/i18n';
 import { useTelegram } from '@/hooks/use-telegram';
 import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
 import { toast } from 'sonner';
+import { MiningFeeGate } from '@/components/aram/MiningFeeGate';
 
 interface Props {
   onGoToStore: () => void;
@@ -96,7 +97,30 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const secRem = cycleSecondsRemaining(cycleEndsAt, now);
   const cycleProgress = active ? 1 - secRem / CYCLE_SECONDS : 0;
 
+  const [feeActivated, setFeeActivated] = useState(false);
+  const [feeChecked, setFeeChecked] = useState(false);
+  const handleFeeActivated = useCallback(() => {
+    setFeeActivated(true);
+    setFeeChecked(true);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/mining/activation', { headers: { 'x-telegram-init-data': initData }, cache: 'no-store' })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'activation_status_unavailable');
+        if (active) {
+          setFeeActivated(data.required !== true);
+          setFeeChecked(true);
+        }
+      })
+      .catch(() => { if (active) setFeeChecked(false); });
+    return () => { active = false; };
+  }, [initData]);
+
   const handleTap = () => {
+    if (!feeActivated) return;
     const r = tapPump();
     haptic('light');
     if (r.cycleStarted) {
@@ -134,6 +158,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
 
   return (
     <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain pb-3">
+      {!feeChecked || !feeActivated ? <MiningFeeGate initData={initData} onActivated={handleFeeActivated} /> : <>
       {/* Stats strip */}
       <div className="px-3 pt-2 pb-1 max-w-md mx-auto w-full">
         <div className="grid grid-cols-3 gap-2">
@@ -401,6 +426,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         />      </div>
 
       <SellModal open={sellOpen} onClose={() => setSellOpen(false)} initData={initData} isVerified={isVerified} />
+      </>}
     </div>
   );
 }
