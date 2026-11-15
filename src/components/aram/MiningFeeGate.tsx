@@ -72,11 +72,21 @@ export function MiningFeeGate({ initData, onActivated }: Props) {
       if (!createResponse.ok) throw new Error(created.error || 'تعذر إنشاء طلب الدفع');
       const { comment } = await import('@ton/ton');
       const note = comment('ARMCO MINING ' + created.paymentId).toBoc().toString('base64');
-      await wallet.sendTransaction({
-        validUntil: Math.floor(Date.now() / 1000) + 600,
-        network: '-239',
-        messages: [{ address: created.destination, amount: created.amountNanoton, payload: note }],
-      });
+      try {
+        await wallet.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 600,
+          network: '-239',
+          messages: [{ address: created.destination, amount: created.amountNanoton, payload: note }],
+        });
+      } catch (sendError) {
+        // Wallet rejection does not create a payment; release the unused intent.
+        await fetch('/api/mining/activation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
+          body: JSON.stringify({ action: 'cancel', paymentId: created.paymentId }),
+        }).catch(() => undefined);
+        throw sendError;
+      }
 
       let activated = false;
       for (let attempt = 0; attempt < 8; attempt++) {
