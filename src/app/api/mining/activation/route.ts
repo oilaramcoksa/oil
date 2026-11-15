@@ -2,13 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { getVerifiedTelegramUser } from '@/lib/telegram-auth';
+import { WALLETS } from '@/lib/wallets';
+import { Address } from '@ton/core';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const FEE_NANOTON = '50000000';
 const FEE_TON = '0.05';
-const RECEIVER = process.env.TON_MINING_FEE_WALLET || '';
+const RECEIVER = process.env.TON_MINING_FEE_WALLET || WALLETS.find((wallet) => wallet.code === 'gram')?.address || '';
+const RECEIVER_RAW = Address.parse(RECEIVER).toRawString().toLowerCase();
 const TONCENTER = (process.env.TONCENTER_API_URL || 'https://toncenter.com/api/v2').replace(/\/$/, '');
 const PAYMENT_WINDOW_MS = 30 * 60 * 1000;
 
@@ -16,6 +19,9 @@ function fail(error: string, status = 400) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 function clean(value: unknown): string { return typeof value === 'string' ? value.trim() : ''; }
+function canonicalAddress(value: string): string {
+  try { return Address.parse(value).toRawString().toLowerCase(); } catch { return ''; }
+}
 
 async function fetchIncomingTransactions() {
   const headers: Record<string,string> = { 'Content-Type': 'application/json' };
@@ -87,7 +93,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'create') {
-      if (!sender || sender.length > 128) return fail('wallet_address_required');
+      if (!sender || sender.length > 128 || !canonicalAddress(sender)) return fail('wallet_address_required');
       const pending = await db.execute({
         sql: "SELECT id FROM mining_fee_payments WHERE telegram_id=? AND status='pending' AND created_at > datetime('now','-30 minutes') ORDER BY created_at DESC LIMIT 1",
         args: [id],
@@ -127,8 +133,8 @@ export async function POST(req: NextRequest) {
         const isPaymentComment = typeof msg?.message === 'string' &&
           msg.message.trim() === 'ARMCO MINING ' + paymentId;
         return !!msg &&
-          msg.destination === RECEIVER &&
-          msg.source === String(payment.sender_address) &&
+          canonicalAddress(msg.destination ?? '') === RECEIVER_RAW &&
+          canonicalAddress(msg.source ?? '') === canonicalAddress(String(payment.sender_address)) &&
           BigInt(msg.value ?? '0') >= BigInt(FEE_NANOTON) &&
           Number(item.utime ?? 0) >= createdAt - 30 &&
           isPaymentComment &&
