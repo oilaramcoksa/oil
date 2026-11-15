@@ -5,17 +5,14 @@ import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const MINING_CYCLE_MS = 12 * 60 * 60 * 1000;
-const CYCLE_START_TOLERANCE_MS = 5 * 60 * 1000;
-
 const STATE_KEYS = [
-  'oil', 'coins', 'upgrades', 'tasks', 'referrals', 'transactions',
+  'upgrades', 'tasks', 'referrals', 'transactions',
   'tonAddress', 'withdrawals', 'refundedWithdrawals',
   'tapsToday', 'sellsToday', 'qualifiedSellsToday', 'tapsThisWeek',
   'sellsThisWeek', 'tapsTotal', 'sellsTotal', 'coinsEarnedThisMonth',
   'lastMonthKey', 'lastLoginDay', 'loginStreak', 'luckyBoxLastOpened',
   'totalStoreRevenue', 'tournamentHistory', 'claimedAchievements',
-  'cycleEndsAt', 'lastTickAt', 'lang', 'onboarded', 'acceptedDisclaimer', 'sound', 'vibration',
+  'lang', 'onboarded', 'acceptedDisclaimer', 'sound', 'vibration',
 ] as const;
 
 function cleanState(input: unknown): Record<string, unknown> | null {
@@ -25,7 +22,7 @@ function cleanState(input: unknown): Record<string, unknown> | null {
   for (const key of STATE_KEYS) {
     if (key in source) state[key] = source[key];
   }
-  for (const key of ['oil', 'coins', 'tapsToday', 'sellsToday', 'tapsTotal', 'sellsTotal', 'coinsEarnedThisMonth']) {
+  for (const key of ['tapsToday', 'sellsToday', 'tapsTotal', 'sellsTotal', 'coinsEarnedThisMonth']) {
     const value = state[key];
     if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1_000_000_000_000)) return null;
   }
@@ -63,7 +60,7 @@ export async function GET(req: NextRequest) {
         sql: 'SELECT base_oil_per_tap, base_capacity FROM player_game_state WHERE telegram_id = ?',
         args: [id],
       }),
-      db.execute({ sql: 'SELECT cycle_ends_at FROM player_game_state WHERE telegram_id = ?', args: [id] }),
+      db.execute({ sql: 'SELECT cycle_ends_at, last_tick_at FROM player_game_state WHERE telegram_id = ?', args: [id] }),
     ]);
     const row = result.rows[0];
     const w = wallet.rows[0];
@@ -77,9 +74,9 @@ export async function GET(req: NextRequest) {
 
     // The relational wallet is authoritative. A stale JSON snapshot must never
     // replace a ledger-backed balance with zero or an older client-side value.
-    if (state && walletState) state = { ...state, ...walletState };
+    state = { ...(state ?? {}), ...(walletState ?? { oil: 0, coins: 0 }) };
     const authoritativeCycleEnd = Number(miningCycle.rows[0]?.cycle_ends_at ?? 0) || null;
-    state = { ...(state ?? {}), cycleEndsAt: authoritativeCycleEnd };
+    state = { ...(state ?? {}), cycleEndsAt: authoritativeCycleEnd, lastTickAt: Number(miningCycle.rows[0]?.last_tick_at ?? 0) || null };
 
     return NextResponse.json({
       exists: !!row,
@@ -137,84 +134,22 @@ export async function PUT(req: NextRequest) {
     if (!player.rows.length || String(player.rows[0].status) !== 'active') {
       return NextResponse.json({ error: 'player_suspended' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
     }
-    const wallet = await db.execute({
-      sql: 'SELECT coins_balance, oil_balance FROM player_wallets WHERE telegram_id = ?',
-      args: [id],
-    });
-    const current = wallet.rows[0];
-    const [coinLedger, oilLedger] = await Promise.all([
-      db.execute({ sql: "SELECT 1 AS found FROM ledger_entries WHERE telegram_id = ? AND asset = 'coins' LIMIT 1", args: [id] }),
-      db.execute({ sql: "SELECT 1 AS found FROM ledger_entries WHERE telegram_id = ? AND asset = 'oil' LIMIT 1", args: [id] }),
-    ]);
-    // Coins become ledger-authoritative as soon as a financial coin operation
-    // exists. Oil remains snapshot-synced until it has its own ledger history.
-    const coins = Math.floor(Number(state.coins ?? 0));
-    let oil = Math.floor(Number(state.oil ?? 0));
-    const oldCoins = Number(current?.coins_balance ?? 0);
-    const oldOil = Number(current?.oil_balance ?? 0);
-    if (coinLedger.rows.length) state.coins = oldCoins;
-    if (oilLedger.rows.length) state.oil = oldOil;
+    // Financial values and mining-cycle timestamps are never accepted from the browser.
+    // Keep only non-financial game preferences/progress in the JSON snapshot.
+    delete state.oil;
+    delete state.coins;
+    delete state.cycleEndsAt;
+    delete state.lastTickAt;
 
-    // The cycle deadline is server-authoritative. Clients may start a cycle
-    // only once, and only after the previous cycle has been sold.
-    const cycleRow = await db.execute({
-      sql: 'SELECT cycle_ends_at FROM player_game_state WHERE telegram_id=?',
-      args: [id],
+    await db.execute({
+      sql: `INSERT INTO player_game_snapshots (telegram_id, state_json, revision, updated_at)
+            VALUES (?, ?, 1, CURRENT_TIMESTAMP)
+            ON CONFLICT(telegram_id) DO UPDATE SET
+              state_json = excluded.state_json,
+              revision = player_game_snapshots.revision + 1,
+              updated_at = CURRENT_TIMESTAMP`,
+      args: [id, JSON.stringify(state)],
     });
-    const serverCycleEnd = Number(cycleRow.rows[0]?.cycle_ends_at ?? 0);
-    const currentCycleSale = await db.execute({
-      sql: 'SELECT 1 AS sold FROM ledger_entries WHERE telegram_id=? AND idempotency_key=? LIMIT 1',
-      args: [id, serverCycleEnd > 0 ? `oil_sale_cycle:${serverCycleEnd}:coins` : ''],
-    });
-    const requestedCycleEnd = Number(state.cycleEndsAt ?? 0);
-    const now = Date.now();
-    let acceptedCycleEnd = serverCycleEnd || null;
-    let startNewCycle = false;
-    const requestedDuration = requestedCycleEnd - now;
-    const validNewCycle = Number.isSafeInteger(requestedCycleEnd) &&
-      requestedDuration >= MINING_CYCLE_MS - CYCLE_START_TOLERANCE_MS &&
-      requestedDuration <= MINING_CYCLE_MS + CYCLE_START_TOLERANCE_MS;
-
-    if (!serverCycleEnd && validNewCycle) {
-      acceptedCycleEnd = requestedCycleEnd;
-      startNewCycle = true;
-    } else if (serverCycleEnd > 0 && now >= serverCycleEnd && validNewCycle && currentCycleSale.rows.length) {
-      acceptedCycleEnd = requestedCycleEnd;
-      startNewCycle = true;
-    }
-    state.cycleEndsAt = acceptedCycleEnd;
-    // A delayed client save from the sold cycle must never restore its old oil.
-    if (startNewCycle || (currentCycleSale.rows.length && acceptedCycleEnd === serverCycleEnd)) {
-      state.oil = 0;
-      oil = 0;
-    }
-    await db.batch([
-      {
-        sql: `INSERT INTO player_game_snapshots (telegram_id, state_json, revision, updated_at)
-              VALUES (?, ?, 1, CURRENT_TIMESTAMP)
-              ON CONFLICT(telegram_id) DO UPDATE SET
-                state_json = excluded.state_json,
-                revision = player_game_snapshots.revision + 1,
-                updated_at = CURRENT_TIMESTAMP`,
-        args: [id, JSON.stringify(state)],
-      },
-      {
-        sql: `UPDATE player_wallets SET
-                coins_balance = CASE WHEN NOT EXISTS (
-                  SELECT 1 FROM ledger_entries WHERE telegram_id = ? AND asset = 'coins'
-                ) THEN ? ELSE coins_balance END,
-                oil_balance = CASE WHEN NOT EXISTS (
-                  SELECT 1 FROM ledger_entries WHERE telegram_id = ? AND asset = 'oil'
-                ) THEN ? ELSE oil_balance END,
-                updated_at = CURRENT_TIMESTAMP
-              WHERE telegram_id = ?`,
-        args: [id, coins, id, oil, id],
-      },
-      ...(startNewCycle ? [{
-        sql: 'UPDATE player_game_state SET cycle_started_at=?, cycle_ends_at=?, last_tick_at=?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
-        args: [now, acceptedCycleEnd, now, id],
-      }] : []),
-    ], 'write');
     const revision = await db.execute({
       sql: 'SELECT revision FROM player_game_snapshots WHERE telegram_id = ?',
       args: [id],

@@ -482,6 +482,31 @@ export async function ensureDatabaseSchema(): Promise<void> {
           AND NOT EXISTS (SELECT 1 FROM coin_swaps s WHERE s.telegram_id = player_wallets.telegram_id)
           AND EXISTS (SELECT 1 FROM player_game_snapshots s WHERE s.telegram_id = player_wallets.telegram_id)
       `);
+      // Preserve pre-ledger balances as immutable opening entries. This does not
+      // change a player's balance; it establishes the exact existing wallet value
+      // as the starting point for all subsequent server-side mining and sales.
+      await db.execute(`
+        INSERT INTO ledger_entries
+          (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
+        SELECT lower(hex(randomblob(16))), w.telegram_id, 'oil', 'opening_balance',
+               w.oil_balance, w.oil_balance, 'migration', w.telegram_id,
+               'opening_balance:oil:' || w.telegram_id,
+               '{"source":"legacy_wallet_snapshot","preserved":true}'
+        FROM player_wallets w
+        WHERE w.oil_balance > 0
+          AND NOT EXISTS (SELECT 1 FROM ledger_entries l WHERE l.telegram_id=w.telegram_id AND l.asset='oil')
+      `);
+      await db.execute(`
+        INSERT INTO ledger_entries
+          (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
+        SELECT lower(hex(randomblob(16))), w.telegram_id, 'coins', 'opening_balance',
+               w.coins_balance, w.coins_balance, 'migration', w.telegram_id,
+               'opening_balance:coins:' || w.telegram_id,
+               '{"source":"legacy_wallet_snapshot","preserved":true}'
+        FROM player_wallets w
+        WHERE w.coins_balance > 0
+          AND NOT EXISTS (SELECT 1 FROM ledger_entries l WHERE l.telegram_id=w.telegram_id AND l.asset='coins')
+      `);
       await db.execute(`INSERT OR IGNORE INTO player_game_state(telegram_id)
         SELECT telegram_id FROM players`);
       // Seed authoritative mining-cycle deadlines from existing cloud snapshots
@@ -512,6 +537,16 @@ export async function ensureDatabaseSchema(): Promise<void> {
               AND json_type(s.state_json, '$.cycleEndsAt') IN ('integer','real')
               AND CAST(json_extract(s.state_json, '$.cycleEndsAt') AS INTEGER) > 0
           )
+      `);
+      // Legacy players who have preserved oil but no recorded cycle deadline
+      // must be allowed to sell it immediately instead of being locked out.
+      await db.execute(`
+        UPDATE player_game_state
+        SET cycle_started_at = CAST(strftime('%s','now') AS INTEGER) * 1000 - 43200000,
+            cycle_ends_at = CAST(strftime('%s','now') AS INTEGER) * 1000 - 1,
+            last_tick_at = CAST(strftime('%s','now') AS INTEGER) * 1000 - 1
+        WHERE cycle_ends_at IS NULL
+          AND EXISTS (SELECT 1 FROM player_wallets w WHERE w.telegram_id=player_game_state.telegram_id AND w.oil_balance>0)
       `);
       await db.execute(`INSERT OR IGNORE INTO player_monthly_stats(telegram_id, month_key)
         SELECT telegram_id, strftime('%Y-%m','now') FROM players`);

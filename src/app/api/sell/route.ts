@@ -146,9 +146,14 @@ export async function POST(req: NextRequest) {
       });
       const saleId = randomUUID();
       const metadata = JSON.stringify({ saleId, sold, coinsEarned });
-      // Oil production is still synchronized through the game snapshot until
-      // it has a dedicated server-side pump ledger. The sale is recorded in
-      // player_events; only the newly earned coins enter the immutable ledger.
+      // Close the oil side of the same atomic sale in the immutable ledger.
+      // The wallet update and both asset entries commit or roll back together.
+      await tx.execute({
+        sql: `INSERT INTO ledger_entries
+          (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
+          VALUES (?, ?, 'oil', 'oil_sale', ?, 0, 'oil_sale', ?, ?, ?)`,
+        args: [randomUUID(), id, -sold, saleId, `oil_sale_cycle:${cycleEndsAt}:oil`, metadata],
+      });
       await tx.execute({
         sql: `INSERT INTO ledger_entries
           (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
