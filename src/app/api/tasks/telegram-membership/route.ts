@@ -47,10 +47,15 @@ export async function GET(req: NextRequest) {
       }
       result[taskId] = { claimed, joined, revoked };
     }
+    const wallet = await getTurso().execute({
+      sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',
+      args: [telegramId],
+    });
     return NextResponse.json({
       claimed: { channel: result.channel.claimed, group: result.group.claimed },
       joined: { channel: result.channel.joined, group: result.group.joined },
       revoked: { channel: result.channel.revoked, group: result.group.revoked },
+      walletCoins: Number(wallet.rows[0]?.coins_balance ?? 0),
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('telegram_task_status_failed', error);
