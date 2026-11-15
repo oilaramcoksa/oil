@@ -17,6 +17,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const tasks = useGame((s) => s.tasks);
   const claimTask = useGame((s) => s.claimTask);
   const applyServerTaskReward = useGame((s) => s.applyServerTaskReward);
+  const syncServerWalletCoins = useGame((s) => s.syncServerWalletCoins);
   const loginStreak = useGame((s) => s.loginStreak);
   const luckyBoxLastOpened = useGame((s) => s.luckyBoxLastOpened);
   const openLuckyBox = useGame((s) => s.openLuckyBox);
@@ -82,6 +83,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         if (!stopped) {
           if (data.claimed) setTelegramClaims(data.claimed);
           if (data.joined) setTelegramJoined(data.joined);
+          if (typeof data.walletCoins === 'number') syncServerWalletCoins(data.walletCoins);
           if (data.joined?.[awaitingTelegramTask ?? 'channel']) setAwaitingTelegramTask(null);
           if (data.revoked?.channel || data.revoked?.group) {
             toast.error(lang === 'ar' ? 'تم إلغاء مكافأة المهمة لترك القناة أو الجروب، وتم خصم العملات المتاحة.' : 'Membership ended. Available reward coins were deducted.');
@@ -100,7 +102,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
       window.removeEventListener('focus', onFocus);
       if (timer) window.clearInterval(timer);
     };
-  }, [initData, isVerified, awaitingTelegramTask, lang]);
+  }, [initData, isVerified, awaitingTelegramTask, lang, syncServerWalletCoins]);
 
   const claimTelegramTask = async (taskId: 'channel' | 'group') => {
     if (!initData || telegramTaskLoading) return;
