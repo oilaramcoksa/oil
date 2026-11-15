@@ -76,6 +76,10 @@ const ar: Dict = {
   // Pump screen
   tapToPump: 'اضغط على المضخة',
   sell: 'بيع',
+  sellLocked: 'البيع متاح بعد',
+  startMining: 'بدء التعدين',
+  withdrawCooldown: 'يمكنك تقديم طلب السحب التالي بعد',
+  wdErr_withdrawal_cooldown: 'يجب الانتظار 48 ساعة بين طلبات السحب',
   sellError: 'تعذّر بيع البترول وتحديث المحفظة. حاول مرة أخرى.',
   tadsSponsored: 'إعلان',
   tadsFullscreenTitle: 'إعلان اختياري',
@@ -505,6 +509,10 @@ const en: Dict = {
 
   tapToPump: 'Tap the pump',
   sell: 'Sell',
+  sellLocked: 'Sale available in',
+  startMining: 'Start mining',
+  withdrawCooldown: 'Your next withdrawal is available in',
+  wdErr_withdrawal_cooldown: 'Please wait 48 hours between withdrawal requests',
   sellError: 'Could not sell oil and update your wallet. Please try again.',
   tadsSponsored: 'Sponsored',
   tadsFullscreenTitle: 'Optional advertisement',
@@ -968,6 +976,10 @@ const ru: Dict = {
 
   tapToPump: 'Нажми на насос',
   sell: 'Продать',
+  sellLocked: 'Продажа будет доступна через',
+  startMining: 'Начать добычу',
+  withdrawCooldown: 'Следующий вывод будет доступен через',
+  wdErr_withdrawal_cooldown: 'Между запросами на вывод необходимо подождать 48 часов',
   sellError: 'Не удалось продать нефть и обновить кошелёк. Попробуйте ещё раз.',
   tadsSponsored: 'Реклама',
   tadsFullscreenTitle: 'Дополнительная реклама',
@@ -1107,7 +1119,7 @@ const ru: Dict = {
   // Withdrawal
   wdTitle: 'Вывод средств',
   wdSubtitle: 'Обменяйте монеты на TON',
-  wdRate: 'Каждые 100 000 монет = $1',
+  wdRate: 'Каждые 100 000 монет = $100',
   wdNoFee: 'Без предоплаты — с вас никогда не потребуют платить, чтобы открыть вывод',
   wdProgress: 'Прогресс до первого вывода',
   wdNeedMore: 'Нужно ещё {n} монет до минимума (100 000)',
