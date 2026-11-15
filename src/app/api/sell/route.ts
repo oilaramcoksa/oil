@@ -20,6 +20,56 @@ function weekKey(date: Date) {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char] ?? char);
+}
+
+async function publishSaleToTelegram(input: {
+  username?: string;
+  firstName?: string;
+  telegramId: string;
+  sold: number;
+  coinsEarned: number;
+}) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    console.warn('sale_telegram_broadcast_skipped: TELEGRAM_BOT_TOKEN is not configured');
+    return;
+  }
+  const displayName = input.username ? `@${input.username}` : input.firstName || `Player ${input.telegramId.slice(-4)}`;
+  // Estimate only: the game UI currently displays 100,000 coins = $1.
+  const usdValue = input.coinsEarned / 100000;
+  const timestamp = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Riyadh', dateStyle: 'medium', timeStyle: 'short', hour12: true,
+  }).format(new Date());
+  const message = [
+    '<b>🛢️ ARMCO OIL — عملية بيع جديدة</b>',
+    '',
+    `👤 <b>الحساب:</b> ${escapeHtml(displayName)}`,
+    `🪙 <b>الكمية المباعة:</b> ${input.sold.toLocaleString('en-US')} برميل`,
+    `💰 <b>العملات المكتسبة:</b> ${input.coinsEarned.toLocaleString('en-US')}`,
+    `💵 <b>القيمة التقديرية:</b> ${usdValue.toFixed(4)}`,
+    `🕒 <b>الوقت:</b> ${escapeHtml(timestamp)} (توقيت الرياض)`,
+    '',
+    '<i>تحديث تلقائي من نظام اللعبة</i>',
+  ].join('\n');
+  await Promise.all(['@qrmcooil', '@armcooil'].map(async (chatId) => {
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML', disable_web_page_preview: true }),
+        cache: 'no-store',
+      });
+      if (!response.ok) console.error('sale_telegram_broadcast_failed', chatId, response.status, (await response.text()).slice(0, 500));
+    } catch (error) {
+      console.error('sale_telegram_broadcast_failed', chatId, error);
+    }
+  }));
+}
+
 export async function POST(req: NextRequest) {
   const user = verifiedPlayerFromRequest(req);
   if (!user) return fail('telegram_auth_required', 401);
@@ -166,6 +216,7 @@ export async function POST(req: NextRequest) {
       });
 
       await tx.commit();
+      await publishSaleToTelegram({ username: user.username, firstName: user.first_name, telegramId: id, sold, coinsEarned });
       return NextResponse.json({ ok: true, saleId, sold, coinsEarned, wallet: { oil: 0, coins: newCoins } }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
       await tx.rollback();
