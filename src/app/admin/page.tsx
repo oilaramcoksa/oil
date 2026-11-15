@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle } from 'lucide-react';
+import { Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle, Camera, ExternalLink, CheckCircle, XOctagon } from 'lucide-react';
 
-type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'audit';
+type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'audit';
 type Player = {telegram_id:string;username?:string|null;first_name?:string|null;last_name?:string|null;status:string;coins:number;oil:number;base_oil_per_tap:number};
 type Row = Record<string, unknown>;
 
@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [payments,setPayments] = useState<Row[]>([]);
   const [logs,setLogs] = useState<Row[]>([]);
   const [shortsRows,setShortsRows] = useState<Row[]>([]);
+  const [storyRows,setStoryRows] = useState<Row[]>([]);
   const [shortsContest,setShortsContest] = useState<Row|null>(null);
   const [extensionHours,setExtensionHours] = useState('24');
   const [referralRows,setReferralRows] = useState<Row[]>([]);
@@ -57,6 +58,7 @@ export default function AdminPage() {
       if(nextSection==='referrals') setReferralRows(data.referrals||[]);
       if(nextSection==='audit') setLogs(data.logs||[]);
       if(nextSection==='shorts'){setShortsRows(data.shorts||[]);setShortsContest(data.contest||null);}
+      if(nextSection==='storyTasks') setStoryRows(data.storyTasks||[]);
     } catch(e){setError(e instanceof Error?e.message:'حدث خطأ');}
     finally{setBusy(false);}
   }
@@ -89,6 +91,7 @@ export default function AdminPage() {
     {id:'payments' as const,label:'المشتريات',icon:ShoppingBag},
     {id:'broadcasts' as const,label:'الرسائل والإعلانات',icon:Megaphone},
     {id:'shorts' as const,label:'مسابقة Shorts',icon:Youtube},
+    {id:'storyTasks' as const,label:'مراجعة حالات تيليجرام',icon:Camera},
     {id:'audit' as const,label:'سجل الإدارة',icon:Activity}
   ];
   if(!token) return <main dir="rtl" className="min-h-screen bg-[#090d16] text-white grid place-items-center p-5"><form onSubmit={login} className="w-full max-w-md rounded-3xl border border-amber-400/20 bg-[#111827] p-8 shadow-2xl"><div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-amber-400/10 text-amber-300"><ShieldCheck size={32}/></div><h1 className="text-center text-2xl font-black">Aramco Oil</h1><p className="mb-7 mt-2 text-center text-sm text-slate-400">بوابة الإدارة الآمنة</p>{error&&<p className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{error}</p>}<label className="mb-2 block text-sm text-slate-300">كلمة مرور الإدارة</label><input autoFocus type="password" value={input} onChange={e=>setInput(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 outline-none focus:border-amber-400" placeholder="أدخل رمز الدخول"/><button disabled={busy} className="mt-4 w-full rounded-xl bg-amber-400 py-3 font-black text-slate-950 disabled:opacity-60">{busy?'جارٍ التحقق…':'دخول لوحة التحكم'}</button><p className="mt-4 text-center text-xs text-slate-500">يتم التحقق من الرمز على الخادم ولا يُحفظ في المتصفح.</p></form></main>;
@@ -143,6 +146,27 @@ export default function AdminPage() {
           <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-400">مراجعة المشاركات واستبعاد الروابط المخالفة. أرقام المشاهدات مُدخلة من اللاعبين وليست موثقة من YouTube.</p><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-xl border border-white/10 bg-[#111827] px-3 py-2 text-sm"><option value="pending">قيد المراجعة</option><option value="approved">المعتمدة</option><option value="rejected">المستبعدة</option><option value="all">الكل</option></select></div>
           <DataTable title="مشاركات YouTube Shorts" rows={shortsRows} columns={['first_name','username','telegram_id','video_url','declared_views','status','created_at']} action={(row)=>{const raw=window.prompt('أدخل عدد المشاهدات الحالي للموافقة، أو اكتب رفض لاستبعاد الفيديو:',String(row.declared_views??0));if(raw===null)return;if(raw.trim()==='رفض'){void act({action:'shorts_review',id:String(row.id),status:'rejected',views:0});return;}const views=Number(raw.trim());if(!Number.isSafeInteger(views)||views<0||views>2000000000){setError('أدخل عدد مشاهدات صحيحًا أو اكتب رفض');return;}void act({action:'shorts_review',id:String(row.id),status:'approved',views});}}/>
         </div>}
+        {section==='storyTasks'&&<section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-400/20 bg-[#111827] p-4">
+            <div><h3 className="font-black text-amber-200">مراجعة حالات ARMCO OIL</h3><p className="mt-1 text-xs text-slate-400">افتح رابط الحالة في تيليجرام، تحقق من ظهور بوستر اللعبة ورابط @armcooilbot، ثم وافق أو ارفض.</p></div>
+            <select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm"><option value="pending">قيد المراجعة</option><option value="approved">المعتمدة</option><option value="rejected">المرفوضة</option><option value="all">الكل</option></select>
+          </div>
+          <div className="space-y-3">
+            {storyRows.map(row=><article key={String(row.id)} className="rounded-2xl border border-white/10 bg-[#111827] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div><p className="font-black">{String(row.first_name||row.username||'لاعب')}</p><p className="mt-1 text-xs text-slate-400" dir="ltr">ID: {String(row.telegram_id)}</p><p className="mt-1 text-[11px] text-slate-500">تاريخ الإرسال: {String(row.submitted_at)}</p></div>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${row.status==='pending'?'bg-amber-400/10 text-amber-200':row.status==='approved'?'bg-emerald-400/10 text-emerald-200':'bg-red-400/10 text-red-200'}`}>{row.status==='pending'?'قيد المراجعة':row.status==='approved'?'تمت الموافقة':'مرفوضة'}</span>
+              </div>
+              <a href={String(row.story_url)} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center gap-2 break-all rounded-xl bg-sky-400/10 p-3 text-xs text-sky-200 underline" dir="ltr"><ExternalLink size={16} className="shrink-0"/> {String(row.story_url)}</a>
+              {row.review_reason&&<p className="mt-2 text-xs text-red-300">سبب الرفض: {String(row.review_reason)}</p>}
+              {row.status==='pending'&&<div className="mt-3 grid grid-cols-2 gap-2">
+                <button disabled={busy} onClick={()=>act({action:'story_review',id:String(row.id),status:'approved'})} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/15 p-3 text-sm font-black text-emerald-200 disabled:opacity-40"><CheckCircle size={17}/> موافقة وصرف 500</button>
+                <button disabled={busy} onClick={()=>act({action:'story_review',id:String(row.id),status:'rejected'})} className="flex items-center justify-center gap-2 rounded-xl bg-red-500/15 p-3 text-sm font-black text-red-200 disabled:opacity-40"><XOctagon size={17}/> رفض</button>
+              </div>}
+            </article>)}
+            {!storyRows.length&&<div className="rounded-2xl border border-white/10 bg-[#111827] p-8 text-center text-sm text-slate-500">لا توجد طلبات في هذا التصنيف.</div>}
+          </div>
+        </section>}
         {section==='audit'&&<DataTable title="آخر العمليات الإدارية" rows={logs} columns={['action','target_type','target_id','details_json','created_at']}/>}
       </main>
     </div>
