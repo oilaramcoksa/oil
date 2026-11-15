@@ -328,6 +328,22 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
   },
 
   {
+    version: 10,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS telegram_story_submissions (
+        id TEXT PRIMARY KEY,
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        story_url TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+        submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        reviewed_at TEXT,
+        review_reason TEXT
+      )`,
+      'CREATE INDEX IF NOT EXISTS idx_story_submissions_status ON telegram_story_submissions(status, submitted_at)',
+      'CREATE INDEX IF NOT EXISTS idx_story_submissions_player ON telegram_story_submissions(telegram_id, submitted_at)',
+    ],
+  },
+  {
     version: 9,
     statements: [
       `CREATE TABLE IF NOT EXISTS player_login_days (
