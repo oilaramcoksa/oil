@@ -151,6 +151,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (section === 'shorts') {
+      await db.execute(`CREATE TABLE IF NOT EXISTS shorts_contest (
+        id TEXT PRIMARY KEY, starts_at INTEGER NOT NULL, ends_at INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','cancelled')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`);
+      try { await db.execute("ALTER TABLE shorts_contest ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','cancelled'))"); } catch { /* Column already exists. */ }
+      await db.execute("INSERT OR IGNORE INTO shorts_contest(id,starts_at,ends_at) VALUES('main',?,?)", [Date.now(), Date.now()+60*24*60*60*1000]);
       await db.execute(`CREATE TABLE IF NOT EXISTS shorts_entries (
         id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
         video_url TEXT NOT NULL UNIQUE, video_title TEXT NOT NULL DEFAULT '', declared_views INTEGER NOT NULL DEFAULT 0,
@@ -160,7 +167,8 @@ export async function GET(req: NextRequest) {
       const rows = await db.execute(`SELECT e.*,p.username,p.first_name FROM shorts_entries e
         JOIN players p ON p.telegram_id=e.telegram_id
         WHERE (?='all' OR e.status=?) ORDER BY CASE WHEN e.status='pending' THEN 0 ELSE 1 END,e.declared_views DESC,e.created_at ASC LIMIT 500`, [status,status]);
-      return NextResponse.json({ shorts: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
+      const contest = await db.execute("SELECT starts_at,ends_at,status FROM shorts_contest WHERE id='main'");
+      return NextResponse.json({ shorts: rows.rows, contest: contest.rows[0] ?? null }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     if (section === 'audit') {
@@ -197,7 +205,27 @@ export async function POST(req: NextRequest) {
     const db = getTurso();
     const tx = await db.transaction('write');
     try {
-      if (action === 'grant_coins' || action === 'grant_oil') {
+      if (action === 'shorts_contest') {
+        const operation = String(body.operation ?? '');
+        if (!['pause','cancel','activate','extend'].includes(operation)) { await tx.rollback(); return fail('invalid_contest_operation'); }
+        await tx.execute(`CREATE TABLE IF NOT EXISTS shorts_contest (
+          id TEXT PRIMARY KEY, starts_at INTEGER NOT NULL, ends_at INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','cancelled')),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`);
+        try { await tx.execute("ALTER TABLE shorts_contest ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','cancelled'))"); } catch { /* Column already exists. */ }
+        await tx.execute("INSERT OR IGNORE INTO shorts_contest(id,starts_at,ends_at) VALUES('main',?,?)", [Date.now(), Date.now()+60*24*60*60*1000]);
+        if (operation === 'extend') {
+          const hours = Number(body.hours);
+          if (!Number.isSafeInteger(hours) || hours < 1 || hours > 2160) { await tx.rollback(); return fail('invalid_extension_hours'); }
+          const updated = await tx.execute({sql:"UPDATE shorts_contest SET ends_at=MAX(ends_at,?)+?,status='active' WHERE id='main'",args:[Date.now(),hours*60*60*1000]});
+          if (Number(updated.rowsAffected) !== 1) { await tx.rollback(); return fail('contest_not_found',404); }
+        } else {
+          const nextStatus = operation === 'pause' ? 'paused' : operation === 'cancel' ? 'cancelled' : 'active';
+          const updated = await tx.execute({sql:"UPDATE shorts_contest SET status=? WHERE id='main'",args:[nextStatus]});
+          if (Number(updated.rowsAffected) !== 1) { await tx.rollback(); return fail('contest_not_found',404); }
+        }
+      } else if (action === 'grant_coins' || action === 'grant_oil') {
         const column = action === 'grant_coins' ? 'coins_balance' : 'oil_balance';
         const exists = await tx.execute({ sql: 'SELECT telegram_id FROM players WHERE telegram_id=?', args: [target] });
         if (!exists.rows.length) { await tx.rollback(); return fail('player_not_found', 404); }
@@ -435,7 +463,7 @@ export async function POST(req: NextRequest) {
 
       await tx.execute({
         sql: 'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
-        args: [randomUUID(), 'admin_session', action, action === 'withdrawal' ? 'withdrawal' : action === 'payment' ? 'payment' : action === 'broadcast' || action === 'broadcast_coins' ? 'broadcast' : 'player', target || String(body.id ?? 'all'), JSON.stringify(body)],
+        args: [randomUUID(), 'admin_session', action, action === 'withdrawal' ? 'withdrawal' : action === 'payment' ? 'payment' : action === 'broadcast' || action === 'broadcast_coins' ? 'broadcast' : action === 'shorts_contest' ? 'contest' : 'player', target || String(body.id ?? body.operation ?? 'all'), JSON.stringify(body)],
       });
       await tx.commit();
       return NextResponse.json({ ok: true, ...(broadcastDelivered === null ? {} : { delivered: broadcastDelivered }) }, { headers: { 'Cache-Control': 'no-store' } });
