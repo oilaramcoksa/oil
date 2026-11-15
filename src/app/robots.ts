@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       { userAgent: "*", allow: "/", disallow: ["/admin", "/api/"] },
-      { userAgent: ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot", "anthropic-ai"], allow: "/" },
+      { userAgent: ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot", "anthropic-ai"], allow: "/", disallow: ["/admin", "/api/"] },
     ],
     ...(base ? { sitemap: `${base}/sitemap.xml`, host: base } : {}),
   };
