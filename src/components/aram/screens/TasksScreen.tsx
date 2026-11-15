@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useGame, type TaskState } from '@/lib/store';
 import { t } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
-import { Check, Gift, Flame, Calendar, Trophy, Package, Sparkles } from 'lucide-react';
+import { Check, Gift, Flame, Calendar, Trophy, Package, Sparkles, Send, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
@@ -23,7 +23,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const { haptic, notify } = useTelegram();
   const [luckyReward, setLuckyReward] = useState<number | null>(null);
   const [adProgress, setAdProgress] = useState<AdProgress | null>(null);
-  const [adProgressLoading, setAdProgressLoading] = useState(true);
+  const [adProgressLoading, setAdProgressLoading] = useState(true);\n  const [telegramClaims, setTelegramClaims] = useState({ channel: false, group: false });\n  const [telegramTaskLoading, setTelegramTaskLoading] = useState<'channel' | 'group' | null>(null);
 
   useEffect(() => {
     if (!isVerified || !initData) {
@@ -63,6 +63,52 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
       window.removeEventListener('focus', onFocus);
     };
   }, [initData, isVerified]);
+
+  useEffect(() => {
+    if (!isVerified || !initData) return;
+    let stopped = false;
+    fetch('/api/tasks/telegram-membership', {
+      headers: { 'X-Telegram-Init-Data': initData },
+      cache: 'no-store',
+    }).then(async (response) => {
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!stopped && data.claimed) setTelegramClaims(data.claimed);
+    }).catch((error) => console.error('telegram_task_status_failed', error));
+    return () => { stopped = true; };
+  }, [initData, isVerified]);
+
+  const claimTelegramTask = async (taskId: 'channel' | 'group') => {
+    if (!initData || telegramTaskLoading) return;
+    setTelegramTaskLoading(taskId);
+    try {
+      const response = await fetch('/api/tasks/telegram-membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+        body: JSON.stringify({ taskId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (data.error === 'telegram_membership_required') toast.error(lang === 'ar' ? 'انضم أولاً ثم اضغط تحقق.' : lang === 'ru' ? 'Сначала вступите, затем проверьте.' : 'Join first, then verify.');
+        else if (data.error === 'telegram_bot_not_configured') toast.error('Telegram bot is not configured on the server.');
+        else toast.error(lang === 'ar' ? 'تعذر التحقق الآن. حاول مرة أخرى.' : 'Could not verify right now. Try again.');
+        return;
+      }
+      setTelegramClaims((old) => ({ ...old, [taskId]: true }));
+      if (!data.alreadyClaimed && typeof data.walletCoins === 'number') {
+        applyServerAdReward(data.reward, data.walletCoins);
+        toast.success(`+${data.reward} ${t(lang, 'coins')}`);
+        haptic('heavy');
+        notify('success');
+      } else {
+        toast.success(lang === 'ar' ? 'المهمة مكتملة بالفعل.' : 'Task already completed.');
+      }
+    } catch {
+      toast.error(lang === 'ar' ? 'تعذر الاتصال بالخادم.' : 'Server connection failed.');
+    } finally {
+      setTelegramTaskLoading(null);
+    }
+  };
 
   const daily = tasks.filter((t_) => t_.period === 'daily');
   const weekly = tasks.filter((t_) => t_.period === 'weekly');
@@ -253,6 +299,40 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         <p className="mt-2 text-center text-[10px] font-bold text-amber-900/60">
           {adProgress?.locked ? t(lang, 'adCycleComplete') : `${t(lang, 'adsRemaining')}: ${adProgress?.remaining ?? 30}`}
         </p>
+      </div>
+
+      {/* Official Telegram join tasks */}
+      <div className="mb-3">
+        <div className="flex items-center gap-1.5 mb-2 px-1">
+          <Send className="w-4 h-4 text-sky-600" />
+          <h3 className="text-sm font-black text-[#2a1c0a]">{lang === 'ar' ? 'مهام تيليجرام الرسمية' : lang === 'ru' ? 'Официальные задания Telegram' : 'Official Telegram tasks'}</h3>
+        </div>
+        <div className="space-y-2">
+          {([
+            { id: 'channel' as const, title: lang === 'ar' ? 'الانضمام للقناة الرسمية للعملة' : lang === 'ru' ? 'Подписаться на официальный канал' : 'Join the official coin channel', url: 'https://t.me/qrmcooil', icon: Send },
+            { id: 'group' as const, title: lang === 'ar' ? 'الانضمام للجروب الرسمي للعملة' : lang === 'ru' ? 'Вступить в официальную группу' : 'Join the official coin group', url: 'https://t.me/armcooil', icon: Users },
+          ]).map((task) => {
+            const Icon = task.icon;
+            const claimed = telegramClaims[task.id];
+            return (
+              <div key={task.id} className="aram-card rounded-2xl p-3 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-black text-[#2a1c0a]">{task.title}</div>
+                  <a href={task.url} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold text-sky-700 underline">{task.url.replace('https://t.me/', '@')}</a>
+                  <div className="text-[10px] font-black text-emerald-700 mt-1">+2,000 {t(lang, 'coins')}</div>
+                </div>
+                <Button
+                  disabled={!isVerified || claimed || telegramTaskLoading !== null}
+                  onClick={() => void claimTelegramTask(task.id)}
+                  className={`h-8 px-3 rounded-xl text-[10px] font-black shrink-0 ${claimed ? 'bg-emerald-500 text-white' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
+                >
+                  {claimed ? (lang === 'ar' ? 'تمت' : lang === 'ru' ? 'Готово' : 'Done') : telegramTaskLoading === task.id ? (lang === 'ar' ? 'جارٍ التحقق' : 'Checking…') : (lang === 'ar' ? 'تحقق واستلم' : lang === 'ru' ? 'Проверить' : 'Verify & claim')}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Daily */}
