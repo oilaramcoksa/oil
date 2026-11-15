@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useGame, type TaskState } from '@/lib/store';
 import { t } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
-import { Check, Gift, Flame, Calendar, Trophy, Package, Sparkles, Send, Users } from 'lucide-react';
+import { Check, Gift, Flame, Calendar, Trophy, Package, Sparkles, Send, Users, Camera, ExternalLink, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
@@ -21,7 +21,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const loginStreak = useGame((s) => s.loginStreak);
   const luckyBoxLastOpened = useGame((s) => s.luckyBoxLastOpened);
   const openLuckyBox = useGame((s) => s.openLuckyBox);
-  const { haptic, notify } = useTelegram();
+  const { haptic, notify, tg } = useTelegram();
   const [luckyReward, setLuckyReward] = useState<number | null>(null);
   const [adProgress, setAdProgress] = useState<AdProgress | null>(null);
   const [adProgressLoading, setAdProgressLoading] = useState(true);
@@ -29,6 +29,10 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const [telegramJoined, setTelegramJoined] = useState({ channel: false, group: false });
   const [awaitingTelegramTask, setAwaitingTelegramTask] = useState<'channel' | 'group' | null>(null);
   const [telegramTaskLoading, setTelegramTaskLoading] = useState<'channel' | 'group' | null>(null);
+  const [storyUrl, setStoryUrl] = useState('');
+  const [storyInfo, setStoryInfo] = useState<{ canSubmit: boolean; pending: { story_url: string; submitted_at: string } | null; latest: { status: string; review_reason?: string | null } | null; nextAllowedAt: number | null } | null>(null);
+  const [storyLoading, setStoryLoading] = useState(false);
+  const [storySubmitting, setStorySubmitting] = useState(false);
 
   useEffect(() => {
     if (!isVerified || !initData) {
@@ -105,6 +109,72 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
       window.clearInterval(tenHourTimer);
     };
   }, [initData, isVerified, awaitingTelegramTask, lang, syncServerWalletCoins]);
+
+  const refreshStoryTask = async () => {
+    if (!initData || !isVerified) return;
+    try {
+      const response = await fetch('/api/tasks/story', {
+        headers: { 'X-Telegram-Init-Data': initData },
+        cache: 'no-store',
+      });
+      if (response.ok) setStoryInfo(await response.json());
+    } catch (error) {
+      console.error('telegram_story_status_failed', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!isVerified || !initData) return;
+    void refreshStoryTask();
+    const onFocus = () => void refreshStoryTask();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [initData, isVerified]);
+
+  const openStoryComposer = () => {
+    if (!tg?.shareToStory) {
+      toast.error(lang === 'ar' ? 'افتح اللعبة من تطبيق تيليجرام لاستخدام نشر الحالة.' : 'Open the game inside Telegram to share a Story.');
+      return;
+    }
+    const mediaUrl = `${window.location.origin}/story.png`;
+    try {
+      tg.shareToStory(mediaUrl, {
+        text: 'Mine with ARMCO OIL! Join the official bot',
+        widget_link: { url: 'https://t.me/armcooilbot', name: 'ARMCO OIL' },
+      });
+    } catch {
+      toast.error(lang === 'ar' ? 'تعذر فتح محرر حالة تيليجرام.' : 'Could not open Telegram Story editor.');
+    }
+  };
+
+  const submitStoryLink = async () => {
+    if (!initData || !storyUrl.trim() || storySubmitting) return;
+    setStorySubmitting(true);
+    setStoryLoading(true);
+    try {
+      const response = await fetch('/api/tasks/story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+        body: JSON.stringify({ storyUrl: storyUrl.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (data.error === 'story_review_pending') toast.error(lang === 'ar' ? 'لديك مشاركة قيد المراجعة بالفعل.' : 'You already have a submission under review.');
+        else if (data.error === 'story_cooldown') toast.error(lang === 'ar' ? 'يمكنك إرسال مشاركة جديدة بعد انتهاء 24 ساعة من آخر موافقة.' : 'Wait 24 hours after your last approval.');
+        else if (data.error === 'invalid_story_link') toast.error(lang === 'ar' ? 'أدخل رابط الحالة العامة من تيليجرام، ويجب أن يحتوي على /s/.' : 'Enter a public Telegram Story link containing /s/.');
+        else toast.error(lang === 'ar' ? 'تعذر إرسال الرابط للمراجعة.' : 'Could not submit the Story link.');
+        return;
+      }
+      setStoryUrl('');
+      toast.success(lang === 'ar' ? 'تم إرسال رابط الحالة إلى الإدارة للمراجعة.' : 'Story link sent to admin for review.');
+      await refreshStoryTask();
+    } catch {
+      toast.error(lang === 'ar' ? 'تعذر الاتصال بالخادم.' : 'Server connection failed.');
+    } finally {
+      setStorySubmitting(false);
+      setStoryLoading(false);
+    }
+  };
 
   const claimTelegramTask = async (taskId: 'channel' | 'group') => {
     if (!initData || telegramTaskLoading) return;
@@ -381,6 +451,39 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         <p className="text-[9px] text-amber-900/60 font-bold px-1 mt-2">
           {lang === 'ar' ? 'يتم التحقق من استمرار الاشتراك كل 10 ساعات. عند المغادرة تُخصم مكافأة المهمة من رصيدك.' : 'Membership is rechecked every 10 hours. Leaving the channel or group deducts the task reward.'}
         </p>
+      </div>
+
+      {/* Telegram Story daily reward */}
+      <div className="aram-card rounded-2xl p-3 mb-3 border border-amber-400/30">
+        <div className="flex items-center gap-2 mb-2">
+          <Camera className="w-5 h-5 text-amber-600" />
+          <div className="flex-1">
+            <div className="text-sm font-black text-[#2a1c0a]">{lang === 'ar' ? 'انشر حالة ARMCO OIL على تيليجرام' : lang === 'ru' ? 'Опубликуйте историю ARMCO OIL в Telegram' : 'Post ARMCO OIL to your Telegram Story'}</div>
+            <div className="text-[10px] font-black text-emerald-700">+500 {t(lang, 'coins')} · {lang === 'ar' ? 'مرة كل 24 ساعة بعد الموافقة' : 'Once every 24 hours after approval'}</div>
+          </div>
+        </div>
+        <p className="text-[11px] text-amber-900/70 mb-3">{lang === 'ar' ? 'افتح محرر الحالة، انشر البوستر مع رابط @armcooilbot، ثم انسخ رابط الحالة العامة وأرسله للمراجعة.' : 'Open Story editor, publish the poster with @armcooilbot, then paste your public Story link for review.'}</p>
+        <Button onClick={openStoryComposer} disabled={!isVerified} className="w-full rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-black">
+          <Camera className="w-4 h-4 ml-2" /> {lang === 'ar' ? 'انشر الحالة' : lang === 'ru' ? 'Опубликовать историю' : 'Publish Story'}
+        </Button>
+        {storyInfo?.pending ? (
+          <div className="mt-3 rounded-xl bg-amber-100/80 p-3 text-xs font-bold text-amber-900">
+            <Clock className="inline w-4 h-4 ml-1" /> {lang === 'ar' ? 'رابط حالتك قيد مراجعة الإدارة.' : 'Your Story link is awaiting admin review.'}
+            <a href={storyInfo.pending.story_url} target="_blank" rel="noopener noreferrer" className="block mt-1 underline break-all">{storyInfo.pending.story_url}</a>
+          </div>
+        ) : storyInfo?.latest?.status === 'approved' && storyInfo.nextAllowedAt && Date.now() < storyInfo.nextAllowedAt ? (
+          <div className="mt-3 rounded-xl bg-emerald-100/80 p-3 text-xs font-bold text-emerald-800">
+            <Check className="inline w-4 h-4 ml-1" /> {lang === 'ar' ? 'تم اعتماد حالتك وصرف 500 عملة. المهمة التالية متاحة بعد:' : 'Approved! 500 coins awarded. Next task available:'} {new Date(storyInfo.nextAllowedAt).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US')}
+          </div>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {storyInfo?.latest?.status === 'rejected' && <p className="text-[10px] font-bold text-red-700">{storyInfo.latest.review_reason || 'تمت مراجعة حالتك ولم تنشر صورة اللعبة'}</p>}
+            <input value={storyUrl} onChange={e=>setStoryUrl(e.target.value)} placeholder={lang === 'ar' ? 'الصق رابط الحالة العامة هنا (t.me/.../s/...)' : 'Paste your public Story link (t.me/.../s/...)'} className="w-full rounded-xl border border-amber-900/15 bg-white/80 px-3 py-2 text-xs text-slate-900 outline-none" dir="ltr" />
+            <Button onClick={() => void submitStoryLink()} disabled={!isVerified || !storyUrl.trim() || storySubmitting || storyInfo?.canSubmit === false} className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black">
+              <ExternalLink className="w-4 h-4 ml-2" /> {storySubmitting ? (lang === 'ar' ? 'جارٍ الإرسال...' : 'Submitting…') : (lang === 'ar' ? 'إرسال الرابط للمراجعة' : 'Submit link for review')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Daily */}
