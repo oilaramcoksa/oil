@@ -43,7 +43,7 @@ async function publishSaleToTelegram(input: {
     ? `@${input.username}`
     : input.firstName || `Player ${input.telegramId.slice(-4)}`;
   // This is a virtual in-game conversion, not a cash payment or guaranteed market value.
-  const estimatedUsd = input.coinsEarned / 100000;
+  const estimatedUsd = input.coinsEarned / 1000;
   const timestamp = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Africa/Cairo',
     dateStyle: 'medium',
@@ -105,9 +105,25 @@ export async function POST(req: NextRequest) {
     const id = String(user.id);
     const tx = await db.transaction('write');
     try {
+      const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [id] });
+      if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
+
+      // A sale is allowed once, only after the server-recorded 12-hour cycle ends.
+      const snapshot = await tx.execute({
+        sql: 'SELECT state_json FROM player_game_snapshots WHERE telegram_id=?',
+        args: [id],
+      });
+      if (!snapshot.rows.length) { await tx.rollback(); return fail('mining_cycle_not_started', 409); }
+      let cycleEndsAt = 0;
+      try {
+        const saved = JSON.parse(String(snapshot.rows[0].state_json ?? '{}')) as { cycleEndsAt?: unknown };
+        cycleEndsAt = Number(saved.cycleEndsAt ?? 0);
+      } catch { cycleEndsAt = 0; }
+      if (!Number.isSafeInteger(cycleEndsAt) || cycleEndsAt <= 0) { await tx.rollback(); return fail('mining_cycle_not_started', 409); }
+      const cycleKey = `oil_sale_cycle:${cycleEndsAt}:coins`;
       const previous = await tx.execute({
         sql: 'SELECT metadata_json FROM ledger_entries WHERE telegram_id=? AND idempotency_key=?',
-        args: [id, `oil_sale:${key}:coins`],
+        args: [id, cycleKey],
       });
       if (previous.rows.length) {
         const wallet = await tx.execute({ sql: 'SELECT oil_balance, coins_balance FROM player_wallets WHERE telegram_id=?', args: [id] });
@@ -116,9 +132,10 @@ export async function POST(req: NextRequest) {
         const metadata = JSON.parse(String(previous.rows[0].metadata_json ?? '{}')) as { sold?: number; coinsEarned?: number };
         return NextResponse.json({ duplicate: true, sold: Number(metadata.sold ?? 0), coinsEarned: Number(metadata.coinsEarned ?? 0), wallet: { oil: Number(w?.oil_balance ?? 0), coins: Number(w?.coins_balance ?? 0) } }, { headers: { 'Cache-Control': 'no-store' } });
       }
-
-      const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [id] });
-      if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
+      if (Date.now() < cycleEndsAt) {
+        await tx.rollback();
+        return fail('mining_cycle_active', 409);
+      }
       const wallet = await tx.execute({ sql: 'SELECT oil_balance, coins_balance FROM player_wallets WHERE telegram_id=?', args: [id] });
       if (!wallet.rows.length) { await tx.rollback(); return fail('wallet_not_found', 404); }
       const sold = Number(wallet.rows[0].oil_balance);
@@ -141,7 +158,7 @@ export async function POST(req: NextRequest) {
         sql: `INSERT INTO ledger_entries
           (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'coins', 'oil_sale', ?, ?, 'oil_sale', ?, ?, ?)`,
-        args: [randomUUID(), id, coinsEarned, newCoins, saleId, `oil_sale:${key}:coins`, metadata],
+        args: [randomUUID(), id, coinsEarned, newCoins, saleId, cycleKey, metadata],
       });
 
       // Lifetime inviter commission is funded by the platform and applies only
