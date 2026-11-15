@@ -5,6 +5,9 @@ import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const MINING_CYCLE_MS = 12 * 60 * 60 * 1000;
+const CYCLE_START_TOLERANCE_MS = 5 * 60 * 1000;
+
 const STATE_KEYS = [
   'oil', 'coins', 'upgrades', 'tasks', 'referrals', 'transactions',
   'tonAddress', 'withdrawals', 'refundedWithdrawals',
@@ -41,7 +44,7 @@ export async function GET(req: NextRequest) {
     if (!player.rows.length || String(player.rows[0].status) !== 'active') {
       return NextResponse.json({ error: 'player_suspended' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
     }
-    const [result, wallet, ledger, gameSettings] = await Promise.all([
+    const [result, wallet, ledger, gameSettings, miningCycle] = await Promise.all([
       db.execute({
         sql: 'SELECT state_json, revision, updated_at FROM player_game_snapshots WHERE telegram_id = ?',
         args: [id],
@@ -60,6 +63,7 @@ export async function GET(req: NextRequest) {
         sql: 'SELECT base_oil_per_tap, base_capacity FROM player_game_state WHERE telegram_id = ?',
         args: [id],
       }),
+      db.execute({ sql: 'SELECT cycle_ends_at FROM player_game_state WHERE telegram_id = ?', args: [id] }),
     ]);
     const row = result.rows[0];
     const w = wallet.rows[0];
@@ -74,6 +78,8 @@ export async function GET(req: NextRequest) {
     // The relational wallet is authoritative. A stale JSON snapshot must never
     // replace a ledger-backed balance with zero or an older client-side value.
     if (state && walletState) state = { ...state, ...walletState };
+    const authoritativeCycleEnd = Number(miningCycle.rows[0]?.cycle_ends_at ?? 0) || null;
+    state = { ...(state ?? {}), cycleEndsAt: authoritativeCycleEnd };
 
     return NextResponse.json({
       exists: !!row,
@@ -148,6 +154,37 @@ export async function PUT(req: NextRequest) {
     const oldOil = Number(current?.oil_balance ?? 0);
     if (coinLedger.rows.length) state.coins = oldCoins;
     if (oilLedger.rows.length) state.oil = oldOil;
+
+    // The cycle deadline is server-authoritative. Clients may start a cycle
+    // only once, and only after the previous cycle has been sold.
+    const cycleRow = await db.execute({
+      sql: 'SELECT cycle_ends_at FROM player_game_state WHERE telegram_id=?',
+      args: [id],
+    });
+    const serverCycleEnd = Number(cycleRow.rows[0]?.cycle_ends_at ?? 0);
+    const requestedCycleEnd = Number(state.cycleEndsAt ?? 0);
+    const now = Date.now();
+    let acceptedCycleEnd = serverCycleEnd || null;
+    let startNewCycle = false;
+    const requestedDuration = requestedCycleEnd - now;
+    const validNewCycle = Number.isSafeInteger(requestedCycleEnd) &&
+      requestedDuration >= MINING_CYCLE_MS - CYCLE_START_TOLERANCE_MS &&
+      requestedDuration <= MINING_CYCLE_MS + CYCLE_START_TOLERANCE_MS;
+
+    if (!serverCycleEnd && validNewCycle) {
+      acceptedCycleEnd = requestedCycleEnd;
+      startNewCycle = true;
+    } else if (serverCycleEnd > 0 && now >= serverCycleEnd && validNewCycle) {
+      const priorSale = await db.execute({
+        sql: "SELECT 1 AS sold FROM ledger_entries WHERE telegram_id=? AND idempotency_key=? LIMIT 1",
+        args: [id, `oil_sale_cycle:${serverCycleEnd}:coins`],
+      });
+      if (priorSale.rows.length) {
+        acceptedCycleEnd = requestedCycleEnd;
+        startNewCycle = true;
+      }
+    }
+    state.cycleEndsAt = acceptedCycleEnd;
     await db.batch([
       {
         sql: `INSERT INTO player_game_snapshots (telegram_id, state_json, revision, updated_at)
@@ -170,6 +207,10 @@ export async function PUT(req: NextRequest) {
               WHERE telegram_id = ?`,
         args: [id, coins, id, oil, id],
       },
+      ...(startNewCycle ? [{
+        sql: 'UPDATE player_game_state SET cycle_started_at=?, cycle_ends_at=?, last_tick_at=?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+        args: [now, acceptedCycleEnd, now, id],
+      }] : []),
     ], 'write');
     const revision = await db.execute({
       sql: 'SELECT revision FROM player_game_snapshots WHERE telegram_id = ?',
