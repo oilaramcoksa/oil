@@ -325,3 +325,33 @@ body {
   padding-bottom: max(env(safe-area-inset-bottom), 0px);
 }
 
+
+
+/* Hide scrollbars across the Telegram mini app while keeping scrolling usable. */
+html,
+body,
+.aram-app,
+.aram-app *,
+[ class*="overflow-y-auto" ],
+[ class*="overflow-auto" ] {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.aram-app::-webkit-scrollbar,
+.aram-app *::-webkit-scrollbar,
+[ class*="overflow-y-auto" ]::-webkit-scrollbar,
+[ class*="overflow-auto" ]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* Prevent accidental sideways page movement on narrow mobile screens. */
+html,
+body {
+  overscroll-behavior-x: none;
+}
