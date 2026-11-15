@@ -49,7 +49,14 @@ export function WithdrawSection() {
   const [touched, setTouched] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [, setClockTick] = useState(0);
   const actionGateRef = useRef(false);
+
+  // Refresh the cooldown display every second.
+  useEffect(() => {
+    const id = setInterval(() => setClockTick((value) => value + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Pull latest statuses on mount and every 30s while the screen is open.
   useEffect(() => {
@@ -61,11 +68,13 @@ export function WithdrawSection() {
   const max = maxUnits(coins);
   const unlocked = max >= MIN_UNITS;
   const hasPending = withdrawals.some((w) => w.status === 'pending');
+  const lastWithdrawalAt = withdrawals.reduce((latest, item) => Math.max(latest, Number(item.createdAt) || 0), 0);
+  const cooldownRemainingMs = Math.max(0, lastWithdrawalAt + 48 * 60 * 60 * 1000 - Date.now());
   const safeUnits = Math.min(Math.max(units, MIN_UNITS), Math.max(max, MIN_UNITS));
   const addressOk = useMemo(() => isValidTonAddress(address), [address]);
   const progress = Math.min(100, (coins / COINS_PER_USD) * 100);
   const missing = Math.max(0, COINS_PER_USD - coins);
-  const canSubmit = unlocked && addressOk && !hasPending && !busy;
+  const canSubmit = unlocked && addressOk && !hasPending && cooldownRemainingMs <= 0 && !busy;
 
   async function submit() {
     if (actionGateRef.current || busy) return;
@@ -122,6 +131,12 @@ export function WithdrawSection() {
         <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
           {t(lang, 'wdPendingBlock')}
         </p>
+      ) : cooldownRemainingMs > 0 ? (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-center">
+          <div className="text-[11px] font-black text-sky-800">{t(lang, 'withdrawCooldown')}</div>
+          <div className="mt-1 text-2xl font-black tabular-nums tracking-wider text-sky-700">{formatCooldown(cooldownRemainingMs)}</div>
+          <div className="mt-1 text-[10px] font-bold text-sky-700/70">48 {lang === 'ar' ? 'ساعة بين كل طلب سحب' : lang === 'ru' ? 'часов между запросами на вывод' : 'hours between withdrawals'}</div>
+        </div>
       ) : (
         <div className="space-y-3">
           <p className="text-[11px] font-bold text-emerald-700">{t(lang, 'wdUnlocked')}</p>
@@ -258,4 +273,13 @@ export function WithdrawSection() {
       </AlertDialog>
     </motion.div>
   );
+}
+
+
+function formatCooldown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
 }
