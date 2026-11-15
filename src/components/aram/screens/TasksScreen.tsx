@@ -97,10 +97,12 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
     const onFocus = () => void refreshMembership();
     window.addEventListener('focus', onFocus);
     const timer = awaitingTelegramTask ? window.setInterval(() => void refreshMembership(), 5000) : null;
+    const tenHourTimer = window.setInterval(() => void refreshMembership(), 10 * 60 * 60 * 1000);
     return () => {
       stopped = true;
       window.removeEventListener('focus', onFocus);
       if (timer) window.clearInterval(timer);
+      window.clearInterval(tenHourTimer);
     };
   }, [initData, isVerified, awaitingTelegramTask, lang, syncServerWalletCoins]);
 
