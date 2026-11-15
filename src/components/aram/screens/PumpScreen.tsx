@@ -98,11 +98,9 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const cycleProgress = active ? 1 - secRem / CYCLE_SECONDS : 0;
 
   const [feeActivated, setFeeActivated] = useState(false);
-  const [feeChecked, setFeeChecked] = useState(false);
   const [feeGateOpen, setFeeGateOpen] = useState(false);
   const handleFeeActivated = useCallback(() => {
     setFeeActivated(true);
-    setFeeChecked(true);
     setFeeGateOpen(false);
     const result = tapPump();
     if (result.cycleStarted) notify('success');
@@ -116,10 +114,9 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         if (!response.ok) throw new Error(data.error || 'activation_status_unavailable');
         if (active) {
           setFeeActivated(data.required !== true);
-          setFeeChecked(true);
         }
       })
-      .catch(() => { if (active) setFeeChecked(false); });
+      .catch(() => { if (active) setFeeActivated(false); });
     return () => { active = false; };
   }, [initData]);
 
