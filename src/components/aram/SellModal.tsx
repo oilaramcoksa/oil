@@ -19,14 +19,6 @@ import { showActionInterstitial } from '@/lib/action-ad';
 import { TadsWidget } from 'react-tads-widget';
 import { Truck, X, Droplet, Coins, Check } from 'lucide-react';
 
-type SaleAdexiumInstance = {
-  requestAd: (format: 'interstitial') => void;
-  displayAd: (ad: { id?: string }) => void;
-  on: (event: string, callback: (ad?: { id?: string }) => void) => void;
-};
-type SaleTadsWindow = Window & {
-  AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => SaleAdexiumInstance;
-};
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -67,7 +59,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
     if (saleStartedRef.current) return;
     saleStartedRef.current = true;
     let cancelled = false;
-    let cleanupTimers = () => undefined;
+    let cleanupTimers: () => void = () => {};
     void showActionInterstitial().then(() => {
       if (cancelled) return;
       startingOilRef.current = oilValueRef.current;
