@@ -6,6 +6,11 @@ import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const MIN_WITHDRAWAL_MICROS = 1_000_000;
+const WITHDRAWAL_COOLDOWN_MS = 48 * 60 * 60 * 1000;
+function timestamp(value: unknown): number {
+  const raw = String(value ?? '');
+  return Date.parse(raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z') || 0;
+}
 const TRON_ADDRESS = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
 
 function errorJson(error: string, status = 400) {
@@ -63,6 +68,16 @@ export async function POST(req: NextRequest) {
       }
       const player = await tx.execute({ sql: "SELECT status FROM players WHERE telegram_id=?", args: [id] });
       if (!player.rows.length || player.rows[0].status !== 'active') { await tx.rollback(); return errorJson('player_not_active', 403); }
+      const lastRequest = await tx.execute({
+        sql: 'SELECT created_at FROM (SELECT created_at FROM withdrawal_requests WHERE telegram_id=? UNION ALL SELECT created_at FROM usdt_withdrawal_requests WHERE telegram_id=?) ORDER BY created_at DESC LIMIT 1',
+        args: [id, id],
+      });
+      const lastRequestAt = timestamp(lastRequest.rows[0]?.created_at);
+      const remainingMs = lastRequestAt ? lastRequestAt + WITHDRAWAL_COOLDOWN_MS - Date.now() : 0;
+      if (remainingMs > 0) {
+        await tx.rollback();
+        return NextResponse.json({ error: 'withdrawal_cooldown', remainingMs, nextWithdrawalAt: lastRequestAt + WITHDRAWAL_COOLDOWN_MS }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
+      }
       const debit = await tx.execute({
         sql: 'UPDATE player_wallets SET usd_micros=usd_micros-?, usd_locked_micros=usd_locked_micros+?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND usd_micros>=?',
         args: [micros, micros, id, micros],
