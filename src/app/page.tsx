@@ -1,25 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useGame } from '@/lib/store';
 import { dirOf } from '@/lib/i18n';
 import { TopBar } from '@/components/aram/TopBar';
 import { BottomNav, type Tab } from '@/components/aram/BottomNav';
 import { PumpScreen } from '@/components/aram/screens/PumpScreen';
-import { WalletScreen } from '@/components/aram/screens/WalletScreen';
-import { TasksScreen } from '@/components/aram/screens/TasksScreen';
-import { FriendsScreen } from '@/components/aram/screens/FriendsScreen';
-import { StoreScreen } from '@/components/aram/screens/StoreScreen';
+
+
+
+
 import { Onboarding } from '@/components/aram/Onboarding';
 import { SettingsSheet } from '@/components/aram/SettingsSheet';
-import { TournamentsSheet } from '@/components/aram/TournamentsSheet';
+
 import { useTelegram } from '@/hooks/use-telegram';
 import { Toaster } from 'sonner';
 import { GameCloudSync } from '@/components/aram/GameCloudSync';
 import { AdminNotices } from '@/components/aram/AdminNotices';
-import { ArenaScreen } from '@/components/aram/screens/ArenaScreen';
-import { SwapScreen } from '@/components/aram/screens/SwapScreen';
-import { ShortsContest } from '@/components/aram/ShortsContest';
+
+
+
 
 export default function Home() {
   const lang = useGame((s) => s.lang);
