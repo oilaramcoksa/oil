@@ -476,6 +476,9 @@ const ar: Dict = {
   shortsRankUp: "صعود",
   shortsRankDown: "هبوط",
   shortsRulesFooter: "تحتفظ الإدارة بحق مراجعة الروابط واعتماد المشاركات وتحديث المشاهدات وإعلان النتائج النهائية.",
+  specialBackgroundMultiplier: "×5 سرعة التعدين",
+  vipBadgeMultiplier: "×4 سرعة التعدين",
+  wheelExpansionMultiplier: "×2 مساحة العجلة · 3 أيام",
 };
 
 const en: Dict = {
@@ -930,6 +933,9 @@ const en: Dict = {
   shortsRankUp: "Up",
   shortsRankDown: "Down",
   shortsRulesFooter: "The admin team may review links, approve entries, update views, and publish the final results.",
+  specialBackgroundMultiplier: "5× mining speed",
+  vipBadgeMultiplier: "4× mining speed",
+  wheelExpansionMultiplier: "2× wheel area · 3 days",
 };
 
 const ru: Dict = {
@@ -1384,6 +1390,9 @@ const ru: Dict = {
   shortsRankUp: "Рост",
   shortsRankDown: "Снижение",
   shortsRulesFooter: "Администрация может проверять ссылки, одобрять заявки, обновлять просмотры и публиковать итоги.",
+  specialBackgroundMultiplier: "Скорость добычи ×5",
+  vipBadgeMultiplier: "Скорость добычи ×4",
+  wheelExpansionMultiplier: "Площадь колеса ×2 · 3 дня",
 };
 
 export const dictionaries: Record<Lang, Dict> = { ar, en, ru };
