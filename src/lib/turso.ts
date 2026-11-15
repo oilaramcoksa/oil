@@ -383,6 +383,9 @@ export async function ensureDatabaseSchema(): Promise<void> {
         ['referrals', 'qualified_at', 'TEXT'],
         ['referrals', 'rewarded_at', 'TEXT'],
         ['withdrawal_requests', 'idempotency_key', 'TEXT'],
+        ['task_claims', 'active', 'INTEGER NOT NULL DEFAULT 1'],
+        ['task_claims', 'last_checked_at', 'TEXT'],
+        ['task_claims', 'revoked_at', 'TEXT'],
       ];
       for (const [table, column, definition] of legacyColumns) {
         const info = await db.execute(`PRAGMA table_info(${table})`);
