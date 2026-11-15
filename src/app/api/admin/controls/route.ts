@@ -395,9 +395,9 @@ export async function POST(req: NextRequest) {
         const id = String(body.id ?? '');
         const nextStatus = String(body.status ?? '');
         if (!id || !['approved','rejected'].includes(nextStatus)) { await tx.rollback(); return fail('invalid_shorts_review'); }
-        const updated = await tx.execute({sql:'UPDATE shorts_entries SET status=? WHERE id=?',[nextStatus,id]});
+        const updated = await tx.execute({sql:'UPDATE shorts_entries SET status=? WHERE id=?',args:[nextStatus,id]});
         if (Number(updated.rowsAffected) !== 1) { await tx.rollback(); return fail('shorts_entry_not_found',404); }
-        const entry = await tx.execute({sql:'SELECT telegram_id FROM shorts_entries WHERE id=?',[id]});
+        const entry = await tx.execute({sql:'SELECT telegram_id FROM shorts_entries WHERE id=?',args:[id]});
         if (entry.rows.length) await notify(tx,String(entry.rows[0].telegram_id),nextStatus==='approved'?'✅ تم اعتماد مشاركتك':'⚠️ تم استبعاد مشاركتك',nextStatus==='approved'?'تم اعتماد فيديو YouTube Shorts في المسابقة.':'تم استبعاد الفيديو من لوحة المتصدرين بعد مراجعة الإدارة.','announcement',{entryId:id});
       } else if (action === 'broadcast_coins') {
         const quantity = Number(body.amount);
