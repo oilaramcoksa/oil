@@ -21,6 +21,8 @@ export default function AdminPage() {
   const [payments,setPayments] = useState<Row[]>([]);
   const [logs,setLogs] = useState<Row[]>([]);
   const [shortsRows,setShortsRows] = useState<Row[]>([]);
+  const [shortsContest,setShortsContest] = useState<Row|null>(null);
+  const [extensionHours,setExtensionHours] = useState('24');
   const [referralRows,setReferralRows] = useState<Row[]>([]);
   const [referralMemberId,setReferralMemberId] = useState('');
   const [status,setStatus] = useState('pending');
@@ -54,7 +56,7 @@ export default function AdminPage() {
       if(nextSection==='payments') setPayments(data.payments||[]);
       if(nextSection==='referrals') setReferralRows(data.referrals||[]);
       if(nextSection==='audit') setLogs(data.logs||[]);
-      if(nextSection==='shorts') setShortsRows(data.shorts||[]);
+      if(nextSection==='shorts'){setShortsRows(data.shorts||[]);setShortsContest(data.contest||null);}
     } catch(e){setError(e instanceof Error?e.message:'حدث خطأ');}
     finally{setBusy(false);}
   }
@@ -116,7 +118,31 @@ export default function AdminPage() {
           </div>
           <div className="mt-4 flex items-center gap-2 text-xs text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400"/> الإشعارات تُحفظ في قاعدة البيانات وتُعرض داخل اللعبة</div>
         </section>}
-        {section==='shorts'&&<><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-400">مراجعة المشاركات واستبعاد الروابط المخالفة. أرقام المشاهدات مُدخلة من اللاعبين وليست موثقة من YouTube.</p><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-xl border border-white/10 bg-[#111827] px-3 py-2 text-sm"><option value="pending">قيد المراجعة</option><option value="approved">المعتمدة</option><option value="rejected">المستبعدة</option><option value="all">الكل</option></select></div><DataTable title="مشاركات YouTube Shorts" rows={shortsRows} columns={['first_name','username','telegram_id','video_url','declared_views','status','created_at']} action={(row)=>{const raw=window.prompt('أدخل عدد المشاهدات الحالي للموافقة، أو اكتب رفض لاستبعاد الفيديو:',String(row.declared_views??0));if(raw===null)return;if(raw.trim()==='رفض'){void act({action:'shorts_review',id:String(row.id),status:'rejected',views:0});return;}const views=Number(raw.trim());if(!Number.isSafeInteger(views)||views<0||views>2000000000){setError('أدخل عدد مشاهدات صحيحًا أو اكتب رفض');return;}void act({action:'shorts_review',id:String(row.id),status:'approved',views});}}/></>}
+        {section==='shorts'&&<div className="space-y-4">
+          <section className="rounded-2xl border border-amber-400/20 bg-[#111827] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><h3 className="font-black text-amber-200">التحكم في تحدي YouTube Shorts</h3><p className="mt-1 text-xs text-slate-400">التحكم مركزي من الخادم ويؤثر على ظهور الزر لجميع اللاعبين.</p></div>
+              <span className={`rounded-full px-3 py-1 text-xs font-black ${shortsContest?.status==='active'&&Date.now()<Number(shortsContest?.ends_at)?'bg-emerald-400/10 text-emerald-300':'bg-red-400/10 text-red-300'}`}>{shortsContest?.status==='active'&&Date.now()<Number(shortsContest?.ends_at)?'التحدي نشط':shortsContest?.status==='paused'?'التحدي متوقف مؤقتًا':shortsContest?.status==='cancelled'?'التحدي ملغي':'انتهت المدة'}</span>
+            </div>
+            <div className="mt-3 grid gap-2 text-xs text-slate-400 sm:grid-cols-2">
+              <p>بداية التحدي: <b className="text-slate-200">{shortsContest?.starts_at?new Date(Number(shortsContest.starts_at)).toLocaleString('ar-EG'):'—'}</b></p>
+              <p>نهاية التحدي: <b className="text-slate-200">{shortsContest?.ends_at?new Date(Number(shortsContest.ends_at)).toLocaleString('ar-EG'):'—'}</b></p>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <button disabled={busy||shortsContest?.status==='paused'} onClick={()=>act({action:'shorts_contest',operation:'pause'})} className="rounded-xl bg-amber-400/15 p-3 text-sm font-bold text-amber-200 disabled:opacity-40">إيقاف التحدي مؤقتًا</button>
+              <button disabled={busy||shortsContest?.status==='active'} onClick={()=>act({action:'shorts_contest',operation:'activate'})} className="rounded-xl bg-emerald-400/15 p-3 text-sm font-bold text-emerald-200 disabled:opacity-40">تفعيل / استئناف التحدي</button>
+              <button disabled={busy||shortsContest?.status==='cancelled'} onClick={()=>{if(window.confirm('هل تريد إلغاء التحدي وإخفاء الزر عن جميع اللاعبين؟'))void act({action:'shorts_contest',operation:'cancel'});}} className="rounded-xl bg-red-400/15 p-3 text-sm font-bold text-red-200 disabled:opacity-40">إلغاء التحدي نهائيًا</button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+              <label className="text-xs text-slate-400">تمديد المدة بالساعات</label>
+              <input type="number" min="1" max="2160" value={extensionHours} onChange={e=>setExtensionHours(e.target.value)} className="w-28 rounded-xl border border-white/10 bg-slate-900 p-2 text-sm"/>
+              <button disabled={busy||!Number.isInteger(Number(extensionHours))||Number(extensionHours)<1||Number(extensionHours)>2160} onClick={()=>act({action:'shorts_contest',operation:'extend',hours:Number(extensionHours)})} className="rounded-xl bg-sky-400/15 px-4 py-2 text-sm font-bold text-sky-200 disabled:opacity-40">تمديد وإظهار التحدي</button>
+              <p className="w-full text-[11px] text-slate-500">التمديد يعيد التحدي إلى الحالة النشطة ويضيف الساعات إلى وقت الانتهاء، بحد أقصى 90 يومًا لكل عملية.</p>
+            </div>
+          </section>
+          <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-400">مراجعة المشاركات واستبعاد الروابط المخالفة. أرقام المشاهدات مُدخلة من اللاعبين وليست موثقة من YouTube.</p><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-xl border border-white/10 bg-[#111827] px-3 py-2 text-sm"><option value="pending">قيد المراجعة</option><option value="approved">المعتمدة</option><option value="rejected">المستبعدة</option><option value="all">الكل</option></select></div>
+          <DataTable title="مشاركات YouTube Shorts" rows={shortsRows} columns={['first_name','username','telegram_id','video_url','declared_views','status','created_at']} action={(row)=>{const raw=window.prompt('أدخل عدد المشاهدات الحالي للموافقة، أو اكتب رفض لاستبعاد الفيديو:',String(row.declared_views??0));if(raw===null)return;if(raw.trim()==='رفض'){void act({action:'shorts_review',id:String(row.id),status:'rejected',views:0});return;}const views=Number(raw.trim());if(!Number.isSafeInteger(views)||views<0||views>2000000000){setError('أدخل عدد مشاهدات صحيحًا أو اكتب رفض');return;}void act({action:'shorts_review',id:String(row.id),status:'approved',views});}}/>
+        </div>}
         {section==='audit'&&<DataTable title="آخر العمليات الإدارية" rows={logs} columns={['action','target_type','target_id','details_json','created_at']}/>}
       </main>
     </div>
