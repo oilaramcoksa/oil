@@ -1,11 +1,11 @@
 // Withdrawal rules shared by the client and the API.
 //
-// Rate: every 100,000 game coins = 1 USD, paid out in TON.
+// Rate: every 100,000 game coins = 100 USD, paid out in TON.
 // There is NO upfront fee: nothing is ever requested from the player to
 // "unlock" a withdrawal. Requests are reviewed manually and marked as
 // paid (with the TON transaction hash) or rejected (coins are refunded).
 
-export const COINS_PER_USD = 100_000;
+export const COINS_PER_USD = 1_000;
 export const MIN_UNITS = 1;          // minimum = 1 USD = 100,000 coins
 export const MAX_UNITS_PER_REQUEST = 1000;
 
