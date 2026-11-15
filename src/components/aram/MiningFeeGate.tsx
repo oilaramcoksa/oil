@@ -6,6 +6,7 @@ import { ShieldCheck, Wallet, Loader2, CheckCircle2 } from 'lucide-react';
 type Props = {
   initData: string;
   onActivated: () => void;
+  onClose: () => void;
 };
 
 type Status = {
@@ -17,14 +18,16 @@ type Status = {
   destination: string;
   network: string;
   message: string;
+  savedWalletAddress?: string;
 };
 
 const MANIFEST = '/api/mining/activation/tonconnect-manifest.json';
 
-export function MiningFeeGate({ initData, onActivated }: Props) {
+export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
   const [status, setStatus] = useState<Status | null>(null);
   const [wallet, setWallet] = useState<import('@tonconnect/ui').TonConnectUI | null>(null);
   const [address, setAddress] = useState('');
+  const [savedAddress, setSavedAddress] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -37,7 +40,7 @@ export function MiningFeeGate({ initData, onActivated }: Props) {
         if (!r.ok) throw new Error(d.error || 'تعذر تحميل حالة التفعيل');
         return d as Status;
       })
-      .then(d => { if (alive) { setStatus(d); if (!d.required) onActivated(); } })
+      .then(d => { if (alive) { setStatus(d); setSavedAddress(d.savedWalletAddress || ''); if (!d.required) onActivated(); } })
       .catch(e => { if (alive) setError(e instanceof Error ? e.message : 'تعذر التحقق'); });
     return () => { alive = false; };
   }, [initData, onActivated]);
@@ -54,7 +57,17 @@ export function MiningFeeGate({ initData, onActivated }: Props) {
       });
       setWallet(connector);
       unsubscribe = connector.onStatusChange(w => {
-        if (alive) setAddress(w?.account?.address || '');
+        const connected = w?.account?.address || '';
+        if (!alive) return;
+        setAddress(connected);
+        if (connected) {
+          setSavedAddress(connected);
+          void fetch('/api/mining/activation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
+            body: JSON.stringify({ action: 'save_wallet', walletAddress: connected }),
+          }).catch(error => console.error('ton_wallet_save_failed', error));
+        }
       });
     }).catch(error => {
       console.error('ton_connect_ui_init_failed', error);
@@ -63,9 +76,8 @@ export function MiningFeeGate({ initData, onActivated }: Props) {
     return () => {
       alive = false;
       unsubscribe?.();
-      if (connector) void connector.disconnect();
     };
-  }, []);
+  }, [initData]);
 
   async function payAndActivate() {
     if (!wallet || !status?.destination || !address) {
@@ -122,33 +134,37 @@ export function MiningFeeGate({ initData, onActivated }: Props) {
     }
   }
 
-  if (!status) return <div className="mx-auto max-w-md p-4 text-center text-sm text-slate-400">جارٍ التحقق من حالة تفعيل التعدين…</div>;
+  if (!status) return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#2b1809]/45 p-4 backdrop-blur-sm"><div className="rounded-2xl bg-[#fff8e8] px-5 py-4 text-sm font-bold text-[#6b3b12] shadow-xl">جارٍ التحقق من حالة تفعيل التعدين…</div></div>;
   if (!status.required) return null;
 
   return (
-    <div dir="rtl" className="mx-auto flex min-h-[55vh] w-full max-w-md items-center justify-center p-4">
-      <div className="w-full overflow-hidden rounded-3xl border border-amber-400/25 bg-gradient-to-br from-[#172235] to-[#090f1b] p-5 shadow-2xl">
-        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-amber-400/15 text-amber-300"><ShieldCheck size={30}/></div>
-        <h2 className="text-center text-xl font-black text-white">تفعيل التعدين</h2>
-        <p className="mt-3 text-center text-sm leading-7 text-slate-300">{status.message}</p>
-        <div className="my-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-center">
-          <p className="text-xs text-slate-400">رسوم تفعيل لمرة واحدة</p>
-          <p className="mt-1 text-3xl font-black text-amber-300">0.05 TON</p>
-          <p className="mt-2 text-[11px] text-slate-500">TON Mainnet · لا تتكرر بعد نجاح التفعيل</p>
+    <div dir="rtl" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#2b1809]/55 p-4 backdrop-blur-sm">
+      <div role="dialog" aria-modal="true" aria-labelledby="mining-fee-title" className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[#f0c66d] bg-gradient-to-b from-[#fff8e8] via-[#ffedc7] to-[#f8d99d] p-5 text-[#633715] shadow-[0_24px_80px_rgba(65,35,5,.35)]">
+        <button type="button" onClick={onClose} disabled={busy} aria-label="إغلاق" className="absolute left-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-[#6a3b13]/10 text-xl font-bold text-[#6a3b13] disabled:opacity-40">×</button>
+        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-[#e7b94e] bg-gradient-to-br from-[#ffe8a6] to-[#f7b83d] text-[#75400e] shadow-md"><ShieldCheck size={30}/></div>
+        <h2 id="mining-fee-title" className="text-center text-xl font-black text-[#633715]">تفعيل التعدين</h2>
+        <p className="mt-3 text-center text-sm leading-7 text-[#80562e]">{status.message}</p>
+        <div className="my-5 rounded-2xl border border-[#e8c879] bg-white/70 p-4 text-center shadow-inner">
+          <p className="text-xs font-bold text-[#956b3b]">رسوم تفعيل تُدفع مرة واحدة مدى الحياة</p>
+          <p className="mt-1 text-3xl font-black text-[#bd7814]">0.1 TON</p>
+          <p className="mt-2 text-[11px] font-bold text-[#98744a]">TON Mainnet · لا توجد رسوم تفعيل أخرى بعد نجاح الدفع</p>
         </div>
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-white/5 p-3 text-xs text-slate-300">
-          <Wallet size={16} className="shrink-0 text-sky-300"/>
-          <span className="break-all font-mono" dir="ltr">{address || 'لم يتم ربط المحفظة بعد'}</span>
-          {address && <CheckCircle2 size={16} className="shrink-0 text-emerald-400"/>}
+        <div className="mb-4 rounded-xl border border-[#e6c77e] bg-[#fffaf0]/85 p-3 text-xs text-[#80562e]">
+          <div className="mb-1 flex items-center gap-2 font-black"><Wallet size={16} className="text-[#b87918]"/> المحفظة المرتبطة بحسابك</div>
+          <div className="break-all font-mono text-[11px]" dir="ltr">{address || savedAddress || 'لم يتم ربط محفظة بعد'}</div>
+          {savedAddress && <p className="mt-2 font-bold text-emerald-700">تم حفظ عنوان المحفظة في حسابك</p>}
+          {address && <p className="mt-1 font-bold text-emerald-700">المحفظة متصلة وجاهزة للدفع</p>}
         </div>
-        <button onClick={() => wallet?.openModal()} disabled={!wallet || busy} className="w-full rounded-xl border border-sky-400/30 bg-sky-400/10 py-3 font-bold text-sky-200 disabled:opacity-50">ربط محفظة TON</button>
-        <button onClick={payAndActivate} disabled={!address || busy || !status.destination} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 py-3 font-black text-slate-950 disabled:opacity-50">
-          {busy ? <Loader2 className="animate-spin" size={18}/> : <Wallet size={18}/>} ادفع 0.05 TON وابدأ التعدين
+        <button onClick={() => wallet?.openModal()} disabled={!wallet || busy || !!address} className="w-full rounded-xl border border-[#d49b37] bg-white/65 py-3 font-black text-[#805016] shadow-sm disabled:opacity-50">
+          {address ? 'تم ربط محفظة TON' : savedAddress ? 'إعادة الاتصال بالمحفظة المحفوظة' : 'ربط محفظة TON'}
         </button>
-        {error && <p className="mt-3 rounded-xl bg-red-400/10 p-3 text-center text-xs text-red-200">{error}</p>}
-        {!status.destination && <p className="mt-3 text-center text-xs text-red-300">إعداد محفظة استقبال رسوم التعدين غير مكتمل على الخادم.</p>}
-        <p className="mt-4 text-center text-[10px] leading-5 text-slate-500">لن نطلب منك العبارة السرية أو مفاتيح المحفظة. وافق على التحويل من داخل تطبيق المحفظة فقط.</p>
+        <button onClick={payAndActivate} disabled={!address || busy || !status.destination} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f7c34d] to-[#ed8b22] py-3 font-black text-[#4c2908] shadow-lg disabled:opacity-50">
+          {busy ? <Loader2 className="animate-spin" size={18}/> : <Wallet size={18}/>} ادفع 0.1 TON وابدأ التعدين
+        </button>
+        {error && <p className="mt-3 rounded-xl border border-red-300 bg-red-50 p-3 text-center text-xs font-bold text-red-700">{error}</p>}
+        {!status.destination && <p className="mt-3 text-center text-xs font-bold text-red-700">إعداد محفظة استقبال رسوم التعدين غير مكتمل على الخادم.</p>}
+        <p className="mt-4 text-center text-[10px] leading-5 text-[#98744a]">لن نطلب منك العبارة السرية أو مفاتيح المحفظة. وافق على التحويل من داخل تطبيق المحفظة فقط. رسوم التفعيل دفعة واحدة للحساب مدى الحياة.</p>
       </div>
     </div>
   );
-}
+}}
