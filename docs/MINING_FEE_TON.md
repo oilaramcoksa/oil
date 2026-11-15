@@ -8,17 +8,17 @@
 - Jetton launch is intentionally not part of this change. The game token can be created and published later.
 
 ## Required deployment variables
-- `TON_MINING_FEE_WALLET`: the receiving TON Mainnet wallet.
+- `TON_MINING_FEE_WALLET`: optional receiving TON Mainnet wallet override. If omitted, the existing TON address in `src/lib/wallets.ts` is used.
 - `TONCENTER_API_KEY`: recommended TON Center API key for transaction lookup.
 - `TONCENTER_API_URL`: optional, defaults to `https://toncenter.com/api/v2`.
-- `NEXT_PUBLIC_APP_URL`: canonical public app origin used by the TON Connect manifest.
+- `NEXT_PUBLIC_APP_URL`: canonical public app origin used by the TON Connect manifest. Configure this to the production Telegram Mini App origin; the current fallback is `https://armcooil.com`.
 
 Do not put private keys, seed phrases, or API secrets in client-side variables.
 
 ## Important integration notes
-The activation endpoint must validate the incoming transaction's destination, sender and value on-chain. The payment status endpoint also needs to decode the TON Connect BOC into the resulting on-chain transaction hash before it can mark a payment paid. Never treat a returned BOC as a transaction hash. See TON Connect's sendTransaction docs and TON Center getTransactions docs.
+The activation endpoint creates a unique payment intent and verifies the matching incoming TON Mainnet transaction from the same sender, to the receiving wallet, for at least 0.05 TON, with a unique `ARMCO MINING <payment-id>` comment. TON Connect's returned BOC is not treated as a transaction hash. Wallet addresses are normalized before comparison.
 
 ## Operational safety
-- Verify payment on Mainnet with a small controlled transaction before enabling the fee globally.
+- Run a full production build and verify one controlled Mainnet payment before relying on the fee in production.
 - Provide a support/refund contact and clearly disclose that the fee is non-refundable once confirmed, if that is the intended policy.
 - This is an access/anti-abuse fee, not an investment or a promise of token value or profit.
