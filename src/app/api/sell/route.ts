@@ -59,7 +59,6 @@ async function publishSaleToTelegram(input: {
     `💵 <b>القيمة الافتراضية التقديرية:</b> $${estimatedUsd.toFixed(4)}`,
     `🕒 <b>الوقت:</b> ${escapeHtml(timestamp)} (توقيت القاهرة)`,
     '',
-    '<i>إشعار آلي من سجل عمليات اللعبة — ليست معاملة نقدية.</i>',
   ].join('\n');
 
   const results = await Promise.all(['@qrmcooil', '@armcooil'].map(async (chatId) => {
