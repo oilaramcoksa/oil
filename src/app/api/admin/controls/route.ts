@@ -159,7 +159,7 @@ export async function GET(req: NextRequest) {
       )`);
       const rows = await db.execute(`SELECT e.*,p.username,p.first_name FROM shorts_entries e
         JOIN players p ON p.telegram_id=e.telegram_id
-        WHERE (?='all' OR e.status=?) ORDER BY e.declared_views DESC LIMIT 500`, [status,status]);
+        WHERE (?='all' OR e.status=?) ORDER BY CASE WHEN e.status='pending' THEN 0 ELSE 1 END,e.declared_views DESC,e.created_at ASC LIMIT 500`, [status,status]);
       return NextResponse.json({ shorts: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
@@ -395,10 +395,12 @@ export async function POST(req: NextRequest) {
         const id = String(body.id ?? '');
         const nextStatus = String(body.status ?? '');
         if (!id || !['approved','rejected'].includes(nextStatus)) { await tx.rollback(); return fail('invalid_shorts_review'); }
-        const updated = await tx.execute({sql:'UPDATE shorts_entries SET status=? WHERE id=?',args:[nextStatus,id]});
+        const views = Number(body.views ?? 0);
+        if (!id || !['approved','rejected'].includes(nextStatus) || !Number.isSafeInteger(views) || views < 0 || views > 2_000_000_000) { await tx.rollback(); return fail('invalid_shorts_review'); }
+        const updated = await tx.execute({sql:'UPDATE shorts_entries SET status=?,declared_views=?,last_reported_at=? WHERE id=?',args:[nextStatus,views,Date.now(),id]});
         if (Number(updated.rowsAffected) !== 1) { await tx.rollback(); return fail('shorts_entry_not_found',404); }
         const entry = await tx.execute({sql:'SELECT telegram_id FROM shorts_entries WHERE id=?',args:[id]});
-        if (entry.rows.length) await notify(tx,String(entry.rows[0].telegram_id),nextStatus==='approved'?'✅ تم اعتماد مشاركتك':'⚠️ تم استبعاد مشاركتك',nextStatus==='approved'?'تم اعتماد فيديو YouTube Shorts في المسابقة.':'تم استبعاد الفيديو من لوحة المتصدرين بعد مراجعة الإدارة.','announcement',{entryId:id});
+        if (entry.rows.length) await notify(tx,String(entry.rows[0].telegram_id),nextStatus==='approved'?'✅ تم اعتماد مشاركتك':'⚠️ تم استبعاد مشاركتك',nextStatus==='approved'?'تم اعتماد فيديو YouTube Shorts. ستُحدّث الإدارة عدد المشاهدات كل ساعة.':'تم استبعاد الفيديو من المسابقة بعد مراجعة الإدارة.','announcement',{entryId:id});
       } else if (action === 'broadcast_coins') {
         const quantity = Number(body.amount);
         if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 1_000_000_000 || !reason) {
