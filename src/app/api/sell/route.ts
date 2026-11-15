@@ -109,16 +109,11 @@ export async function POST(req: NextRequest) {
       if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
 
       // A sale is allowed once, only after the server-recorded 12-hour cycle ends.
-      const snapshot = await tx.execute({
-        sql: 'SELECT state_json FROM player_game_snapshots WHERE telegram_id=?',
+      const cycleState = await tx.execute({
+        sql: 'SELECT cycle_ends_at FROM player_game_state WHERE telegram_id=?',
         args: [id],
       });
-      if (!snapshot.rows.length) { await tx.rollback(); return fail('mining_cycle_not_started', 409); }
-      let cycleEndsAt = 0;
-      try {
-        const saved = JSON.parse(String(snapshot.rows[0].state_json ?? '{}')) as { cycleEndsAt?: unknown };
-        cycleEndsAt = Number(saved.cycleEndsAt ?? 0);
-      } catch { cycleEndsAt = 0; }
+      const cycleEndsAt = Number(cycleState.rows[0]?.cycle_ends_at ?? 0);
       if (!Number.isSafeInteger(cycleEndsAt) || cycleEndsAt <= 0) { await tx.rollback(); return fail('mining_cycle_not_started', 409); }
       const cycleKey = `oil_sale_cycle:${cycleEndsAt}:coins`;
       const previous = await tx.execute({
