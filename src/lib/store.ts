@@ -378,9 +378,13 @@ export const useGame = create<GameState>()(
           id: makeId(),
           type: 'task',
           amount: reward,
-          label: 'txTask',
+          label: taskId === 'channel'
+            ? 'txTelegramChannelReward'
+            : taskId === 'group'
+              ? 'txTelegramGroupReward'
+              : 'txTask',
           createdAt: Date.now(),
-          meta: { taskId },
+          meta: { taskId, source: 'telegram_membership' },
         };
         set({
           coins: walletCoins,
