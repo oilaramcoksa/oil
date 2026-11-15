@@ -8,10 +8,10 @@ import { Address } from '@ton/core';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const FEE_NANOTON = '50000000';
-const FEE_TON = '0.05';
+const FEE_NANOTON = '100000000';
+const FEE_TON = '0.1';
 const RECEIVER = process.env.TON_MINING_FEE_WALLET || WALLETS.find((wallet) => wallet.code === 'gram')?.address || '';
-const RECEIVER_RAW = Address.parse(RECEIVER).toRawString().toLowerCase();
+const RECEIVER_RAW = canonicalAddress(RECEIVER);
 const TONCENTER = (process.env.TONCENTER_API_URL || 'https://toncenter.com/api/v2').replace(/\/$/, '');
 const PAYMENT_WINDOW_MS = 30 * 60 * 1000;
 
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     const id = String(user.id);
     const [settings, player] = await Promise.all([
       db.execute("SELECT setting_value FROM app_settings WHERE setting_key='mining_fee_enabled'"),
-      db.execute({ sql: 'SELECT fee_exempt,mining_fee_paid_at FROM players WHERE telegram_id=?', args: [id] }),
+      db.execute({ sql: 'SELECT fee_exempt,mining_fee_paid_at,ton_wallet_address FROM players WHERE telegram_id=?', args: [id] }),
     ]);
     if (!player.rows.length) return fail('player_not_found',404);
     const enabled = String(settings.rows[0]?.setting_value ?? '1') !== '0';
@@ -60,8 +60,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       required: enabled && !exempt && !paid, exempt, paid,
       amount: FEE_TON, currency: 'TON', destination: RECEIVER,
+      savedWalletAddress: player.rows[0].ton_wallet_address ? String(player.rows[0].ton_wallet_address) : '',
       network: 'TON Mainnet',
-      message: 'للدعم والحفاظ على استمرارية الشبكة وحمايتها من الحسابات الآلية، يلزم دفع رسوم تفعيل رمزية لمرة واحدة قدرها 0.05 TON قبل بدء التعدين.',
+      message: 'للدعم والحفاظ على استمرارية الشبكة وحمايتها من الحسابات الآلية، يلزم دفع رسوم تفعيل رمزية لمرة واحدة قدرها 0.1 TON تُدفع مرة واحدة مدى الحياة قبل بدء التعدين.',
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('mining_activation_status_failed', error);
@@ -88,6 +89,11 @@ export async function POST(req: NextRequest) {
     });
     if (!playerState.rows.length) return fail('player_not_found',404);
     const player = playerState.rows[0];
+    if (action === 'save_wallet') {
+      if (!sender || sender.length > 128 || !canonicalAddress(sender)) return fail('invalid_wallet_address');
+      await db.execute({ sql: 'UPDATE players SET ton_wallet_address=? WHERE telegram_id=?', args: [sender, id] });
+      return NextResponse.json({ ok: true, saved: true }, { headers: { 'Cache-Control': 'no-store' } });
+    }
     if (Number(player.fee_exempt ?? 0) === 1 || !!player.mining_fee_paid_at || String(player.fee_enabled ?? '1') === '0') {
       return NextResponse.json({ ok:true, alreadyActivated:true }, { headers:{'Cache-Control':'no-store'} });
     }
