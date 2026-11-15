@@ -4,6 +4,7 @@
 - Default: every player must pay exactly 0.1 TON once for the lifetime of the account before starting their first mining cycle.
 - Admin may exempt an individual Telegram player ID; exempt players bypass the fee.
 - A confirmed 0.1 TON payment or admin exemption is permanent for that account.
+- The connected TON wallet address is stored on the authenticated player record in Turso. TON Connect may still request wallet approval again on a different browser or device.
 - The pump and game load normally; the fee notice appears only when the player first attempts to start mining.
 - Jetton launch is intentionally not part of this change. The game token can be created and published later.
 
