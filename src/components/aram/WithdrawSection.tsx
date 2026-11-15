@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { ArrowUpFromLine, Check, Clock, ShieldCheck, X, Minus, Plus } from 'lucide-react';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
+import { showActionInterstitial } from '@/lib/action-ad';
 import {
   COINS_PER_USD,
   MIN_UNITS,
@@ -48,6 +49,7 @@ export function WithdrawSection() {
   const [touched, setTouched] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const actionGateRef = useRef(false);
 
   // Pull latest statuses on mount and every 30s while the screen is open.
   useEffect(() => {
@@ -66,9 +68,13 @@ export function WithdrawSection() {
   const canSubmit = unlocked && addressOk && !hasPending && !busy;
 
   async function submit() {
+    if (actionGateRef.current || busy) return;
+    actionGateRef.current = true;
     setBusy(true);
+    await showActionInterstitial();
     const res = await requestWithdrawal(safeUnits, address.trim());
     setBusy(false);
+    actionGateRef.current = false;
     setConfirmOpen(false);
     if (res.ok) {
       toast.success(t(lang, 'wdSubmitted'));
