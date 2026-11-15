@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
       } else if (action === 'mining_fee_settings') {
         const enabled = body.enabled === true ? '1' : '0';
         await tx.execute({
-          sql: "INSERT INTO app_settings(key,value) VALUES('mining_fee_enabled',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+          sql: "INSERT INTO app_settings(setting_key,setting_value) VALUES('mining_fee_enabled',?) ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value",
           args: [enabled],
         });
       } else if (action === 'shorts_contest') {
