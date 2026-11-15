@@ -368,7 +368,6 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
     statements: [
       'ALTER TABLE players ADD COLUMN fee_exempt INTEGER NOT NULL DEFAULT 0 CHECK(fee_exempt IN (0,1))',
       'ALTER TABLE players ADD COLUMN mining_fee_paid_at TEXT',
-      `CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS mining_fee_payments (
         id TEXT PRIMARY KEY,
         telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
@@ -379,7 +378,7 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
         status TEXT NOT NULL CHECK(status IN ('pending','confirmed','expired')),
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )`,
-      "INSERT OR IGNORE INTO app_settings(key,value) VALUES('mining_fee_enabled','1')",
+      "INSERT OR IGNORE INTO app_settings(setting_key,setting_value) VALUES('mining_fee_enabled','1')",
     ],
   },
 
