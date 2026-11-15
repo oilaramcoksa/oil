@@ -38,36 +38,58 @@ async function publishSaleToTelegram(input: {
     console.warn('sale_telegram_broadcast_skipped: TELEGRAM_BOT_TOKEN is not configured');
     return;
   }
-  const displayName = input.username ? `@${input.username}` : input.firstName || `Player ${input.telegramId.slice(-4)}`;
-  // Estimate only: the game UI currently displays 100,000 coins = $1.
-  const usdValue = input.coinsEarned / 100000;
+
+  const displayName = input.username
+    ? `@${input.username}`
+    : input.firstName || `Player ${input.telegramId.slice(-4)}`;
+  // This is a virtual in-game conversion, not a cash payment or guaranteed market value.
+  const estimatedUsd = input.coinsEarned / 100000;
   const timestamp = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Riyadh', dateStyle: 'medium', timeStyle: 'short', hour12: true,
+    timeZone: 'Africa/Cairo',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    hour12: true,
   }).format(new Date());
   const message = [
-    '<b>🛢️ ARMCO OIL — عملية بيع جديدة</b>',
+    '<b>🛢️ ARMCO OIL — عملية بيع داخل اللعبة</b>',
     '',
     `👤 <b>الحساب:</b> ${escapeHtml(displayName)}`,
-    `🛢️ <b>كمية البترول المباعة:</b> ${input.sold.toLocaleString('en-US')} لتر (حوالي ${Math.floor(input.sold / 20).toLocaleString('en-US')} برميل)`,
-    `💰 <b>العملات المكتسبة:</b> ${input.coinsEarned.toLocaleString('en-US')}`,
-    `💵 <b>القيمة التقديرية:</b> ${usdValue.toFixed(4)}`,
-    `🕒 <b>الوقت:</b> ${escapeHtml(timestamp)} (توقيت الرياض)`,
+    `🛢️ <b>النفط المباع:</b> ${input.sold.toLocaleString('en-US')} لتر`,
+    `🪙 <b>العملات المضافة:</b> ${input.coinsEarned.toLocaleString('en-US')}`,
+    `💵 <b>القيمة الافتراضية التقديرية:</b> $${estimatedUsd.toFixed(4)}`,
+    `🕒 <b>الوقت:</b> ${escapeHtml(timestamp)} (توقيت القاهرة)`,
     '',
-    '<i>تحديث تلقائي من نظام اللعبة</i>',
-  ].join('\n');
-  await Promise.all(['@qrmcooil', '@armcooil'].map(async (chatId) => {
+    '<i>إشعار آلي من سجل عمليات اللعبة — ليست معاملة نقدية.</i>',
+  ].join('\\n');
+
+  const results = await Promise.all(['@qrmcooil', '@armcooil'].map(async (chatId) => {
     try {
       const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML', disable_web_page_preview: true }),
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        }),
         cache: 'no-store',
       });
-      if (!response.ok) console.error('sale_telegram_broadcast_failed', chatId, response.status, (await response.text()).slice(0, 500));
+      const result = await response.json().catch(() => ({})) as { ok?: boolean; description?: string };
+      if (!response.ok || result.ok !== true) {
+        console.error('sale_telegram_broadcast_failed', chatId, response.status, result.description ?? 'telegram_send_failed');
+        return false;
+      }
+      return true;
     } catch (error) {
       console.error('sale_telegram_broadcast_failed', chatId, error);
+      return false;
     }
   }));
+
+  if (results.some((sent) => !sent)) {
+    console.error('sale_telegram_broadcast_partial_failure', { channel: results[0], group: results[1] });
+  }
 }
 
 export async function POST(req: NextRequest) {
