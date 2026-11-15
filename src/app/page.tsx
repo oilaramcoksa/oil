@@ -82,8 +82,6 @@ export default function Home() {
     <div className="aram-app aram-bg flex flex-col" dir={dirOf(lang)}>
       {isVerified && user && <GameCloudSync initData={initData} userId={user.id} userName={user.username || user.first_name || 'Player'} />}
       {isVerified && <AdminNotices initData={initData} isVerified={isVerified} />}
-      <style jsx global>{`@keyframes shortsLiveWiggle{0%,88%,100%{transform:rotate(0) scale(1)}90%{transform:rotate(-14deg) scale(1.08)}92%{transform:rotate(14deg) scale(1.08)}94%{transform:rotate(-9deg)}96%{transform:rotate(9deg)}98%{transform:rotate(0) scale(1)}}`}</style>
-      <button type="button" onClick={() => setShortsOpen(true)} className="fixed left-3 top-24 z-40 h-14 w-14 overflow-hidden rounded-2xl border border-red-300/70 bg-black shadow-[0_0_22px_rgba(239,68,68,.55)]" style={{animation:'shortsLiveWiggle 5s ease-in-out infinite'}} aria-label="مسابقة YouTube Shorts"><img src="/images/shop/live.png" alt="YouTube Live" className="h-full w-full object-contain"/></button>
       {shortsOpen && <ShortsContest onClose={() => setShortsOpen(false)} />}
       <TopBar
         onOpenSettings={() => setSettingsOpen(true)}
@@ -91,7 +89,7 @@ export default function Home() {
       />
 
       <main className="min-h-0 min-w-0 flex-1 overflow-hidden overscroll-contain">
-        {tab === 'pump' && <PumpScreen onGoToStore={() => setTab('store')} onGoToArena={() => setTab('arena')} initData={initData} isVerified={isVerified} />}
+        {tab === 'pump' && <PumpScreen onGoToStore={() => setTab('store')} onGoToArena={() => setTab('arena')} onOpenShorts={() => setShortsOpen(true)} initData={initData} isVerified={isVerified} />}
         {tab === 'wallet' && <WalletScreen />}
         {tab === 'tasks' && <TasksScreen initData={initData} isVerified={isVerified} />}
         {tab === 'friends' && <FriendsScreen />}
