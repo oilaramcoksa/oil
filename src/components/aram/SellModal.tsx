@@ -15,7 +15,8 @@ import { toast } from 'sonner';
 import { t } from '@/lib/i18n';
 import { useTelegram } from '@/hooks/use-telegram';
 import { Button } from '@/components/ui/button';
-import { TadsWidget, renderTadsWidget } from 'react-tads-widget';
+import { showActionInterstitial } from '@/lib/action-ad';
+import { TadsWidget } from 'react-tads-widget';
 import { Truck, X, Droplet, Coins, Check } from 'lucide-react';
 
 type SaleAdexiumInstance = {
@@ -47,6 +48,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
   const soldRef = useRef(0);
   const startingOilRef = useRef(0);
   const oilValueRef = useRef(oilBefore);
+  const saleStartedRef = useRef(false);
   oilValueRef.current = oilBefore;
 
   useEffect(() => {
@@ -58,56 +60,64 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
         setResult(null);
       });
       soldRef.current = 0;
+      saleStartedRef.current = false;
       return;
     }
 
-    // Show one non-rewarded interstitial when the player opens the oil-sale flow.
-    // If Adexium has no fill or fails to load, immediately try TADS. The sale itself
-    // remains available even when both networks have no ad.
-    void (async () => {
-      const showTadsFallback = () => {
-        try {
-          renderTadsWidget({ id: '13283', type: 'fullscreen' });
-        } catch (error) {
-          console.info('TADS sale interstitial unavailable', error);
-        }
-      };
-      try {
-        let script = document.querySelector<HTMLScriptElement>('script[data-adexium-sdk="true"]');
-        if (!(window as SaleTadsWindow).AdexiumWidget) {
-          if (!script) {
-            script = document.createElement('script');
-            script.src = 'https://cdn.adexium.tech/assets/js/tg-ads-co-widget.min.js';
-            script.async = true;
-            script.dataset.adexiumSdk = 'true';
-            document.head.appendChild(script);
+    if (saleStartedRef.current) return;
+    saleStartedRef.current = true;
+    let cancelled = false;
+    let cleanupTimers = () => undefined;
+    void showActionInterstitial().then(() => {
+      if (cancelled) return;
+      startingOilRef.current = oilValueRef.current;
+      const timers: ReturnType<typeof setTimeout>[] = [];
+      timers.push(setTimeout(() => setPhase('parked'), 1600));
+      timers.push(setTimeout(() => { setPhase('connecting'); haptic('light'); }, 3600));
+      timers.push(setTimeout(() => { setPhase('pumping'); haptic('medium'); }, 4700));
+      timers.push(setTimeout(() => {
+        setPhase('counting');
+        void (async () => {
+          try {
+            if (!isVerified || !initData) throw new Error('telegram_auth_required');
+            const response = await fetch('/api/sell', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+              body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }),
+              cache: 'no-store',
+            });
+            const data = await response.json() as { sold?: number; coinsEarned?: number; wallet?: { oil: number; coins: number }; error?: string };
+            if (!response.ok || !data.wallet || !Number.isSafeInteger(data.sold) || !Number.isSafeInteger(data.coinsEarned)) throw new Error(data.error || 'oil_sale_failed');
+            const sale = { sold: Number(data.sold), coinsEarned: Number(data.coinsEarned) };
+            soldRef.current = sale.sold;
+            applyServerSale(sale.sold, sale.coinsEarned, data.wallet.coins);
+            const start = performance.now();
+            const duration = Math.min(1400, 600 + sale.sold * 6);
+            const animate = (now: number) => {
+              const progress = Math.min(1, (now - start) / duration);
+              setCounter(Math.round(sale.sold * (1 - Math.pow(1 - progress, 3))));
+              if (progress < 1) requestAnimationFrame(animate);
+              else {
+                setResult(sale);
+                notify('success');
+                timers.push(setTimeout(() => setPhase('retracting'), 1800));
+                timers.push(setTimeout(() => setPhase('departing'), 2600));
+                timers.push(setTimeout(() => setPhase('done'), 4100));
+              }
+            };
+            requestAnimationFrame(animate);
+          } catch (error) {
+            console.error('oil_sale_ui_failed', error);
+            toast.error(t(lang, 'sellError'));
+            timers.push(setTimeout(() => setPhase('retracting'), 900));
+            timers.push(setTimeout(() => setPhase('departing'), 1700));
+            timers.push(setTimeout(() => setPhase('done'), 3200));
           }
-          await new Promise<void>((resolve, reject) => {
-            script!.addEventListener('load', () => resolve(), { once: true });
-            script!.addEventListener('error', () => reject(new Error('adexium_load_failed')), { once: true });
-            window.setTimeout(() => reject(new Error('adexium_timeout')), 5000);
-          });
-        }
-        if (!(window as SaleTadsWindow).AdexiumWidget) throw new Error('adexium_unavailable');
-        const ad = new (window as SaleTadsWindow).AdexiumWidget!({ wid: 'fac3402b-57c4-45be-9d1d-5589a334852d', adFormat: 'interstitial', debug: false });
-        await new Promise<void>((resolve, reject) => {
-          let settled = false;
-          const finish = () => { if (!settled) { settled = true; resolve(); } };
-          ad.on('adReceived', (creative) => { try { ad.displayAd(creative!); } catch { reject(new Error('adexium_display_failed')); } });
-          ad.on('noAdFound', () => reject(new Error('adexium_no_fill')));
-          ad.on('adClosed', finish);
-          ad.on('adPlaybackCompleted', finish);
-          window.setTimeout(() => { if (!settled) reject(new Error('adexium_no_response')); }, 7000);
-          ad.requestAd('interstitial');
-        });
-      } catch (error) {
-        console.info('Adexium sale interstitial unavailable; trying TADS', error);
-        await showTadsFallback();
-      }
-    })();
-
-    // Capture the amount before the server updates the wallet.
-    startingOilRef.current = oilValueRef.current;
+        })();
+      }, 5900));
+      cleanupTimers = () => timers.forEach(clearTimeout);
+    });
+    return () => { cancelled = true; cleanupTimers(); };
 
     // Sequence: drive in (1.6s), pause visibly for 2s, then lower the hose.
     const timers: ReturnType<typeof setTimeout>[] = [];
