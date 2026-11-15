@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     if(owner.rows.length && String(owner.rows[0].telegram_id)!==String(user.id)) return NextResponse.json({error:'video_already_registered'},{status:409});
     const id=owner.rows.length?String(owner.rows[0].id):randomUUID();
     if(owner.rows.length) {
-      const last=await db.execute({sql:'SELECT last_reported_at FROM shorts_entries WHERE id=?',[id]});
+      const last=await db.execute({sql:'SELECT last_reported_at FROM shorts_entries WHERE id=?',args:[id]});
       if(Date.now()-Number(last.rows[0]?.last_reported_at||0)<300000) return NextResponse.json({error:'update_every_5_minutes'},{status:429});
       // Snapshot current ranks before changing the submitted view count.
       await db.execute(`UPDATE shorts_entries SET previous_rank=(
@@ -65,9 +65,9 @@ export async function POST(req: NextRequest) {
         WHERE other.status='approved' AND (other.declared_views>shorts_entries.declared_views OR
         (other.declared_views=shorts_entries.declared_views AND other.created_at<shorts_entries.created_at))
       ) WHERE status='approved'`);
-      await db.execute({sql:'UPDATE shorts_entries SET declared_views=?,video_title=?,last_reported_at=? WHERE id=? AND telegram_id=?',[views,title,Date.now(),id,String(user.id)]});
+      await db.execute({sql:'UPDATE shorts_entries SET declared_views=?,video_title=?,last_reported_at=? WHERE id=? AND telegram_id=?',args:[views,title,Date.now(),id,String(user.id)]});
     } else {
-      await db.execute({sql:"INSERT INTO shorts_entries(id,telegram_id,video_url,video_title,declared_views,last_reported_at,status) VALUES(?,?,?,?,?,?, 'approved')",[id,String(user.id),videoUrl,title,views,Date.now()]});
+      await db.execute({sql:"INSERT INTO shorts_entries(id,telegram_id,video_url,video_title,declared_views,last_reported_at,status) VALUES(?,?,?,?,?,?, 'approved')",args:[id,String(user.id),videoUrl,title,views,Date.now()]});
     }
     return NextResponse.json({ok:true,id,views,verified:false},{headers:{'Cache-Control':'no-store'}});
   } catch(e) { console.error('shorts_contest_post_failed',e); return NextResponse.json({error:'contest_submission_failed'},{status:503}); }
