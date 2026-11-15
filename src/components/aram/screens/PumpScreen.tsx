@@ -42,8 +42,6 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const parts = useGame((s) => s.parts);
   const specialParts = useGame((s) => s.specialParts);
   const cycleEndsAt = useGame((s) => s.cycleEndsAt);
-  const tapPump = useGame((s) => s.tapPump);
-  const processPassive = useGame((s) => s.processPassive);
   const applyServerAdReward = useGame((s) => s.applyServerAdReward);
   const { haptic, notify } = useTelegram();
 
@@ -70,14 +68,34 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
     return () => { disposed = true; window.clearInterval(id); };
   }, []);
 
-  // Tick passive income every 5 seconds (and also on mount).
+  // Mining production is settled by the server; the browser only refreshes its authoritative result.
+  const refreshMining = useCallback(async (action: 'tap' | 'tick') => {
+    const response = await fetch('/api/mining/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
+      body: JSON.stringify({ action, idempotencyKey: crypto.randomUUID() }),
+      cache: 'no-store',
+    });
+    const data = await response.json() as { ok?: boolean; error?: string; oil?: number; coins?: number; cycleEndsAt?: number | null; oilAdded?: number };
+    if (!response.ok || data.ok !== true) throw new Error(data.error || 'mining_unavailable');
+    useGame.setState({
+      oil: Number(data.oil ?? 0),
+      coins: Number(data.coins ?? useGame.getState().coins),
+      cycleEndsAt: data.cycleEndsAt ?? null,
+      lastTickAt: Date.now(),
+    });
+    return data;
+  }, [initData]);
+
   useEffect(() => {
-    processPassive();
-    const id = setInterval(() => {
-      processPassive();
-    }, 5000);
-    return () => clearInterval(id);
-  }, [processPassive]);
+    let disposed = false;
+    const tick = async () => {
+      try { await refreshMining('tick'); } catch { /* Keep the last server-confirmed state during transient outages. */ }
+    };
+    void tick();
+    const id = window.setInterval(() => { if (!disposed) void tick(); }, 5000);
+    return () => { disposed = true; window.clearInterval(id); };
+  }, [refreshMining]);
 
   // Re-render every second so the countdown updates.
   const [, setTick] = useState(0);
@@ -102,9 +120,10 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const handleFeeActivated = useCallback(() => {
     setFeeActivated(true);
     setFeeGateOpen(false);
-    const result = tapPump();
-    if (result.cycleStarted) notify('success');
-  }, [tapPump, notify]);
+    void refreshMining('tap').then((result) => {
+      if (result.cycleStarted) notify('success');
+    }).catch(() => toast.error(t(lang, 'tadsUnavailable')));
+  }, [refreshMining, notify, lang]);
 
   useEffect(() => {
     let active = true;
@@ -127,18 +146,22 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
       setFeeGateOpen(true);
       return;
     }
-    const r = tapPump();
     haptic('light');
-    if (r.cycleStarted) {
-      notify('success');
-    }
-    if (r.oilAdded > 0) {
-      const id = ++fidRef.current;
-      setFloats((f) => [...f, { id, v: r.oilAdded }]);
-      setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 1000);
-    } else if (r.full) {
-      haptic('heavy');
-    }
+    void refreshMining('tap').then((r) => {
+      if (r.cycleStarted) notify('success');
+      if (Number(r.oilAdded ?? 0) > 0) {
+        const id = ++fidRef.current;
+        setFloats((f) => [...f, { id, v: Number(r.oilAdded) }]);
+        setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 1000);
+      } else if (Number(r.oil ?? 0) >= Number(r.capacity ?? cap)) {
+        haptic('heavy');
+      }
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'mining_unavailable';
+      if (message === 'mining_activation_required') setFeeGateOpen(true);
+      else if (message === 'previous_cycle_must_be_sold' || message === 'oil_must_be_sold_before_new_cycle') toast.error(t(lang, 'sell'));
+      else toast.error(t(lang, 'tadsUnavailable'));
+    });
   };
 
   const handleSell = () => {
