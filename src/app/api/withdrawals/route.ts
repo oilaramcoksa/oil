@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         args: [String(user.id)],
       }),
       db.execute({ sql: 'SELECT coins_balance, coins_locked, oil_balance FROM player_wallets WHERE telegram_id = ?', args: [String(user.id)] }),
-      db.execute({ sql: 'SELECT created_at FROM withdrawal_requests WHERE telegram_id = ? ORDER BY created_at DESC LIMIT 1', args: [String(user.id)] }),
+      db.execute({ sql: 'SELECT created_at FROM (SELECT created_at FROM withdrawal_requests WHERE telegram_id = ? UNION ALL SELECT created_at FROM usdt_withdrawal_requests WHERE telegram_id = ?) ORDER BY created_at DESC LIMIT 1', args: [String(user.id), String(user.id)] }),
     ]);
     const withdrawals = rows.rows.map((row) => ({
       id: String(row.id), units: Number(row.units), coins: Number(row.coins), usd: Number(row.units),
@@ -110,8 +110,8 @@ export async function POST(req: NextRequest) {
         return jsonError('player_not_active', 403);
       }
       const lastRequest = await tx.execute({
-        sql: 'SELECT created_at FROM withdrawal_requests WHERE telegram_id=? ORDER BY created_at DESC LIMIT 1',
-        args: [telegramId],
+        sql: 'SELECT created_at FROM (SELECT created_at FROM withdrawal_requests WHERE telegram_id=? UNION ALL SELECT created_at FROM usdt_withdrawal_requests WHERE telegram_id=?) ORDER BY created_at DESC LIMIT 1',
+        args: [telegramId, telegramId],
       });
       const lastRequestAt = timestamp(lastRequest.rows[0]?.created_at);
       const remainingMs = lastRequestAt ? lastRequestAt + WITHDRAWAL_COOLDOWN_MS - Date.now() : 0;
