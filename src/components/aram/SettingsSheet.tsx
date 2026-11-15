@@ -116,17 +116,6 @@ export function SettingsSheet({ open, onClose }: Props) {
                 </p>
               </div>
 
-              {/* Data storage */}
-              <div className="aram-card-dark rounded-2xl p-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Database className="w-4 h-4 text-amber-400" />
-                  <span className="text-amber-100 font-bold text-xs uppercase">{t(lang, 'dataStorage')}</span>
-                </div>
-                <p className="text-[11px] text-amber-200/70 font-bold leading-relaxed">
-                  {t(lang, 'dataStorageText')}
-                </p>
-              </div>
-
               <Button
                 onClick={() => { haptic('light'); onClose(); }}
                 className="w-full h-11 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-[#2a1c0a] font-black text-sm"
