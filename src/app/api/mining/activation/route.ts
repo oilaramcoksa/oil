@@ -10,12 +10,30 @@ const FEE_NANOTON = '50000000';
 const FEE_TON = '0.05';
 const RECEIVER = process.env.TON_MINING_FEE_WALLET || '';
 const TONCENTER = (process.env.TONCENTER_API_URL || 'https://toncenter.com/api/v2').replace(/\/$/, '');
+const PAYMENT_WINDOW_MS = 30 * 60 * 1000;
 
 function fail(error: string, status = 400) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
-function normalizeAddress(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
+function clean(value: unknown): string { return typeof value === 'string' ? value.trim() : ''; }
+
+async function fetchIncomingTransactions() {
+  const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+  if (process.env.TONCENTER_API_KEY) headers['X-API-Key'] = process.env.TONCENTER_API_KEY;
+  const response = await fetch(TONCENTER + '/getTransactions', {
+    method: 'POST', headers,
+    body: JSON.stringify({ address: RECEIVER, limit: 100 }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!response.ok) throw new Error('toncenter_unavailable');
+  const data = await response.json() as { ok?: boolean; result?: Array<{
+    transaction_id?: { hash?: string; lt?: string };
+    utime?: number;
+    in_msg?: { source?: string; destination?: string; value?: string; message?: string };
+  }> };
+  if (data.ok !== true || !Array.isArray(data.result)) throw new Error('toncenter_invalid_response');
+  return data.result;
 }
 
 export async function GET(req: NextRequest) {
@@ -27,16 +45,15 @@ export async function GET(req: NextRequest) {
     const id = String(user.id);
     const [settings, player] = await Promise.all([
       db.execute("SELECT value FROM app_settings WHERE key='mining_fee_enabled'"),
-      db.execute({ sql: 'SELECT fee_exempt, mining_fee_paid_at FROM players WHERE telegram_id=?', args: [id] }),
+      db.execute({ sql: 'SELECT fee_exempt,mining_fee_paid_at FROM players WHERE telegram_id=?', args: [id] }),
     ]);
+    if (!player.rows.length) return fail('player_not_found',404);
     const enabled = String(settings.rows[0]?.value ?? '1') !== '0';
-    const row = player.rows[0];
-    const exempt = Number(row?.fee_exempt ?? 0) === 1;
-    const paid = !!row?.mining_fee_paid_at;
+    const exempt = Number(player.rows[0].fee_exempt ?? 0) === 1;
+    const paid = !!player.rows[0].mining_fee_paid_at;
     return NextResponse.json({
-      required: enabled && !exempt && !paid,
-      exempt, paid, amount: FEE_TON, currency: 'TON',
-      destination: RECEIVER,
+      required: enabled && !exempt && !paid, exempt, paid,
+      amount: FEE_TON, currency: 'TON', destination: RECEIVER,
       network: 'TON Mainnet',
       message: 'للدعم والحفاظ على استمرارية الشبكة وحمايتها من الحسابات الآلية، يلزم دفع رسوم تفعيل رمزية لمرة واحدة قدرها 0.05 TON قبل بدء التعدين.',
     }, { headers: { 'Cache-Control': 'no-store' } });
@@ -49,91 +66,103 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = getVerifiedTelegramUser(req);
   if (!user) return fail('telegram_auth_required', 401);
-  let body: { txHash?: unknown; walletAddress?: unknown };
+  let body: { action?: unknown; walletAddress?: unknown; paymentId?: unknown };
   try { body = await req.json(); } catch { return fail('invalid_body'); }
-  const txHash = normalizeAddress(body.txHash).replace(/^0x/i, '').toLowerCase();
-  const sender = normalizeAddress(body.walletAddress);
-  if (!/^[a-f0-9]{64}$/.test(txHash) || !sender || sender.length > 128) return fail('invalid_transaction_reference');
+  const action = clean(body.action);
+  const sender = clean(body.walletAddress);
+  if (!RECEIVER) return fail('mining_fee_wallet_not_configured',503);
 
   try {
     await ensureDatabaseSchema();
-    if (!RECEIVER) return fail('mining_fee_wallet_not_configured', 503);
     const db = getTurso();
     const id = String(user.id);
-    const state = await db.execute({
+    const playerState = await db.execute({
       sql: "SELECT p.fee_exempt,p.mining_fee_paid_at,s.value AS fee_enabled FROM players p LEFT JOIN app_settings s ON s.key='mining_fee_enabled' WHERE p.telegram_id=?",
       args: [id],
     });
-    if (!state.rows.length) return fail('player_not_found', 404);
-    const player = state.rows[0];
+    if (!playerState.rows.length) return fail('player_not_found',404);
+    const player = playerState.rows[0];
     if (Number(player.fee_exempt ?? 0) === 1 || !!player.mining_fee_paid_at || String(player.fee_enabled ?? '1') === '0') {
-      return NextResponse.json({ ok: true, alreadyActivated: true }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ ok:true, alreadyActivated:true }, { headers:{'Cache-Control':'no-store'} });
     }
-    const pending = await db.execute({
-      sql: "SELECT id FROM mining_fee_payments WHERE tx_hash=?",
-      args: [txHash],
-    });
-    if (pending.rows.length) return fail('transaction_already_used', 409);
 
-    const headers: Record<string,string> = { 'Content-Type': 'application/json' };
-    if (process.env.TONCENTER_API_KEY) headers['X-API-Key'] = process.env.TONCENTER_API_KEY;
-    const chainResponse = await fetch(TONCENTER + '/getTransactions', {
-      method: 'POST', headers,
-      body: JSON.stringify({ address: RECEIVER, limit: 100 }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!chainResponse.ok) return fail('blockchain_verification_unavailable', 503);
-    const chainData = await chainResponse.json() as {
-      ok?: boolean;
-      result?: Array<{
-        transaction_id?: { hash?: string; lt?: string };
-        in_msg?: { source?: string; destination?: string; value?: string; message?: string };
-      }>;
-    };
-    if (chainData.ok !== true || !Array.isArray(chainData.result)) return fail('blockchain_verification_unavailable', 503);
-
-    const transaction = chainData.result.find((item) =>
-      String(item.transaction_id?.hash ?? '').toLowerCase() === txHash
-    );
-    if (!transaction) return fail('transaction_not_found', 402);
-    const incoming = transaction.in_msg;
-    if (!incoming || incoming.destination !== RECEIVER) return fail('wrong_recipient', 400);
-    if (incoming.source !== sender) return fail('sender_mismatch', 400);
-    if (BigInt(incoming.value ?? '0') < BigInt(FEE_NANOTON)) return fail('insufficient_amount', 400);
-
-    const tx = await db.transaction('write');
-    try {
-      const fresh = await tx.execute({
-        sql: 'SELECT fee_exempt,mining_fee_paid_at FROM players WHERE telegram_id=?',
+    if (action === 'create') {
+      if (!sender || sender.length > 128) return fail('wallet_address_required');
+      const pending = await db.execute({
+        sql: "SELECT id FROM mining_fee_payments WHERE telegram_id=? AND status='pending' AND created_at > datetime('now','-30 minutes') ORDER BY created_at DESC LIMIT 1",
         args: [id],
       });
-      if (!fresh.rows.length) { await tx.rollback(); return fail('player_not_found',404); }
-      if (Number(fresh.rows[0].fee_exempt ?? 0) === 1 || !!fresh.rows[0].mining_fee_paid_at) {
-        await tx.rollback();
-        return NextResponse.json({ ok:true, alreadyActivated:true }, { headers:{'Cache-Control':'no-store'} });
+      const paymentId = pending.rows[0]?.id ? String(pending.rows[0].id) : randomUUID();
+      if (!pending.rows.length) {
+        await db.execute({
+          sql: "INSERT INTO mining_fee_payments(id,telegram_id,tx_hash,sender_address,recipient_address,amount_nanoton,status) VALUES(?,?,?, ?,?,?, 'pending')",
+          args: [paymentId,id,'pending:'+paymentId,sender,RECEIVER,FEE_NANOTON],
+        });
+      } else {
+        await db.execute({
+          sql: "UPDATE mining_fee_payments SET sender_address=? WHERE id=? AND status='pending'",
+          args: [sender,paymentId],
+        });
       }
-      await tx.execute({
-        sql: "INSERT INTO mining_fee_payments(id,telegram_id,tx_hash,sender_address,recipient_address,amount_nanoton,status) VALUES(?,?,?,?,?,?,'confirmed')",
-        args: [randomUUID(), id, txHash, sender, RECEIVER, FEE_NANOTON],
-      });
-      const updated = await tx.execute({
-        sql: 'UPDATE players SET mining_fee_paid_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND mining_fee_paid_at IS NULL AND fee_exempt=0',
-        args: [id],
-      });
-      if (Number(updated.rowsAffected) !== 1) { await tx.rollback(); return fail('activation_conflict',409); }
-      await tx.execute({
-        sql: 'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
-        args: [randomUUID(), 'system', 'mining_fee_paid', 'player', id, JSON.stringify({ txHash, sender, amountTon:FEE_TON })],
-      });
-      await tx.commit();
-      return NextResponse.json({ ok:true, activated:true }, { headers:{'Cache-Control':'no-store'} });
-    } catch (error) {
-      await tx.rollback();
-      throw error;
+      return NextResponse.json({ ok:true, paymentId, amountNanoton:FEE_NANOTON, destination:RECEIVER, network:'-239' }, { headers:{'Cache-Control':'no-store'} });
     }
-  } catch (error) {
-    console.error('mining_fee_verification_failed', error);
-    return fail('mining_fee_verification_failed', 503);
+
+    if (action === 'verify') {
+      const paymentId = clean(body.paymentId);
+      if (!paymentId || paymentId.length > 64) return fail('invalid_payment_id');
+      const paymentResult = await db.execute({
+        sql: "SELECT id,telegram_id,sender_address,recipient_address,amount_nanoton,created_at,status FROM mining_fee_payments WHERE id=? AND telegram_id=?",
+        args: [paymentId,id],
+      });
+      if (!paymentResult.rows.length) return fail('payment_not_found',404);
+      const payment = paymentResult.rows[0];
+      if (String(payment.status) === 'confirmed') return NextResponse.json({ok:true,activated:true});
+      if (String(payment.status) !== 'pending') return fail('payment_not_pending',409);
+      if (Date.now() - Date.parse(String(payment.created_at).replace(' ','T')+'Z') > PAYMENT_WINDOW_MS) return fail('payment_expired',410);
+
+      const transactions = await fetchIncomingTransactions();
+      const createdAt = Date.parse(String(payment.created_at).replace(' ','T')+'Z') / 1000;
+      const incoming = transactions.find((item) => {
+        const msg = item.in_msg;
+        return !!msg &&
+          msg.destination === RECEIVER &&
+          msg.source === String(payment.sender_address) &&
+          BigInt(msg.value ?? '0') >= BigInt(FEE_NANOTON) &&
+          Number(item.utime ?? 0) >= createdAt - 30 &&
+          !!item.transaction_id?.hash;
+      });
+      if (!incoming?.transaction_id?.hash) return fail('payment_not_found_yet',202);
+
+      const tx = await db.transaction('write');
+      try {
+        const fresh = await tx.execute({sql:"SELECT fee_exempt,mining_fee_paid_at FROM players WHERE telegram_id=?",args:[id]});
+        if (!fresh.rows.length) { await tx.rollback(); return fail('player_not_found',404); }
+        if (Number(fresh.rows[0].fee_exempt ?? 0) === 1 || !!fresh.rows[0].mining_fee_paid_at) {
+          await tx.rollback();
+          return NextResponse.json({ok:true,alreadyActivated:true});
+        }
+        const used = await tx.execute({sql:"SELECT id FROM mining_fee_payments WHERE tx_hash=? AND status='confirmed'",args:[String(incoming.transaction_id.hash)]});
+        if (used.rows.length) { await tx.rollback(); return fail('transaction_already_used',409); }
+        await tx.execute({
+          sql:"UPDATE mining_fee_payments SET tx_hash=?,status='confirmed' WHERE id=? AND status='pending'",
+          args:[String(incoming.transaction_id.hash),paymentId],
+        });
+        const update = await tx.execute({
+          sql:"UPDATE players SET mining_fee_paid_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND mining_fee_paid_at IS NULL AND fee_exempt=0",
+          args:[id],
+        });
+        if (Number(update.rowsAffected)!==1) { await tx.rollback(); return fail('activation_conflict',409); }
+        await tx.execute({
+          sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
+          args:[randomUUID(),'system','mining_fee_paid','player',id,JSON.stringify({txHash:incoming.transaction_id.hash,sender,amountTon:FEE_TON})],
+        });
+        await tx.commit();
+        return NextResponse.json({ok:true,activated:true},{headers:{'Cache-Control':'no-store'}});
+      } catch(error) { await tx.rollback(); throw error; }
+    }
+    return fail('invalid_action');
+  } catch(error) {
+    console.error('mining_fee_verification_failed',error);
+    return fail('mining_fee_verification_failed',503);
   }
 }
