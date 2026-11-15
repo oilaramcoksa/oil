@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
       purchased_at INTEGER NOT NULL, expires_at INTEGER, payment_id TEXT NOT NULL UNIQUE,
       PRIMARY KEY(telegram_id,part_id,payment_id)
     )`);
-    const specialRows = await db.execute({sql:'SELECT part_id,MAX(expires_at) AS expires_at FROM player_special_parts WHERE telegram_id=? AND (expires_at IS NULL OR expires_at>?) GROUP BY part_id',[telegramId,Date.now()]});
+    const specialRows = await db.execute({sql:'SELECT part_id,MAX(expires_at) AS expires_at FROM player_special_parts WHERE telegram_id=? AND (expires_at IS NULL OR expires_at>?) GROUP BY part_id',args:[telegramId,Date.now()]});
     const specialParts = Object.fromEntries(specialRows.rows.map(row=>[String(row.part_id),{owned:true,expiresAt:row.expires_at==null?null:Number(row.expires_at)}]));
     const gameSettings = await db.execute({
       sql: 'SELECT base_oil_per_tap, base_capacity FROM player_game_state WHERE telegram_id = ?',
