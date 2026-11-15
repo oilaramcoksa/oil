@@ -97,7 +97,8 @@ export async function GET(req: NextRequest) {
                      COALESCE(w.coins_balance,0) AS coins,COALESCE(w.oil_balance,0) AS oil,
                      COALESCE(w.usd_micros,0) AS usd_micros,
                      COALESCE(g.base_oil_per_tap,2) AS base_oil_per_tap,
-                     COALESCE(g.base_capacity,500) AS base_capacity
+                     COALESCE(g.base_capacity,500) AS base_capacity,
+                     COALESCE(p.fee_exempt,0) AS fee_exempt,p.mining_fee_paid_at
               FROM players p
               LEFT JOIN player_wallets w ON w.telegram_id=p.telegram_id
               LEFT JOIN player_game_state g ON g.telegram_id=p.telegram_id
@@ -212,13 +213,32 @@ export async function POST(req: NextRequest) {
   if (action === 'grant_coins' && !reason) return fail('reason_required');
   if (action === 'set_speed' &&
       (!Number.isSafeInteger(Number(body.speed)) || Number(body.speed) < 1 || Number(body.speed) > 1_000_000)) return fail('invalid_speed');
+  if (action === 'set_mining_fee_exemption' && !['0','1'].includes(String(body.exempt))) return fail('invalid_exemption_value');
 
   try {
     await ensureDatabaseSchema();
     const db = getTurso();
     const tx = await db.transaction('write');
     try {
-      if (action === 'shorts_contest') {
+      if (action === 'set_mining_fee_exemption') {
+        const exists = await tx.execute({ sql: 'SELECT telegram_id FROM players WHERE telegram_id=?', args: [target] });
+        if (!exists.rows.length) { await tx.rollback(); return fail('player_not_found', 404); }
+        const exempt = String(body.exempt) === '1' ? 1 : 0;
+        await tx.execute({
+          sql: 'UPDATE players SET fee_exempt=? WHERE telegram_id=?',
+          args: [exempt, target],
+        });
+        await notify(tx, target,
+          exempt ? '🎁 تم إعفاؤك من رسوم تفعيل التعدين' : 'رسوم تفعيل التعدين',
+          exempt ? 'قامت الإدارة بإعفاء حسابك من رسوم تفعيل التعدين. يمكنك بدء التعدين دون دفع الرسوم.' : 'ألغت الإدارة إعفاء رسوم التعدين لهذا الحساب. يلزم إتمام رسوم التفعيل قبل بدء التعدين إذا لم تكن قد دفعتها سابقًا.',
+          'account', { feeExempt: !!exempt, reason: reason || 'إجراء إداري' });
+      } else if (action === 'mining_fee_settings') {
+        const enabled = body.enabled === true ? '1' : '0';
+        await tx.execute({
+          sql: "INSERT INTO app_settings(key,value) VALUES('mining_fee_enabled',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+          args: [enabled],
+        });
+      } else if (action === 'shorts_contest') {
         const operation = String(body.operation ?? '');
         if (!['pause','cancel','activate','extend'].includes(operation)) { await tx.rollback(); return fail('invalid_contest_operation'); }
         await tx.execute(`CREATE TABLE IF NOT EXISTS shorts_contest (
@@ -523,7 +543,7 @@ export async function POST(req: NextRequest) {
 
       await tx.execute({
         sql: 'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
-        args: [randomUUID(), 'admin_session', action, action === 'withdrawal' ? 'withdrawal' : action === 'payment' ? 'payment' : action === 'broadcast' || action === 'broadcast_coins' ? 'broadcast' : action === 'shorts_contest' ? 'contest' : 'player', target || String(body.id ?? body.operation ?? 'all'), JSON.stringify(body)],
+        args: [randomUUID(), 'admin_session', action, action === 'withdrawal' ? 'withdrawal' : action === 'payment' ? 'payment' : action === 'broadcast' || action === 'broadcast_coins' ? 'broadcast' : action === 'shorts_contest' ? 'contest' : action === 'mining_fee_settings' ? 'settings' : 'player', target || String(body.id ?? body.operation ?? 'all'), JSON.stringify(body)],
       });
       await tx.commit();
       return NextResponse.json({ ok: true, ...(broadcastDelivered === null ? {} : { delivered: broadcastDelivered }) }, { headers: { 'Cache-Control': 'no-store' } });
