@@ -20,7 +20,6 @@ import { AdminNotices } from '@/components/aram/AdminNotices';
 import { ArenaScreen } from '@/components/aram/screens/ArenaScreen';
 import { SwapScreen } from '@/components/aram/screens/SwapScreen';
 import { ShortsContest } from '@/components/aram/ShortsContest';
-import { Youtube } from 'lucide-react';
 
 export default function Home() {
   const lang = useGame((s) => s.lang);
@@ -83,7 +82,8 @@ export default function Home() {
     <div className="aram-app aram-bg flex flex-col" dir={dirOf(lang)}>
       {isVerified && user && <GameCloudSync initData={initData} userId={user.id} userName={user.username || user.first_name || 'Player'} />}
       {isVerified && <AdminNotices initData={initData} isVerified={isVerified} />}
-      <button type="button" onClick={() => setShortsOpen(true)} className="fixed left-3 top-24 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-red-300/60 bg-gradient-to-br from-red-500 to-red-800 text-white shadow-[0_0_22px_rgba(239,68,68,.55)] animate-pulse" aria-label="مسابقة YouTube Shorts"><Youtube size={24}/></button>
+      <style jsx global>{`@keyframes shortsLiveWiggle{0%,88%,100%{transform:rotate(0) scale(1)}90%{transform:rotate(-14deg) scale(1.08)}92%{transform:rotate(14deg) scale(1.08)}94%{transform:rotate(-9deg)}96%{transform:rotate(9deg)}98%{transform:rotate(0) scale(1)}}`}</style>
+      <button type="button" onClick={() => setShortsOpen(true)} className="fixed left-3 top-24 z-40 h-14 w-14 overflow-hidden rounded-2xl border border-red-300/70 bg-black shadow-[0_0_22px_rgba(239,68,68,.55)]" style={{animation:'shortsLiveWiggle 5s ease-in-out infinite'}} aria-label="مسابقة YouTube Shorts"><img src="/images/shop/live.png" alt="YouTube Live" className="h-full w-full object-contain"/></button>
       {shortsOpen && <ShortsContest onClose={() => setShortsOpen(false)} />}
       <TopBar
         onOpenSettings={() => setSettingsOpen(true)}
