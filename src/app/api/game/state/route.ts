@@ -149,7 +149,7 @@ export async function PUT(req: NextRequest) {
     // Coins become ledger-authoritative as soon as a financial coin operation
     // exists. Oil remains snapshot-synced until it has its own ledger history.
     const coins = Math.floor(Number(state.coins ?? 0));
-    const oil = Math.floor(Number(state.oil ?? 0));
+    let oil = Math.floor(Number(state.oil ?? 0));
     const oldCoins = Number(current?.coins_balance ?? 0);
     const oldOil = Number(current?.oil_balance ?? 0);
     if (coinLedger.rows.length) state.coins = oldCoins;
@@ -162,6 +162,10 @@ export async function PUT(req: NextRequest) {
       args: [id],
     });
     const serverCycleEnd = Number(cycleRow.rows[0]?.cycle_ends_at ?? 0);
+    const currentCycleSale = await db.execute({
+      sql: 'SELECT 1 AS sold FROM ledger_entries WHERE telegram_id=? AND idempotency_key=? LIMIT 1',
+      args: [id, serverCycleEnd > 0 ? `oil_sale_cycle:${serverCycleEnd}:coins` : ''],
+    });
     const requestedCycleEnd = Number(state.cycleEndsAt ?? 0);
     const now = Date.now();
     let acceptedCycleEnd = serverCycleEnd || null;
@@ -174,17 +178,16 @@ export async function PUT(req: NextRequest) {
     if (!serverCycleEnd && validNewCycle) {
       acceptedCycleEnd = requestedCycleEnd;
       startNewCycle = true;
-    } else if (serverCycleEnd > 0 && now >= serverCycleEnd && validNewCycle) {
-      const priorSale = await db.execute({
-        sql: "SELECT 1 AS sold FROM ledger_entries WHERE telegram_id=? AND idempotency_key=? LIMIT 1",
-        args: [id, `oil_sale_cycle:${serverCycleEnd}:coins`],
-      });
-      if (priorSale.rows.length) {
-        acceptedCycleEnd = requestedCycleEnd;
-        startNewCycle = true;
-      }
+    } else if (serverCycleEnd > 0 && now >= serverCycleEnd && validNewCycle && currentCycleSale.rows.length) {
+      acceptedCycleEnd = requestedCycleEnd;
+      startNewCycle = true;
     }
     state.cycleEndsAt = acceptedCycleEnd;
+    // A delayed client save from the sold cycle must never restore its old oil.
+    if (currentCycleSale.rows.length && acceptedCycleEnd === serverCycleEnd) {
+      state.oil = 0;
+      oil = 0;
+    }
     await db.batch([
       {
         sql: `INSERT INTO player_game_snapshots (telegram_id, state_json, revision, updated_at)
