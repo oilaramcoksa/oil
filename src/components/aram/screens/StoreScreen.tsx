@@ -147,9 +147,9 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     { id: 'oil_pump' as const, nameKey: 'oilPumpPart', label: t(lang, 'oilPumpPart'), description: t(lang, 'oilPumpDescription'), price: 0.5, multiplier: '×3', image: '/images/shop/oil-pump.png', descriptionKey: 'oilPumpDescription' },
     { id: 'fuel_station' as const, nameKey: 'fuelStationPart', label: t(lang, 'fuelStationPart'), description: t(lang, 'fuelStationDescription'), price: 0.3, multiplier: '×2', image: '/images/shop/fuel-station.png', descriptionKey: 'fuelStationDescription' },
     { id: 'oil_truck' as const, nameKey: 'oilTruckPart', label: t(lang, 'oilTruckPart'), description: t(lang, 'oilTruckDescription'), price: 0.1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
-    { id: 'new_background', nameKey: 'new_background', label: 'خلفية مميزة نهارًا وليلًا', description: 'تغيّر أجواء المشهد مع زيادة سرعة التعدين 5X مع الحفاظ على شكل المضخة.', price: 1, multiplier: '×5', image: '/images/shop/oil-pump.png', descriptionKey: 'new_background' },
-    { id: 'vip_badge', nameKey: 'vip_badge', label: 'شارة VIP الذهبية', description: 'شارة ذهبية متحركة أعلى المضخة لتمييز حسابك، مع زيادة سرعة التعدين 4X.', price: 2, multiplier: '×4', image: '/images/shop/oil-truck.png', descriptionKey: 'vip_badge' },
-    { id: 'wheel_expansion', nameKey: 'wheel_expansion', label: 'توسعة عجلة الحظ', description: 'تضاعف مساحة عجلة الحظ لمدة 72 ساعة من لحظة الشراء، حتى إن لم تستخدمها.', price: 2, multiplier: '×2 مساحة العجلة · 72 ساعة', image: '/images/shop/fuel-station.png', descriptionKey: 'wheel_expansion' },
+    { id: 'new_background', nameKey: 'new_background', label: 'خلفية مميزة نهارًا وليلًا', description: 'تغيّر أجواء المشهد مع زيادة سرعة التعدين 5X مع الحفاظ على شكل المضخة.', price: 1, multiplier: '×5', image: '/images/shop/day.png', descriptionKey: 'new_background' },
+    { id: 'vip_badge', nameKey: 'vip_badge', label: 'شارة VIP الذهبية', description: 'شارة ذهبية متحركة أعلى المضخة لتمييز حسابك، مع زيادة سرعة التعدين 4X.', price: 2, multiplier: '×4', image: '/images/shop/vip.png', descriptionKey: 'vip_badge' },
+    { id: 'wheel_expansion', nameKey: 'wheel_expansion', label: 'توسعة عجلة الحظ', description: 'تضاعف مساحة عجلة الحظ لمدة 72 ساعة من لحظة الشراء، حتى إن لم تستخدمها.', price: 2, multiplier: '×2 مساحة العجلة · 72 ساعة', image: '/images/shop/luck.png', descriptionKey: 'wheel_expansion' },
   ];
 
   const copyPartWallet = async () => {
