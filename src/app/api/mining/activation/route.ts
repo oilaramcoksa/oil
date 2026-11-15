@@ -50,11 +50,11 @@ export async function GET(req: NextRequest) {
     const db = getTurso();
     const id = String(user.id);
     const [settings, player] = await Promise.all([
-      db.execute("SELECT value FROM app_settings WHERE key='mining_fee_enabled'"),
+      db.execute("SELECT setting_value FROM app_settings WHERE setting_key='mining_fee_enabled'"),
       db.execute({ sql: 'SELECT fee_exempt,mining_fee_paid_at FROM players WHERE telegram_id=?', args: [id] }),
     ]);
     if (!player.rows.length) return fail('player_not_found',404);
-    const enabled = String(settings.rows[0]?.value ?? '1') !== '0';
+    const enabled = String(settings.rows[0]?.setting_value ?? '1') !== '0';
     const exempt = Number(player.rows[0].fee_exempt ?? 0) === 1;
     const paid = !!player.rows[0].mining_fee_paid_at;
     return NextResponse.json({
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     const db = getTurso();
     const id = String(user.id);
     const playerState = await db.execute({
-      sql: "SELECT p.fee_exempt,p.mining_fee_paid_at,s.value AS fee_enabled FROM players p LEFT JOIN app_settings s ON s.key='mining_fee_enabled' WHERE p.telegram_id=?",
+      sql: "SELECT p.fee_exempt,p.mining_fee_paid_at,s.setting_value AS fee_enabled FROM players p LEFT JOIN app_settings s ON s.setting_key='mining_fee_enabled' WHERE p.telegram_id=?",
       args: [id],
     });
     if (!playerState.rows.length) return fail('player_not_found',404);
