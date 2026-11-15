@@ -371,7 +371,7 @@ export const useGame = create<GameState>()(
           id: makeId(),
           type: 'task',
           amount: reward,
-          label: 'txTaskReward',
+          label: 'txTask',
           createdAt: Date.now(),
           meta: { taskId },
         };
