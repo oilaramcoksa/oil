@@ -25,6 +25,8 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const [adProgress, setAdProgress] = useState<AdProgress | null>(null);
   const [adProgressLoading, setAdProgressLoading] = useState(true);
   const [telegramClaims, setTelegramClaims] = useState({ channel: false, group: false });
+  const [telegramJoined, setTelegramJoined] = useState({ channel: false, group: false });
+  const [awaitingTelegramTask, setAwaitingTelegramTask] = useState<'channel' | 'group' | null>(null);
   const [telegramTaskLoading, setTelegramTaskLoading] = useState<'channel' | 'group' | null>(null);
 
   useEffect(() => {
@@ -69,16 +71,36 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   useEffect(() => {
     if (!isVerified || !initData) return;
     let stopped = false;
-    fetch('/api/tasks/telegram-membership', {
-      headers: { 'X-Telegram-Init-Data': initData },
-      cache: 'no-store',
-    }).then(async (response) => {
-      if (!response.ok) return;
-      const data = await response.json();
-      if (!stopped && data.claimed) setTelegramClaims(data.claimed);
-    }).catch((error) => console.error('telegram_task_status_failed', error));
-    return () => { stopped = true; };
-  }, [initData, isVerified]);
+    const refreshMembership = async () => {
+      try {
+        const response = await fetch('/api/tasks/telegram-membership', {
+          headers: { 'X-Telegram-Init-Data': initData },
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!stopped) {
+          if (data.claimed) setTelegramClaims(data.claimed);
+          if (data.joined) setTelegramJoined(data.joined);
+          if (data.joined?.[awaitingTelegramTask ?? 'channel']) setAwaitingTelegramTask(null);
+          if (data.revoked?.channel || data.revoked?.group) {
+            toast.error(lang === 'ar' ? 'تم إلغاء مكافأة المهمة لترك القناة أو الجروب، وتم خصم العملات المتاحة.' : 'Membership ended. Available reward coins were deducted.');
+          }
+        }
+      } catch (error) {
+        console.error('telegram_task_status_failed', error);
+      }
+    };
+    void refreshMembership();
+    const onFocus = () => void refreshMembership();
+    window.addEventListener('focus', onFocus);
+    const timer = awaitingTelegramTask ? window.setInterval(() => void refreshMembership(), 5000) : null;
+    return () => {
+      stopped = true;
+      window.removeEventListener('focus', onFocus);
+      if (timer) window.clearInterval(timer);
+    };
+  }, [initData, isVerified, awaitingTelegramTask, lang]);
 
   const claimTelegramTask = async (taskId: 'channel' | 'group') => {
     if (!initData || telegramTaskLoading) return;
@@ -311,11 +333,12 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         </div>
         <div className="space-y-2">
           {([
-            { id: 'channel' as const, title: lang === 'ar' ? 'الانضمام للقناة الرسمية للعملة' : lang === 'ru' ? 'Подписаться на официальный канал' : 'Join the official coin channel', url: 'https://t.me/qrmcooil', icon: Send },
-            { id: 'group' as const, title: lang === 'ar' ? 'الانضمام للجروب الرسمي للعملة' : lang === 'ru' ? 'Вступить в официальную группу' : 'Join the official coin group', url: 'https://t.me/armcooil', icon: Users },
+            { id: 'channel' as const, title: lang === 'ar' ? 'الانضمام للقناة الرسمية للعملة' : lang === 'ru' ? 'Подписаться на официальный канал' : 'Join the official coin channel', action: lang === 'ar' ? 'اشتراك' : lang === 'ru' ? 'Подписаться' : 'Subscribe', url: 'https://t.me/qrmcooil', icon: Send },
+            { id: 'group' as const, title: lang === 'ar' ? 'الانضمام للجروب الرسمي للعملة' : lang === 'ru' ? 'Вступить в официальную группу' : 'Join the official coin group', action: lang === 'ar' ? 'انضمام' : lang === 'ru' ? 'Вступить' : 'Join', url: 'https://t.me/armcooil', icon: Users },
           ]).map((task) => {
             const Icon = task.icon;
             const claimed = telegramClaims[task.id];
+            const joined = telegramJoined[task.id];
             return (
               <div key={task.id} className="aram-card rounded-2xl p-3 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></div>
@@ -324,17 +347,36 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
                   <a href={task.url} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold text-sky-700 underline">{task.url.replace('https://t.me/', '@')}</a>
                   <div className="text-[10px] font-black text-emerald-700 mt-1">+2,000 {t(lang, 'coins')}</div>
                 </div>
-                <Button
-                  disabled={!isVerified || claimed || telegramTaskLoading !== null}
-                  onClick={() => void claimTelegramTask(task.id)}
-                  className={`h-8 px-3 rounded-xl text-[10px] font-black shrink-0 ${claimed ? 'bg-emerald-500 text-white' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}
-                >
-                  {claimed ? (lang === 'ar' ? 'تمت' : lang === 'ru' ? 'Готово' : 'Done') : telegramTaskLoading === task.id ? (lang === 'ar' ? 'جارٍ التحقق' : 'Checking…') : (lang === 'ar' ? 'تحقق واستلم' : lang === 'ru' ? 'Проверить' : 'Verify & claim')}
-                </Button>
+                {claimed ? (
+                  <Button disabled className="h-8 px-3 rounded-xl text-[10px] font-black shrink-0 bg-emerald-500 text-white">
+                    {lang === 'ar' ? (joined ? 'مشترك ✓' : 'تم التحقق ✓') : (joined ? 'Joined ✓' : 'Verified ✓')}
+                  </Button>
+                ) : joined ? (
+                  <Button
+                    disabled={!isVerified || telegramTaskLoading !== null}
+                    onClick={() => void claimTelegramTask(task.id)}
+                    className="h-8 px-3 rounded-xl text-[10px] font-black shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {telegramTaskLoading === task.id ? (lang === 'ar' ? 'جارٍ التحقق' : 'Checking…') : (lang === 'ar' ? 'تحقق' : lang === 'ru' ? 'Проверить' : 'Verify')}
+                  </Button>
+                ) : (
+                  <a
+                    href={task.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setAwaitingTelegramTask(task.id)}
+                    className="h-8 px-3 rounded-xl text-[10px] font-black shrink-0 bg-sky-600 hover:bg-sky-700 text-white inline-flex items-center justify-center"
+                  >
+                    {task.action}
+                  </a>
+                )}
               </div>
             );
           })}
         </div>
+        <p className="text-[9px] text-amber-900/60 font-bold px-1 mt-2">
+          {lang === 'ar' ? 'يتم التحقق من استمرار الاشتراك كل 10 ساعات. عند المغادرة تُخصم مكافأة المهمة من رصيدك.' : 'Membership is rechecked every 10 hours. Leaving the channel or group deducts the task reward.'}
+        </p>
       </div>
 
       {/* Daily */}
