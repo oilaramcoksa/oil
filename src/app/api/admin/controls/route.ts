@@ -150,6 +150,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ referrals: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
+    if (section === 'storyTasks') {
+      const rows = await db.execute({
+        sql: `SELECT s.*,p.username,p.first_name,p.last_name
+              FROM telegram_story_submissions s
+              JOIN players p ON p.telegram_id=s.telegram_id
+              WHERE (?='all' OR s.status=?)
+              ORDER BY CASE WHEN s.status='pending' THEN 0 ELSE 1 END,s.submitted_at DESC
+              LIMIT 500`,
+        args: [status, status],
+      });
+      return NextResponse.json({ storyTasks: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
     if (section === 'shorts') {
       await db.execute(`CREATE TABLE IF NOT EXISTS shorts_contest (
         id TEXT PRIMARY KEY, starts_at INTEGER NOT NULL, ends_at INTEGER NOT NULL,
@@ -418,6 +431,53 @@ export async function POST(req: NextRequest) {
         if (Number(updated.rowsAffected) !== 1) { await tx.rollback(); return fail('payment_status_conflict', 409); }
         if (paymentStatus === 'rejected') {
           await notify(tx, telegramId, '❌ تم رفض طلب الشراء', `سبب الرفض: ${reason}`, 'payment', { id });
+        }
+      } else if (action === 'story_review') {
+        const id = String(body.id ?? '').trim();
+        const nextStatus = String(body.status ?? '');
+        if (!id || !['approved','rejected'].includes(nextStatus)) { await tx.rollback(); return fail('invalid_story_review'); }
+        const story = await tx.execute({
+          sql: "SELECT telegram_id,story_url FROM telegram_story_submissions WHERE id=? AND status='pending'",
+          args: [id],
+        });
+        if (!story.rows.length) { await tx.rollback(); return fail('story_not_pending', 409); }
+        const telegramId = String(story.rows[0].telegram_id);
+        const rejectionReason = 'تمت مراجعة حالتك ولم تنشر صورة اللعبة';
+        const updated = await tx.execute({
+          sql: "UPDATE telegram_story_submissions SET status=?,reviewed_at=CURRENT_TIMESTAMP,review_reason=? WHERE id=? AND status='pending'",
+          args: [nextStatus, nextStatus === 'rejected' ? rejectionReason : null, id],
+        });
+        if (Number(updated.rowsAffected) !== 1) { await tx.rollback(); return fail('story_review_conflict', 409); }
+
+        if (nextStatus === 'approved') {
+          const reward = 500;
+          await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [telegramId] });
+          await tx.execute({
+            sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+            args: [reward, reward, telegramId],
+          });
+          const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
+          const balance = Number(wallet.rows[0]?.coins_balance ?? 0);
+          await tx.execute({
+            sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','task_reward',?,?,'telegram_story',?,?,?)",
+            args: [randomUUID(), telegramId, reward, balance, id, `telegram-story:${id}`, JSON.stringify({ taskId: 'telegram_story_daily', storyUrl: String(story.rows[0].story_url) })],
+          });
+          const snapshot = await tx.execute({ sql: 'SELECT state_json FROM player_game_snapshots WHERE telegram_id=?', args: [telegramId] });
+          if (snapshot.rows.length) {
+            let state: Record<string, unknown> = {};
+            try {
+              const parsed = JSON.parse(String(snapshot.rows[0].state_json));
+              if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) state = parsed as Record<string, unknown>;
+            } catch { /* Snapshot will be reconciled on next sync. */ }
+            state.coins = balance;
+            await tx.execute({
+              sql: 'UPDATE player_game_snapshots SET state_json=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+              args: [JSON.stringify(state), telegramId],
+            });
+          }
+          await notify(tx, telegramId, '🎉 تمت الموافقة على حالة تيليجرام', 'تم اعتماد نشر حالة ARMCO OIL وإضافة 500 عملة إلى رصيدك.', 'reward', { amount: reward, taskId: 'telegram_story_daily' });
+        } else {
+          await notify(tx, telegramId, 'تم رفض مهمة حالة تيليجرام', rejectionReason, 'announcement', { taskId: 'telegram_story_daily', rejectionReason });
         }
       } else if (action === 'shorts_review') {
         const id = String(body.id ?? '');
