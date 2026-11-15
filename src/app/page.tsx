@@ -22,6 +22,16 @@ import { AdminNotices } from '@/components/aram/AdminNotices';
 
 
 
+const ScreenLoading = () => <div className="flex h-full min-h-40 items-center justify-center text-sm font-bold text-amber-900/70" aria-label="Loading"><span className="aram-spin mr-2 inline-block h-4 w-4 rounded-full border-2 border-amber-700 border-t-transparent" />جارٍ تجهيز الشاشة…</div>;
+const WalletScreen = dynamic(() => import('@/components/aram/screens/WalletScreen').then((m) => m.WalletScreen), { loading: ScreenLoading });
+const TasksScreen = dynamic(() => import('@/components/aram/screens/TasksScreen').then((m) => m.TasksScreen), { loading: ScreenLoading });
+const FriendsScreen = dynamic(() => import('@/components/aram/screens/FriendsScreen').then((m) => m.FriendsScreen), { loading: ScreenLoading });
+const StoreScreen = dynamic(() => import('@/components/aram/screens/StoreScreen').then((m) => m.StoreScreen), { loading: ScreenLoading });
+const ArenaScreen = dynamic(() => import('@/components/aram/screens/ArenaScreen').then((m) => m.ArenaScreen), { loading: ScreenLoading });
+const SwapScreen = dynamic(() => import('@/components/aram/screens/SwapScreen').then((m) => m.SwapScreen), { loading: ScreenLoading });
+const ShortsContest = dynamic(() => import('@/components/aram/ShortsContest').then((m) => m.ShortsContest), { loading: ScreenLoading });
+const TournamentsSheet = dynamic(() => import('@/components/aram/TournamentsSheet').then((m) => m.TournamentsSheet), { loading: ScreenLoading });
+
 export default function Home() {
   const lang = useGame((s) => s.lang);
   const onboarded = useGame((s) => s.onboarded);
