@@ -1,9 +1,10 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftRight, ArrowDownToLine, Coins, DollarSign, RefreshCw, Wallet, ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
+import { showActionInterstitial } from '@/lib/action-ad';
 
 type Withdrawal = { id: string; usdMicros: number; tronAddress: string; status: 'pending'|'paid'|'rejected'; txHash: string|null; adminNote: string|null; createdAt: number; updatedAt: number };
 type WalletData = { coins: number; usdMicros: number; usdLockedMicros?: number };
@@ -20,6 +21,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
   const [walletLoading, setWalletLoading] = useState(true);
   const [walletError, setWalletError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const actionGateRef = useRef(false);
   const headers = useMemo(() => ({ 'X-Telegram-Init-Data': initData }), [initData]);
   const refresh = useCallback(async () => {
     if (!isVerified || !initData) { setWalletLoading(false); setWalletError(true); return; }
@@ -47,8 +49,10 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
   const canWithdraw = Number.isSafeInteger(usdAmount) && usdAmount >= 1_000_000 && usdAmount <= wallet.usdMicros && tronValid && !loading;
 
   async function swap() {
-    if (!canSwap) return;
+    if (!canSwap || actionGateRef.current) return;
+    actionGateRef.current = true;
     setBusy(true);
+    await showActionInterstitial();
     try {
       const res = await fetch('/api/swap', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ coins: coinsAmount, idempotencyKey: crypto.randomUUID() }) });
       const data = await res.json();
@@ -61,12 +65,14 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
       toast.success(t(lang, 'swapSuccess'));
       await refresh();
     } catch { toast.error(t(lang, 'swapError')); }
-    finally { setBusy(false); }
+    finally { setBusy(false); actionGateRef.current = false; }
   }
 
   async function withdraw() {
-    if (!canWithdraw) return;
+    if (!canWithdraw || actionGateRef.current) return;
+    actionGateRef.current = true;
     setLoading(true);
+    await showActionInterstitial();
     try {
       const res = await fetch('/api/usdt-withdrawals', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ amountUsd: usdAmount / 1_000_000, tronAddress: address.trim(), idempotencyKey: crypto.randomUUID() }) });
       const data = await res.json();
@@ -79,7 +85,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
       toast.success(t(lang, 'swapWithdrawQueued'));
       await refresh();
     } catch (e) { toast.error(t(lang, e instanceof Error && e.message.startsWith('swap') ? e.message : 'swapWithdrawError')); }
-    finally { setLoading(false); }
+    finally { setLoading(false); actionGateRef.current = false; }
   }
   const statusLabel = (status: Withdrawal['status']) => status === 'paid' ? t(lang, 'swapPaid') : status === 'rejected' ? t(lang, 'swapRejected') : t(lang, 'swapPending');
 
