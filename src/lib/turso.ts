@@ -363,6 +363,26 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       'CREATE INDEX IF NOT EXISTS idx_referral_daily_commissions_day ON referral_daily_commissions(day_key)',
     ],
   },
+  ,
+  {
+    version: 11,
+    statements: [
+      'ALTER TABLE players ADD COLUMN fee_exempt INTEGER NOT NULL DEFAULT 0 CHECK(fee_exempt IN (0,1))',
+      'ALTER TABLE players ADD COLUMN mining_fee_paid_at TEXT',
+      `CREATE TABLE IF NOT EXISTS mining_fee_payments (
+        id TEXT PRIMARY KEY,
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        tx_hash TEXT NOT NULL UNIQUE,
+        sender_address TEXT NOT NULL,
+        recipient_address TEXT NOT NULL,
+        amount_nanoton TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('confirmed')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      "INSERT OR IGNORE INTO app_settings(key,value) VALUES('mining_fee_enabled','1')",
+    ],
+  },
+
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {
