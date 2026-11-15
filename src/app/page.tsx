@@ -13,6 +13,7 @@ import { PumpScreen } from '@/components/aram/screens/PumpScreen';
 
 import { Onboarding } from '@/components/aram/Onboarding';
 import { SettingsSheet } from '@/components/aram/SettingsSheet';
+import { TournamentsSheet } from '@/components/aram/TournamentsSheet';
 
 import { useTelegram } from '@/hooks/use-telegram';
 import { Toaster } from 'sonner';
@@ -30,7 +31,6 @@ const StoreScreen = dynamic(() => import('@/components/aram/screens/StoreScreen'
 const ArenaScreen = dynamic(() => import('@/components/aram/screens/ArenaScreen').then((m) => m.ArenaScreen), { loading: ScreenLoading });
 const SwapScreen = dynamic(() => import('@/components/aram/screens/SwapScreen').then((m) => m.SwapScreen), { loading: ScreenLoading });
 const ShortsContest = dynamic(() => import('@/components/aram/ShortsContest').then((m) => m.ShortsContest), { loading: ScreenLoading });
-const TournamentsSheet = dynamic(() => import('@/components/aram/TournamentsSheet').then((m) => m.TournamentsSheet), { loading: ScreenLoading });
 
 export default function Home() {
   const lang = useGame((s) => s.lang);
