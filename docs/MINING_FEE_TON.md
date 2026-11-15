@@ -1,10 +1,10 @@
 # ARMCO OIL — One-time TON mining activation fee
 
 ## Behavior
-- Default: every player must pay exactly 0.05 TON once before starting their first mining cycle.
+- Default: every player must pay exactly 0.1 TON once for the lifetime of the account before starting their first mining cycle.
 - Admin may exempt an individual Telegram player ID; exempt players bypass the fee.
-- A confirmed payment or admin exemption is permanent for that account.
-- The fee notice is shown before the player reaches the pump.
+- A confirmed 0.1 TON payment or admin exemption is permanent for that account.
+- The pump and game load normally; the fee notice appears only when the player first attempts to start mining.
 - Jetton launch is intentionally not part of this change. The game token can be created and published later.
 
 ## Required deployment variables
@@ -16,7 +16,7 @@
 Do not put private keys, seed phrases, or API secrets in client-side variables.
 
 ## Important integration notes
-The activation endpoint creates a unique payment intent and verifies the matching incoming TON Mainnet transaction from the same sender, to the receiving wallet, for at least 0.05 TON, with a unique `ARMCO MINING <payment-id>` comment. TON Connect's returned BOC is not treated as a transaction hash. Wallet addresses are normalized before comparison.
+The activation endpoint creates a unique payment intent and verifies the matching incoming TON Mainnet transaction from the same sender, to the receiving wallet, for at least 0.1 TON, with a unique `ARMCO MINING <payment-id>` comment. TON Connect's returned BOC is not treated as a transaction hash. Wallet addresses are normalized before comparison.
 
 ## Operational safety
 - Run a full production build and verify one controlled Mainnet payment before relying on the fee in production.
