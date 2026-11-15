@@ -35,6 +35,11 @@ export async function GET(req: NextRequest) {
   try {
     const db = await schema();
     const contest = await db.execute("SELECT starts_at,ends_at,status FROM shorts_contest WHERE id='main'");
+    const contestRow = contest.rows[0] ?? null;
+    const visible = !!contestRow && String(contestRow.status ?? 'active') === 'active' && Date.now() < Number(contestRow.ends_at);
+    if (req.nextUrl.searchParams.get('mode') === 'status') {
+      return NextResponse.json({ visible }, { headers: { 'Cache-Control': 'no-store' } });
+    }
     const rows = await db.execute(`SELECT e.id,e.telegram_id,e.video_url,e.video_title,e.declared_views,e.previous_rank,e.status,e.last_reported_at,p.username,p.first_name
       FROM shorts_entries e JOIN players p ON p.telegram_id=e.telegram_id
       WHERE e.status='approved' ORDER BY e.declared_views DESC,e.created_at ASC LIMIT 500`);
@@ -42,8 +47,6 @@ export async function GET(req: NextRequest) {
     const totals = await db.execute("SELECT COUNT(*) AS participants,COALESCE(SUM(declared_views),0) AS views FROM shorts_entries WHERE status='approved'");
     const user = verifiedPlayerFromRequest(req);
     const mine = user ? await db.execute({sql:"SELECT id,video_url,status,declared_views,created_at FROM shorts_entries WHERE telegram_id=? LIMIT 1",args:[String(user.id)]}) : { rows: [] };
-    const contestRow = contest.rows[0] ?? null;
-    const visible = !!contestRow && String(contestRow.status ?? 'active') === 'active' && Date.now() < Number(contestRow.ends_at);
     return NextResponse.json({contest:contestRow,visible,participants:Number(totals.rows[0]?.participants||0),totalViews:Number(totals.rows[0]?.views||0),entries,myEntry:mine.rows[0]??null,refreshSeconds:3600},{headers:{'Cache-Control':'no-store'}});
   } catch(e) { console.error('shorts_contest_get_failed',e); return NextResponse.json({error:'contest_unavailable'},{status:503}); }
 }
