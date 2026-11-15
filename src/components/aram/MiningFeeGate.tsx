@@ -63,18 +63,34 @@ export function MiningFeeGate({ initData, onActivated }: Props) {
     }
     setBusy(true); setError('');
     try {
-      const submitted = await wallet.sendTransaction({
-        validUntil: Math.floor(Date.now() / 1000) + 600,
-        network: '-239',
-        messages: [{ address: status.destination, amount: '50000000' }],
-      });
-      const response = await fetch('/api/mining/activation', {
+      const createResponse = await fetch('/api/mining/activation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
-        body: JSON.stringify({ txHash: submitted.boc, walletAddress: address }),
+        body: JSON.stringify({ action: 'create', walletAddress: address }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'لم يتم التحقق من التحويل');
+      const created = await createResponse.json();
+      if (!createResponse.ok) throw new Error(created.error || 'تعذر إنشاء طلب الدفع');
+      await wallet.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        network: '-239',
+        messages: [{ address: created.destination, amount: created.amountNanoton }],
+      });
+
+      let activated = false;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 2500));
+        const response = await fetch('/api/mining/activation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
+          body: JSON.stringify({ action: 'verify', paymentId: created.paymentId }),
+        });
+        const data = await response.json();
+        if (response.ok && data.activated) { activated = true; break; }
+        if (response.status !== 202 && data.error !== 'payment_not_found_yet') {
+          throw new Error(data.error || 'تعذر التحقق من التحويل');
+        }
+      }
+      if (!activated) throw new Error('تم إرسال التحويل، لكن لم يظهر تأكيده على الشبكة بعد. اضغط للتحقق مرة أخرى أو تواصل مع الدعم.');
       onActivated();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'فشلت عملية التفعيل');
