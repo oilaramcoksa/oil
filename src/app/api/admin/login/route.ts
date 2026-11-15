@@ -1,9 +1,10 @@
 import { createHash, createHmac, pbkdf2Sync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac } from 'node:crypto';
+import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const COOKIE = 'aramco_admin';
-const attempts = new Map<string, { count: number; lockedUntil: number }>();
 
 function verifyPassword(password: string, stored: string): boolean {
   const [algorithm, iterationsRaw, saltHex, keyHex, ...rest] = stored.split('$');
@@ -24,19 +25,48 @@ export async function POST(req: NextRequest) {
   const secret = process.env.ADMIN_SESSION_SECRET ?? '';
   if (!stored || secret.length < 32) return NextResponse.json({ error: 'admin_not_configured' }, { status: 503 });
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const ip = req.headers.get('x-real-ip')?.trim() ||
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const now = Date.now();
-  const state = attempts.get(ip);
-  if (state && state.lockedUntil > now) {
-    return NextResponse.json({ error: 'login_temporarily_locked' }, { status: 429 });
+  let ipKey = '';
+  try {
+    await ensureDatabaseSchema();
+    const db = getTurso();
+    await db.execute(`CREATE TABLE IF NOT EXISTS admin_login_attempts (
+      ip_hash TEXT PRIMARY KEY,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      window_started_at INTEGER NOT NULL,
+      locked_until INTEGER NOT NULL DEFAULT 0
+    )`);
+    ipKey = createHmac('sha256', secret).update(ip).digest('hex');
+    const stateResult = await db.execute({
+      sql: 'SELECT attempts, window_started_at, locked_until FROM admin_login_attempts WHERE ip_hash=?',
+      args: [ipKey],
+    });
+    const state = stateResult.rows[0];
+    if (Number(state?.locked_until ?? 0) > now) {
+      return NextResponse.json({ error: 'login_temporarily_locked' }, { status: 429 });
+    }
+    const valid = !!password && password.length <= 256 && verifyPassword(password, stored);
+    if (!valid) {
+      await db.execute({
+        sql: `INSERT INTO admin_login_attempts(ip_hash,attempts,window_started_at,locked_until)
+          VALUES(?,1,?,0)
+          ON CONFLICT(ip_hash) DO UPDATE SET
+            attempts=CASE WHEN admin_login_attempts.window_started_at <= ? THEN 1 ELSE admin_login_attempts.attempts+1 END,
+            window_started_at=CASE WHEN admin_login_attempts.window_started_at <= ? THEN excluded.window_started_at ELSE admin_login_attempts.window_started_at END,
+            locked_until=CASE
+              WHEN (CASE WHEN admin_login_attempts.window_started_at <= ? THEN 1 ELSE admin_login_attempts.attempts+1 END) >= 5
+              THEN ? ELSE admin_login_attempts.locked_until END`,
+        args: [ipKey, now, now - 15 * 60 * 1000, now - 15 * 60 * 1000, now - 15 * 60 * 1000, now + 15 * 60 * 1000],
+      });
+      return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
+    }
+    await db.execute({ sql: 'DELETE FROM admin_login_attempts WHERE ip_hash=?', args: [ipKey] });
+  } catch (error) {
+    console.error('admin_login_rate_limit_unavailable', error);
+    return NextResponse.json({ error: 'admin_login_temporarily_unavailable' }, { status: 503 });
   }
-  const valid = !!password && password.length <= 256 && verifyPassword(password, stored);
-  if (!valid) {
-    const count = state && state.lockedUntil <= now ? state.count + 1 : 1;
-    attempts.set(ip, { count, lockedUntil: count >= 5 ? now + 15 * 60 * 1000 : 0 });
-    return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
-  }
-  attempts.delete(ip);
   const issued = String(now);
   const nonce = randomBytes(32).toString('hex');
   const payload = `${issued}.${nonce}`;
