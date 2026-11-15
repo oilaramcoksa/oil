@@ -538,6 +538,16 @@ export async function ensureDatabaseSchema(): Promise<void> {
               AND CAST(json_extract(s.state_json, '$.cycleEndsAt') AS INTEGER) > 0
           )
       `);
+      // Legacy players who have preserved oil but no recorded cycle deadline
+      // must be allowed to sell it immediately instead of being locked out.
+      await db.execute(`
+        UPDATE player_game_state
+        SET cycle_started_at = CAST(strftime('%s','now') AS INTEGER) * 1000 - 43200000,
+            cycle_ends_at = CAST(strftime('%s','now') AS INTEGER) * 1000 - 1,
+            last_tick_at = CAST(strftime('%s','now') AS INTEGER) * 1000 - 1
+        WHERE cycle_ends_at IS NULL
+          AND EXISTS (SELECT 1 FROM player_wallets w WHERE w.telegram_id=player_game_state.telegram_id AND w.oil_balance>0)
+      `);
       await db.execute(`INSERT OR IGNORE INTO player_monthly_stats(telegram_id, month_key)
         SELECT telegram_id, strftime('%Y-%m','now') FROM players`);
     })().catch((error) => {
