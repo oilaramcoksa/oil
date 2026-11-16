@@ -80,9 +80,9 @@ export async function POST(req: NextRequest) {
       };
       const specialOwned = new Set(specialParts.rows.map(row => String(row.part_id)));
       const productionMultiplier =
-        (quantities.oil_pump > 0 ? 3 : 1) *
-        (quantities.fuel_station > 0 ? 2 : 1) *
-        (quantities.oil_truck > 0 ? 1.5 : 1) *
+        (1 + (3 - 1) * (quantities.oil_pump > 0 ? partMultiplier('oil_pump') : 0)) *
+        (1 + (2 - 1) * (quantities.fuel_station > 0 ? partMultiplier('fuel_station') : 0)) *
+        (1 + (1.5 - 1) * (quantities.oil_truck > 0 ? partMultiplier('oil_truck') : 0)) *
         (specialOwned.has('new_background') ? 1.5 : 1) *
         (specialOwned.has('vip_badge') ? 5 : 1);
       const capacity=Number(g.base_capacity??500)+packageCapacity+quantities.fuel_station*250*partMultiplier('fuel_station');
