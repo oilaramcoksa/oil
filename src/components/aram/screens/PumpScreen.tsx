@@ -196,12 +196,10 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   }, [applyServerAdReward, haptic, lang, notify]);
 
   const handleAdRewardError = useCallback((error: string) => {
-    if (error === 'reward_cooldown') toast.error(t(lang, 'tadsRewardCooldown'));
-    else if (error === 'daily_reward_limit_reached') toast.error(t(lang, 'tadsRewardLimit'));
-    else if (error === 'telegram_auth_required') toast.error(t(lang, 'telegramRequired'));
-    else if (error === 'no_ad_available' || error === 'ad_timeout') toast.error(t(lang, 'noAdsAvailable'));
-    else toast.error(t(lang, 'tadsUnavailable'));
-  }, [lang]);
+    // Ad inventory/provider failures are non-blocking and must never interrupt gameplay.
+    // Keep diagnostics in the console only; do not expose provider or SDK messages to players.
+    console.info('optional_reward_ad_unavailable', error);
+  }, []);
 
   return (
     <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain pb-3">
