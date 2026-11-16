@@ -7,6 +7,12 @@ import { dirOf } from '@/lib/i18n';
 import { TopBar } from '@/components/aram/TopBar';
 import { BottomNav, type Tab } from '@/components/aram/BottomNav';
 import { PumpScreen } from '@/components/aram/screens/PumpScreen';
+import { WalletScreen } from '@/components/aram/screens/WalletScreen';
+import { TasksScreen } from '@/components/aram/screens/TasksScreen';
+import { FriendsScreen } from '@/components/aram/screens/FriendsScreen';
+import { StoreScreen } from '@/components/aram/screens/StoreScreen';
+import { ArenaScreen } from '@/components/aram/screens/ArenaScreen';
+import { SwapScreen } from '@/components/aram/screens/SwapScreen';
 
 
 
@@ -24,23 +30,7 @@ import { ArenaInviteNotice } from '@/components/aram/ArenaInviteNotice';
 
 
 
-// Show a lightweight visual placeholder instead of an empty screen while a
-// section's code is being downloaded. The actual section is prefetched below.
-const ScreenLoading = () => (
-  <div className="h-full w-full max-w-md mx-auto px-3 pt-4 space-y-3 animate-pulse" aria-hidden="true">
-    <div className="h-7 w-2/5 rounded-lg bg-amber-900/10" />
-    <div className="h-24 rounded-2xl bg-amber-900/10" />
-    <div className="h-24 rounded-2xl bg-amber-900/10" />
-    <div className="h-32 rounded-2xl bg-amber-900/10" />
-  </div>
-);
-const WalletScreen = dynamic(() => import('@/components/aram/screens/WalletScreen').then((m) => m.WalletScreen), { loading: ScreenLoading });
-const TasksScreen = dynamic(() => import('@/components/aram/screens/TasksScreen').then((m) => m.TasksScreen), { loading: ScreenLoading });
-const FriendsScreen = dynamic(() => import('@/components/aram/screens/FriendsScreen').then((m) => m.FriendsScreen), { loading: ScreenLoading });
-const StoreScreen = dynamic(() => import('@/components/aram/screens/StoreScreen').then((m) => m.StoreScreen), { loading: ScreenLoading });
-const ArenaScreen = dynamic(() => import('@/components/aram/screens/ArenaScreen').then((m) => m.ArenaScreen), { loading: ScreenLoading });
-const SwapScreen = dynamic(() => import('@/components/aram/screens/SwapScreen').then((m) => m.SwapScreen), { loading: ScreenLoading });
-const ShortsContest = dynamic(() => import('@/components/aram/ShortsContest').then((m) => m.ShortsContest), { loading: ScreenLoading });
+const ShortsContest = dynamic(() => import('@/components/aram/ShortsContest').then((m) => m.ShortsContest));
 
 export default function Home() {
   const lang = useGame((s) => s.lang);
@@ -57,40 +47,12 @@ export default function Home() {
   const [tournamentsOpen, setTournamentsOpen] = useState(false);
   const [shortsOpen, setShortsOpen] = useState(false);
 
-  // Warm the remaining section chunks after the first screen is interactive.
-  // This prevents the blank delay on the first tap of Friends, Wallet, Tasks, etc.
-  useEffect(() => {
-    let cancelled = false;
-    const preload = () => {
-      if (cancelled) return;
-      void Promise.all([
-        import('@/components/aram/screens/WalletScreen'),
-        import('@/components/aram/screens/TasksScreen'),
-        import('@/components/aram/screens/FriendsScreen'),
-        import('@/components/aram/screens/StoreScreen'),
-        import('@/components/aram/screens/ArenaScreen'),
-        import('@/components/aram/screens/SwapScreen'),
-      ]).catch(() => {
-        // The selected screen can still load normally; do not block gameplay.
-      });
-    };
-    const idleWindow = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-    let idleHandle: number | undefined;
-    let timeoutHandle: number | undefined;
-    if (idleWindow.requestIdleCallback) {
-      idleHandle = idleWindow.requestIdleCallback(preload, { timeout: 1800 });
-    } else {
-      timeoutHandle = window.setTimeout(preload, 900);
-    }
-    return () => {
-      cancelled = true;
-      if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
-      if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
-    };
-  }, []);
+  // Keep every opened section mounted so returning to it is immediate.
+  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set<Tab>(['pump']));
+  const navigateToTab = (nextTab: Tab) => {
+    setVisitedTabs((current) => current.has(nextTab) ? current : new Set([...current, nextTab]));
+    setTab(nextTab);
+  };
 
   // Daily/weekly/monthly reset on mount
   useEffect(() => {
@@ -146,16 +108,16 @@ export default function Home() {
       />
 
       <main className="min-h-0 min-w-0 flex-1 overflow-hidden overscroll-contain">
-        {tab === 'pump' && <PumpScreen onGoToStore={() => setTab('store')} onGoToArena={() => setTab('arena')} onOpenShorts={() => setShortsOpen(true)} initData={initData} isVerified={isVerified} />}
-        {tab === 'wallet' && <WalletScreen />}
-        {tab === 'tasks' && <TasksScreen initData={initData} isVerified={isVerified} />}
-        {tab === 'friends' && <FriendsScreen />}
-        {tab === 'store' && <StoreScreen initData={initData} isVerified={isVerified} />}
-        {tab === 'arena' && <ArenaScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} />}
-        {tab === 'swap' && <SwapScreen initData={initData} isVerified={isVerified} />}
+        {visitedTabs.has('pump') && <section className={tab === 'pump' ? 'h-full' : 'hidden'}><PumpScreen onGoToStore={() => navigateToTab('store')} onGoToArena={() => navigateToTab('arena')} onOpenShorts={() => setShortsOpen(true)} initData={initData} isVerified={isVerified} /></section>}
+        {visitedTabs.has('wallet') && <section className={tab === 'wallet' ? 'h-full' : 'hidden'}><WalletScreen /></section>}
+        {visitedTabs.has('tasks') && <section className={tab === 'tasks' ? 'h-full' : 'hidden'}><TasksScreen initData={initData} isVerified={isVerified} /></section>}
+        {visitedTabs.has('friends') && <section className={tab === 'friends' ? 'h-full' : 'hidden'}><FriendsScreen /></section>}
+        {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} /></section>}
+        {visitedTabs.has('arena') && <section className={tab === 'arena' ? 'h-full' : 'hidden'}><ArenaScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} /></section>}
+        {visitedTabs.has('swap') && <section className={tab === 'swap' ? 'h-full' : 'hidden'}><SwapScreen initData={initData} isVerified={isVerified} /></section>}
       </main>
 
-      <BottomNav active={tab} onChange={setTab} />
+      <BottomNav active={tab} onChange={navigateToTab} />
 
       <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <TournamentsSheet open={tournamentsOpen} onClose={() => setTournamentsOpen(false)} />
