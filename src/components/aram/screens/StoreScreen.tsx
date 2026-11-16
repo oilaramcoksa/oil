@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { TonConnectUI } from '@tonconnect/ui';
+import { beginCell } from '@ton/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
@@ -37,7 +39,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   const [partVerifying, setPartVerifying] = useState(false);
   const [partFailed, setPartFailed] = useState(false);
   const [partCopied, setPartCopied] = useState(false);
-  const [wallet, setWallet] = useState<CryptoWallet | null>(null);
+  const [wallet, setWallet] = useState<CryptoWallet | null>(WALLETS.find((w) => w.code === 'gram') ?? null);
   const [verifying, setVerifying] = useState(false);
   const [paymentFailed, setPaymentFailed] = useState(false);
   const [copiedAddr, setCopiedAddr] = useState(false);
@@ -45,7 +47,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   const openPackage = (p: UpgradePackage) => {
     haptic('medium');
     setSelected(p);
-    setWallet(null);
+    setWallet(WALLETS.find((w) => w.code === 'gram') ?? null);
     setVerifying(false);
     setPaymentFailed(false);
   };
@@ -76,71 +78,61 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     }
   };
 
-  const confirmPaid = async () => {
-    if (!selected || !wallet || verifying) return;
-    const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
-    if (!initData) {
-      toast.error(t(lang, 'telegramRequired'));
-      return;
-    }
-    setVerifying(true);
-    setPaymentFailed(false);
-    haptic('heavy');
+  const sendTonPurchase = async (product: { packageId?: string; itemId?: string }, setBusy: (value: boolean) => void, onConfirmed: () => void) => {
+    const telegramInitData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
+    if (!telegramInitData) { toast.error(t(lang, 'telegramRequired')); return; }
+    setBusy(true);
     try {
       const response = await fetch('/api/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
-        body: JSON.stringify({ packageId: selected.id, walletCode: wallet.code }),
+        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': telegramInitData },
+        body: JSON.stringify(product),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'payment_request_failed');
-      const paymentId = String(data.payment.id);
+      const payment = data.payment;
+      const connector = new TonConnectUI({ manifestUrl: window.location.origin + '/tonconnect-manifest.json' });
+      const payload = beginCell().storeUint(0, 32).storeStringTail(String(payment.comment)).endCell().toBoc().toString('base64');
+      await connector.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        network: '-239',
+        messages: [{ address: String(payment.destination), amount: String(payment.amountNanoton), payload }],
+      });
+      toast.info('تم إرسال طلب التحويل. جارٍ التحقق من TON Mainnet تلقائيًا…');
       const startedAt = Date.now();
-
-      const checkStatus = async (): Promise<void> => {
+      const poll = async (): Promise<void> => {
         try {
-          const statusResponse = await fetch('/api/payments?id=' + encodeURIComponent(paymentId), {
-            headers: { 'X-Telegram-Init-Data': initData },
-            cache: 'no-store',
+          const statusResponse = await fetch('/api/payments?id=' + encodeURIComponent(String(payment.id)), {
+            headers: { 'X-Telegram-Init-Data': telegramInitData }, cache: 'no-store',
           });
           const statusData = await statusResponse.json().catch(() => ({}));
           if (!statusResponse.ok) throw new Error(statusData.error ?? 'payment_status_unavailable');
           if (statusData.payment?.status === 'confirmed') {
-            // Only a server-confirmed payment may activate an upgrade.
-            toast.success(t(lang, 'paymentConfirmed'));
-            setVerifying(false);
-            return;
+            setBusy(false); onConfirmed(); toast.success('تم تأكيد الدفع وتفعيل المنتج تلقائيًا 🎉'); return;
           }
-          if (statusData.payment?.status === 'expired' || statusData.payment?.status === 'rejected') {
-            setVerifying(false);
-            setPaymentFailed(true);
-            notify('error');
-            toast.error(t(lang, 'paymentTimeout'));
-            return;
+          if (['expired', 'rejected'].includes(String(statusData.payment?.status)) || Date.now() - startedAt > 35 * 60 * 1000) {
+            setBusy(false); toast.error('انتهت مهلة الدفع أو لم يتم العثور على المعاملة. لم يتم تفعيل المنتج.'); return;
           }
-          if (Date.now() - startedAt >= 60 * 60 * 1000 + 5000) {
-            setVerifying(false);
-            setPaymentFailed(true);
-            toast.error(t(lang, 'paymentTimeout'));
-            return;
-          }
-          window.setTimeout(() => { void checkStatus(); }, 15000);
+          window.setTimeout(() => { void poll(); }, 7000);
         } catch {
-          if (Date.now() - startedAt >= 60 * 60 * 1000 + 5000) {
-            setVerifying(false);
-            setPaymentFailed(true);
-            toast.error(t(lang, 'paymentTimeout'));
-          } else {
-            window.setTimeout(() => { void checkStatus(); }, 15000);
-          }
+          if (Date.now() - startedAt > 35 * 60 * 1000) { setBusy(false); toast.error('تعذر التحقق من الدفع.'); }
+          else window.setTimeout(() => { void poll(); }, 10000);
         }
       };
-      toast.info(t(lang, 'paymentRequestCreated'));
-      void checkStatus();
+      void poll();
     } catch (error) {
-      setVerifying(false);
-      toast.error(error instanceof Error ? error.message : t(lang, 'paymentStatusUnavailable'));
+      setBusy(false);
+      toast.error(error instanceof Error ? error.message : 'تعذر فتح محفظة TON');
     }
+  };
+
+  const confirmPaid = async () => {
+    if (!selected || verifying) return;
+    haptic('heavy');
+    await sendTonPurchase({ packageId: selected.id }, setVerifying, () => {
+      setSelected(null);
+      setWallet(WALLETS.find((w) => w.code === 'gram') ?? null);
+    });
   };
 
   const shopParts = [
@@ -168,52 +160,8 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
 
   const buyPart = async () => {
     if (!selectedPart || partVerifying) return;
-    const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
-    if (!initData) { toast.error(t(lang, 'telegramRequired')); return; }
-    setPartVerifying(true);
     setPartFailed(false);
-    try {
-      const response = await fetch('/api/payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
-        body: JSON.stringify({ itemId: selectedPart.id }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.payment?.id) throw new Error(data.error ?? t(lang, 'paymentStatusUnavailable'));
-      await navigator.clipboard?.writeText(data.payment.destination).catch(() => undefined);
-      toast.info(t(lang, 'paymentRequestCreated'));
-      const paymentId = String(data.payment.id);
-      const startedAt = Date.now();
-      const poll = async (): Promise<void> => {
-        try {
-          const res = await fetch('/api/payments?id=' + encodeURIComponent(paymentId), {
-            headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store',
-          });
-          const status = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error('status_unavailable');
-          if (status.payment?.status === 'confirmed') {
-            setPartVerifying(false);
-            toast.success(t(lang, 'paymentConfirmed'));
-            return;
-          }
-          if (status.payment?.status === 'expired' || status.payment?.status === 'rejected' || Date.now() - startedAt >= 3605000) {
-            setPartVerifying(false); setPartFailed(true); notify('error');
-            toast.error(t(lang, 'paymentTimeout'));
-            return;
-          }
-          window.setTimeout(() => { void poll(); }, 15000);
-        } catch {
-          if (Date.now() - startedAt >= 3605000) {
-            setPartVerifying(false); setPartFailed(true);
-            toast.error(t(lang, 'paymentTimeout'));
-          } else window.setTimeout(() => { void poll(); }, 15000);
-        }
-      };
-      void poll();
-    } catch (e) {
-      setPartVerifying(false);
-      toast.error(e instanceof Error ? e.message : t(lang, 'paymentStatusUnavailable'));
-    }
+    await sendTonPurchase({ itemId: selectedPart.id }, setPartVerifying, () => setSelectedPart(null));
   };
 
   return (
@@ -309,7 +257,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                       {t(lang, 'speedPackage')} {p.id.replace('_', ' ').toUpperCase()}
                     </div>
                     <div className="text-[11px] text-amber-900/60 font-bold">
-                      ${p.priceUSD} · {p.bonusPct > 0 ? `+${p.bonusPct}% ${t(lang, 'bonus')}` : t(lang, 'basePower')}
+                      {({ fast_oil: 2.5, king_oil: 8, super_oil: 21 } as Record<string, number>)[p.id]} TON · {p.bonusPct > 0 ? `+${p.bonusPct}% ${t(lang, 'bonus')}` : t(lang, 'basePower')}
                     </div>
                   </div>
                 </div>
@@ -408,7 +356,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                     <Zap className="w-3 h-3" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-[#2a1c0a]">{pkg.id.replace('_', ' ').toUpperCase()} · ${pkg.priceUSD}</div>
+                    <div className="text-xs font-bold text-[#2a1c0a]">{pkg.id.replace('_', ' ').toUpperCase()} · {({ fast_oil: 2.5, king_oil: 8, super_oil: 21 } as Record<string, number>)[pkg.id]} TON</div>
                     <div className="flex items-center gap-1 text-[10px] text-amber-900/50 truncate">
                       {w && <CryptoIcon code={w.code} className="w-3 h-3 flex-shrink-0" />}
                       <span className="truncate">{w?.label} · {u.txHash.slice(0, 10)}...</span>
@@ -469,29 +417,14 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                 <p className="text-amber-200/70 text-xs mb-4">{selectedPart.description}</p>
               </motion.div>
 
-              <motion.div layout className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-white/[0.09] to-white/[0.03] p-3 text-left mb-3 shadow-inner">
+              <div className="rounded-2xl border border-amber-400/20 bg-white/[0.05] p-4 mb-3 text-right">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2 text-amber-200/80 text-xs font-bold">
-                    <span className="text-lg">💎</span>
-                    <span>{t(lang, 'tonWalletReceive')}</span>
-                  </div>
-                  <span className="text-[9px] rounded-full bg-emerald-400/10 text-emerald-300 px-2 py-1">{t(lang, 'tonNetwork')}</span>
+                  <span className="text-amber-200/80 text-xs font-bold">الدفع عبر محفظة TON</span>
+                  <span className="text-[10px] rounded-full bg-emerald-400/10 text-emerald-300 px-2 py-1">TON Mainnet</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1 rounded-xl bg-black/35 border border-white/10 px-3 py-3 text-[11px] leading-5 text-amber-50 font-mono break-all select-all">
-                    {WALLETS.find((w) => w.code === 'gram')?.address}
-                  </div>
-                  <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.04 }} onClick={copyPartWallet}
-                    className="shrink-0 h-12 min-w-[76px] rounded-xl border border-cyan-300/30 bg-cyan-400/10 px-3 flex flex-col items-center justify-center gap-1 text-cyan-200 text-[10px] font-black">
-                    {partCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {partCopied ? t(lang, 'copied') : t(lang, 'copy')}
-                  </motion.button>
-                </div>
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
-                  <span className="text-amber-200/70 text-xs">{t(lang, 'requiredAmount')}</span>
-                  <motion.span key={selectedPart.price} initial={{ scale: 1.2 }} animate={{ scale: 1 }} className="text-emerald-300 font-black text-2xl">{selectedPart.price} TON</motion.span>
-                </div>
-              </motion.div>
+                <div className="text-emerald-300 font-black text-2xl">{selectedPart.price} TON</div>
+                <p className="mt-2 text-[10px] leading-5 text-amber-100/60">اضغط شراء الآن لفتح محفظتك المتصلة. سيتم تفعيل القطعة بعد التحقق من المعاملة على البلوك تشين.</p>
+              </div>
 
               <AnimatePresence mode="wait">
                 {partVerifying ? (
@@ -507,7 +440,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                       <motion.span aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                         animate={{ x: ['-120%', '120%'] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }} />
                       <span className="relative flex items-center justify-center gap-2">
-                        {partFailed ? t(lang, 'paymentFailedNoActivation') : <><Zap className="w-5 h-5" /> {t(lang, 'confirmPayment')}</>}
+                        {partFailed ? t(lang, 'paymentFailedNoActivation') : <><Zap className="w-5 h-5" /> شراء الآن عبر TON</>}
                       </span>
                     </Button>
                   </motion.div>
@@ -630,8 +563,8 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
 
                     {/* Amount */}
                     <div className="flex items-center justify-between mb-2 px-1">
-                      <span className="text-[10px] text-amber-200/60 font-bold uppercase">USD</span>
-                      <span className="text-amber-300 font-black tabular-nums">${selected.priceUSD}</span>
+                      <span className="text-[10px] text-amber-200/60 font-bold uppercase">TON Mainnet</span>
+                      <span className="text-amber-300 font-black tabular-nums">{({ fast_oil: 2.5, king_oil: 8, super_oil: 21 } as Record<string, number>)[selected.id]} TON</span>
                     </div>
 
                     {/* Note */}
@@ -655,7 +588,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                       ) : (
                         <>
                           <Check className="w-4 h-4 mr-2" />
-                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : `${t(lang, 'iPaid')} ${selected.priceUSD}`}
+                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : 'شراء الآن عبر TON'}
                         </>
                       )}
                     </Button>

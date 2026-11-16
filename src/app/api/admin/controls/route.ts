@@ -90,6 +90,33 @@ export async function GET(req: NextRequest) {
       } }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
+    if (section === 'playerProducts') {
+      const playerId = req.nextUrl.searchParams.get('telegramId') ?? '';
+      if (!playerId || playerId.length > 64) return fail('player_required');
+      await db.execute(`CREATE TABLE IF NOT EXISTS player_product_controls (
+        id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        product_id TEXT NOT NULL, product_type TEXT NOT NULL CHECK(product_type IN ('part','package')),
+        status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','revoked')),
+        speed_multiplier REAL NOT NULL DEFAULT 1 CHECK(speed_multiplier >= 0 AND speed_multiplier <= 100),
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(telegram_id,product_id,product_type)
+      )`);
+      const rows = await db.execute({sql:`SELECT u.id AS purchase_id,u.package_id AS product_id,'package' AS product_type,
+        u.purchased_at AS purchased_at,u.expires_at AS expires_at,u.status AS purchase_status,
+        COALESCE(c.status,'active') AS control_status,COALESCE(c.speed_multiplier,1) AS speed_multiplier,
+        p.amount AS amount,p.asset AS asset,p.tx_hash AS tx_hash
+        FROM player_upgrades u LEFT JOIN player_product_controls c ON c.telegram_id=u.telegram_id AND c.product_id=u.package_id AND c.product_type='package'
+        LEFT JOIN payment_transactions p ON p.id=u.payment_id WHERE u.telegram_id=?
+        UNION ALL
+        SELECT p.id AS purchase_id,p.package_id AS product_id,'part' AS product_type,p.created_at AS purchased_at,
+        NULL AS expires_at,p.status AS purchase_status,COALESCE(c.status,'active') AS control_status,
+        COALESCE(c.speed_multiplier,1) AS speed_multiplier,p.amount AS amount,p.asset AS asset,p.tx_hash AS tx_hash
+        FROM payment_transactions p LEFT JOIN player_product_controls c ON c.telegram_id=p.telegram_id AND c.product_id=p.package_id AND c.product_type='part'
+        WHERE p.telegram_id=? AND p.status='confirmed' AND p.provider='tonconnect_auto'
+          AND json_extract(p.provider_payload_json,'$.kind')='shop_part'
+        ORDER BY purchased_at DESC`,args:[playerId,playerId]});
+      return NextResponse.json({products:rows.rows},{headers:{'Cache-Control':'no-store'}});
+    }
+
     if (section === 'players') {
       const like = `%${query.replace(/[%_]/g, '')}%`;
       const rows = await db.execute({
@@ -207,7 +234,7 @@ export async function POST(req: NextRequest) {
   const amount = Number(body.amount);
   let broadcastDelivered: number | null = null;
 
-  if (['grant_coins', 'grant_oil', 'set_speed', 'ban', 'unban'].includes(action) && !target) return fail('player_required');
+  if (['grant_coins', 'grant_oil', 'set_speed', 'ban', 'unban', 'product_control'].includes(action) && !target) return fail('player_required');
   if (['grant_coins', 'grant_oil'].includes(action) &&
       (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000_000)) return fail('invalid_amount');
   if (action === 'grant_coins' && !reason) return fail('reason_required');
@@ -220,7 +247,29 @@ export async function POST(req: NextRequest) {
     const db = getTurso();
     const tx = await db.transaction('write');
     try {
-      if (action === 'set_mining_fee_exemption') {
+      if (action === 'product_control') {
+        const productId = String(body.productId ?? '').trim();
+        const productType = String(body.productType ?? '');
+        const operation = String(body.operation ?? '');
+        const multiplier = Number(body.speedMultiplier ?? 1);
+        if (!target || !productId || !['part','package'].includes(productType) ||
+            !['activate','pause','revoke','speed'].includes(operation) ||
+            (operation === 'speed' && (!Number.isFinite(multiplier) || multiplier < 0 || multiplier > 100))) {
+          await tx.rollback(); return fail('invalid_product_control');
+        }
+        const status = operation === 'pause' ? 'paused' : operation === 'revoke' ? 'revoked' : 'active';
+        await tx.execute(`INSERT INTO player_product_controls(id,telegram_id,product_id,product_type,status,speed_multiplier)
+          VALUES(?,?,?,?,?,?) ON CONFLICT(telegram_id,product_id,product_type) DO UPDATE SET
+          status=excluded.status,speed_multiplier=CASE WHEN ?='speed' THEN excluded.speed_multiplier ELSE player_product_controls.speed_multiplier END,
+          updated_at=CURRENT_TIMESTAMP`,
+          [randomUUID(),target,productId,productType,status,multiplier,operation]);
+        if (productType === 'package' && operation === 'revoke') {
+          await tx.execute("UPDATE player_upgrades SET status='revoked' WHERE telegram_id=? AND package_id=? AND status='active'",[target,productId]);
+        }
+        await notify(tx,target,'تحديث على منتجك في ARMCO OIL',
+          operation==='pause'?'تم إيقاف المنتج مؤقتًا بواسطة الإدارة.':operation==='revoke'?'تم إلغاء تفعيل المنتج بواسطة الإدارة.':operation==='speed'? 'تم تعديل سرعة المنتج بواسطة الإدارة.':'تمت إعادة تفعيل المنتج.',
+          'product',{productId,productType,operation,speedMultiplier:multiplier});
+      } else if (action === 'set_mining_fee_exemption') {
         const exists = await tx.execute({ sql: 'SELECT telegram_id FROM players WHERE telegram_id=?', args: [target] });
         if (!exists.rows.length) { await tx.rollback(); return fail('player_not_found', 404); }
         const exempt = String(body.exempt) === '1' ? 1 : 0;
@@ -396,6 +445,7 @@ export async function POST(req: NextRequest) {
         const rows = await tx.execute({ sql: "SELECT * FROM payment_transactions WHERE id=? AND status='pending'", args: [id] });
         if (!rows.rows.length) { await tx.rollback(); return fail('payment_not_pending', 409); }
         const payment = rows.rows[0];
+        if (String(payment.provider) === 'tonconnect_auto') { await tx.rollback(); return fail('automatic_ton_payment_cannot_be_manually_approved', 409); }
         const telegramId = String(payment.telegram_id);
         const packageId = String(payment.package_id ?? '');
 
