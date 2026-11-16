@@ -130,7 +130,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
     setFeeGateOpen(false);
     void refreshMining('tap').then((result) => {
       if (result.cycleStarted) notify('success');
-    }).catch(() => toast.error(t(lang, 'tadsUnavailable')));
+    }).catch((error) => console.info('pump_activation_retry_available', error));
   }, [refreshMining, notify, lang]);
 
   useEffect(() => {
@@ -174,7 +174,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
       const message = error instanceof Error ? error.message : 'mining_unavailable';
       if (message === 'mining_activation_required') setFeeGateOpen(true);
       else if (message === 'previous_cycle_must_be_sold' || message === 'oil_must_be_sold_before_new_cycle') toast.error(t(lang, 'sell'));
-      else toast.error(t(lang, 'tadsUnavailable'));
+      else console.info('pump_action_retry_available', message);
     });
   };
 
