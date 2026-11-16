@@ -111,7 +111,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const isFull = oil >= cap;
 
   const now = Date.now();
-  const active = isCycleActive(cycleEndsAt, now);
+  const active = feeActivated && isCycleActive(cycleEndsAt, now);
   const secRem = cycleSecondsRemaining(cycleEndsAt, now);
   const cycleProgress = cycleEndsAt ? (active ? 1 - secRem / CYCLE_SECONDS : 1) : 0;
 
@@ -140,12 +140,12 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   }, [initData]);
 
   const handleTap = () => {
-    // Once a 12-hour cycle ends, the accumulated oil must be sold before another cycle can start.
-    if (!active && oil > 0) return;
     if (!feeActivated) {
       setFeeGateOpen(true);
       return;
     }
+    // Once a 12-hour cycle ends, the accumulated oil must be sold before another cycle can start.
+    if (!active && oil > 0) return;
     haptic('light');
     void refreshMining('tap').then((r) => {
       if (r.cycleStarted) notify('success');
@@ -165,6 +165,10 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   };
 
   const handleSell = () => {
+    if (!feeActivated) {
+      setFeeGateOpen(true);
+      return;
+    }
     if (active || oil <= 0) return;
     haptic('medium');
     setSellOpen(true);
