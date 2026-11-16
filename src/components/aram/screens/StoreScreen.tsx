@@ -55,7 +55,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       });
     }).catch((error) => {
       console.error('store_tonconnect_init_failed', error);
-      if (alive) toast.error(lang === 'ar' ? 'تعذر تهيئة محفظة TON. أعد فتح المتجر.' : 'Could not initialize TON wallet. Reopen the store.');
+      if (alive) toast.error(t(lang, 'walletConnectFailed'));
     });
     return () => {
       alive = false;
@@ -101,7 +101,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       toast.success(t(lang, 'addressCopied'));
       setTimeout(() => setCopiedAddr(false), 2000);
     } catch {
-      toast.error('Copy failed');
+      toast.error(t(lang, 'copyFailed'));
     }
   };
 
@@ -109,12 +109,12 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     const telegramInitData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
     if (!telegramInitData) { toast.error(t(lang, 'telegramRequired')); return; }
     if (!tonConnector) {
-      toast.error(lang === 'ar' ? 'محفظة TON لم تجهز بعد. حاول مرة أخرى.' : 'TON wallet is not ready yet. Try again.');
+      toast.error(t(lang, 'walletNotReady'));
       return;
     }
     if (!tonConnector.connected) {
       await tonConnector.openModal();
-      toast.info(lang === 'ar' ? 'اربط محفظتك أولًا، ثم اضغط شراء الآن.' : 'Connect your wallet first, then tap Buy.');
+      toast.info(t(lang, 'walletConnectFirst'));
       return;
     }
     setBusy(true);
@@ -127,7 +127,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'payment_request_failed');
       const payment = data.payment;
-      if (!tonConnector.connected) throw new Error(lang === 'ar' ? 'انقطع اتصال المحفظة. أعد توصيلها وحاول مجددًا.' : 'Wallet disconnected. Reconnect and try again.');
+      if (!tonConnector.connected) throw new Error('wallet_disconnected');
       // Check the connected TON Mainnet wallet balance before opening its
       // confirmation screen. Keep a small reserve for network fees.
       const accountAddress = tonConnector.account?.address;
@@ -158,7 +158,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
         network: '-239',
         messages: [{ address: String(payment.destination), amount: String(payment.amountNanoton), payload }],
       });
-      toast.info('تم إرسال طلب التحويل. جارٍ التحقق من TON Mainnet تلقائيًا…');
+      toast.info(t(lang, 'paymentSentVerifying'));
       const startedAt = Date.now();
       const poll = async (): Promise<void> => {
         try {
@@ -168,14 +168,14 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
           const statusData = await statusResponse.json().catch(() => ({}));
           if (!statusResponse.ok) throw new Error(statusData.error ?? 'payment_status_unavailable');
           if (statusData.payment?.status === 'confirmed') {
-            setBusy(false); onConfirmed(); toast.success('تم تأكيد الدفع وتفعيل المنتج تلقائيًا 🎉'); return;
+            setBusy(false); onConfirmed(); toast.success(t(lang, 'paymentConfirmedToast')); return;
           }
           if (['expired', 'rejected'].includes(String(statusData.payment?.status)) || Date.now() - startedAt > 35 * 60 * 1000) {
-            setBusy(false); toast.error('انتهت مهلة الدفع أو لم يتم العثور على المعاملة. لم يتم تفعيل المنتج.'); return;
+            setBusy(false); toast.error(t(lang, 'paymentExpiredToast')); return;
           }
           window.setTimeout(() => { void poll(); }, 7000);
         } catch {
-          if (Date.now() - startedAt > 35 * 60 * 1000) { setBusy(false); toast.error('تعذر التحقق من الدفع.'); }
+          if (Date.now() - startedAt > 35 * 60 * 1000) { setBusy(false); toast.error(t(lang, 'paymentVerifyFailedToast')); }
           else window.setTimeout(() => { void poll(); }, 10000);
         }
       };
@@ -189,24 +189,18 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       const isUserRejected = Number(raw?.code) === 300 ||
         /UserRejectsError|User declined the transaction|user rejected|user declined/i.test(errorText);
       if (isInsufficient) {
-        toast.error(lang === 'ar'
-          ? 'للأسف، محفظتك لا تحتوي على رصيد TON كافٍ لإتمام عملية الشراء. أضف رصيدًا يشمل رسوم الشبكة ثم حاول مجددًا.'
-          : 'Unfortunately, your wallet does not have enough TON to complete this purchase. Add enough TON to cover network fees and try again.');
+        toast.error(t(lang, 'walletNotEnoughTon'));
       } else if (isUserRejected) {
-        toast.info(lang === 'ar'
-          ? 'لم تتم الموافقة على التحويل من المحفظة. إذا كان رصيدك غير كافٍ، أضف TON ثم حاول مرة أخرى.'
-          : 'The transaction was not approved in your wallet. If your balance is low, add TON and try again.');
+        toast.info(t(lang, 'paymentRejectedToast'));
       } else if (errorText === 'wallet_balance_unavailable') {
-        toast.error(lang === 'ar'
-          ? 'تعذر التحقق من رصيد محفظتك حاليًا. حاول مرة أخرى بعد قليل.'
-          : 'Could not check your wallet balance right now. Please try again shortly.');
+        toast.error(t(lang, 'walletBalanceUnavailable'));
       } else if (errorText === 'wallet_not_connected') {
-        toast.error(lang === 'ar' ? 'يرجى ربط محفظة TON أولًا.' : 'Please connect your TON wallet first.');
+        toast.error(t(lang, 'walletNotConnected'));
+      } else if (errorText === 'wallet_disconnected') {
+        toast.error(t(lang, 'walletDisconnected'));
       } else {
         console.error('ton_purchase_failed', error);
-        toast.error(lang === 'ar'
-          ? 'تعذر إتمام عملية الشراء. تحقق من اتصال المحفظة وحاول مرة أخرى.'
-          : 'The purchase could not be completed. Check your wallet connection and try again.');
+        toast.error(t(lang, 'purchaseGenericError'));
       }
     }
   };
