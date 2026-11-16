@@ -146,6 +146,7 @@ export async function POST(req: NextRequest) {
       throw error;
     }
   } catch (error) {
+    if (error instanceof Error && error.message.includes('daily_coin_limit_reached')) return NextResponse.json({ error: 'daily_reward_limit_reached' }, { status: 429 });
     console.error('telegram_task_claim_failed', error);
     return NextResponse.json({ error: 'task_claim_failed' }, { status: 503 });
   }
