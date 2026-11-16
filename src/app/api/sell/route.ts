@@ -105,8 +105,16 @@ export async function POST(req: NextRequest) {
     const id = String(user.id);
     const tx = await db.transaction('write');
     try {
-      const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [id] });
+      const player = await tx.execute({
+        sql: "SELECT p.telegram_id,p.fee_exempt,p.mining_fee_paid_at,COALESCE(s.setting_value,'1') AS fee_enabled FROM players p LEFT JOIN app_settings s ON s.setting_key='mining_fee_enabled' WHERE p.telegram_id=? AND p.status='active'",
+        args: [id],
+      });
       if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
+      const playerRow = player.rows[0];
+      if (String(playerRow.fee_enabled) !== '0' && Number(playerRow.fee_exempt ?? 0) !== 1 && !playerRow.mining_fee_paid_at) {
+        await tx.rollback();
+        return fail('mining_activation_required', 403);
+      }
 
       // A sale is allowed once, only after the server-recorded 12-hour cycle ends.
       const cycleState = await tx.execute({
