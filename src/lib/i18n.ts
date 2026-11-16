@@ -176,6 +176,17 @@ const ar: Dict = {
   transactions: 'آخر المعاملات',
   noTransactions: 'لا توجد معاملات بعد',
 
+  // Store and leaderboard localization
+  partPaymentMethod: "الدفع عبر محفظة TON",
+  partPurchaseInstruction: "اضغط على زر الشراء لفتح محفظة TON المتصلة. ستُفعّل القطعة بعد تأكيد المعاملة على شبكة TON.",
+  buyPartNow: "شراء القطعة الآن عبر TON",
+  totalValue: "إجمالي رصيدك",
+  rankFirst: "المركز الأول",
+  rankSecond: "المركز الثاني",
+  rankThird: "المركز الثالث",
+  rankFourth: "المركز الرابع",
+  rankFifth: "المركز الخامس",
+
   // Linked TON wallet
   tonWalletTitle: "محفظة TON المرتبطة",
   tonWalletConnected: "متصلة ومحفوظة في حسابك",
@@ -698,6 +709,17 @@ const en: Dict = {
   transactions: 'Recent Transactions',
   noTransactions: 'No transactions yet',
 
+  // Store and leaderboard localization
+  partPaymentMethod: "Payment via TON Wallet",
+  partPurchaseInstruction: "Tap the purchase button to open your connected TON wallet. The item will be activated after the transaction is confirmed on the TON network.",
+  buyPartNow: "Buy Item Now with TON",
+  totalValue: "Your Total Balance",
+  rankFirst: "1st Place",
+  rankSecond: "2nd Place",
+  rankThird: "3rd Place",
+  rankFourth: "4th Place",
+  rankFifth: "5th Place",
+
   // Linked TON wallet
   tonWalletTitle: "Linked TON Wallet",
   tonWalletConnected: "Connected and saved to your account",
@@ -1213,6 +1235,17 @@ const ru: Dict = {
   speedLevel: 'Уровень скорости',
   transactions: 'Последние операции',
   noTransactions: 'Операций пока нет',
+
+  // Store and leaderboard localization
+  partPaymentMethod: "Оплата через TON-кошелёк",
+  partPurchaseInstruction: "Нажмите кнопку покупки, чтобы открыть подключённый TON-кошелёк. Предмет будет активирован после подтверждения транзакции в сети TON.",
+  buyPartNow: "Купить сейчас за TON",
+  totalValue: "Ваш общий баланс",
+  rankFirst: "1-е место",
+  rankSecond: "2-е место",
+  rankThird: "3-е место",
+  rankFourth: "4-е место",
+  rankFifth: "5-е место",
 
   // Linked TON wallet
   tonWalletTitle: "Подключённый TON-кошелёк",
