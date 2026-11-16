@@ -41,6 +41,8 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
   const startingOilRef = useRef(0);
   const oilValueRef = useRef(oilBefore);
   const saleStartedRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   oilValueRef.current = oilBefore;
 
   useEffect(() => {
@@ -116,6 +118,8 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                 timers.push(setTimeout(() => setPhase('retracting'), 1800));
                 timers.push(setTimeout(() => setPhase('departing'), 2600));
                 timers.push(setTimeout(() => setPhase('done'), 4100));
+                // Close only after the truck has completed its departure animation.
+                timers.push(setTimeout(() => onCloseRef.current(), 4700));
               }
             };
             requestAnimationFrame(animate);
