@@ -77,7 +77,7 @@ export function WalletScreen() {
         });
         if (!response.ok) throw new Error('ton_balance_request_failed');
         const data = await response.json() as { ok?: boolean; result?: string };
-        if (data.ok !== true || !/^\\d+$/.test(String(data.result ?? ''))) {
+        if (data.ok !== true || !/^\d+$/.test(String(data.result ?? ''))) {
           throw new Error('ton_balance_response_invalid');
         }
         const ton = Number(data.result) / 1_000_000_000;
