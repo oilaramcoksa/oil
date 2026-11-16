@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Check Telegram channel and group memberships
         env:
-          SITE_URL: ${{ vars.SITE_URL }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://oil-git-main-aramcooil.vercel.app' }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
