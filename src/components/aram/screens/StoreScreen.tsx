@@ -417,29 +417,14 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                 <p className="text-amber-200/70 text-xs mb-4">{selectedPart.description}</p>
               </motion.div>
 
-              <motion.div layout className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-white/[0.09] to-white/[0.03] p-3 text-left mb-3 shadow-inner">
+              <div className="rounded-2xl border border-amber-400/20 bg-white/[0.05] p-4 mb-3 text-right">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2 text-amber-200/80 text-xs font-bold">
-                    <span className="text-lg">💎</span>
-                    <span>{t(lang, 'tonWalletReceive')}</span>
-                  </div>
-                  <span className="text-[9px] rounded-full bg-emerald-400/10 text-emerald-300 px-2 py-1">{t(lang, 'tonNetwork')}</span>
+                  <span className="text-amber-200/80 text-xs font-bold">الدفع عبر محفظة TON</span>
+                  <span className="text-[10px] rounded-full bg-emerald-400/10 text-emerald-300 px-2 py-1">TON Mainnet</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1 rounded-xl bg-black/35 border border-white/10 px-3 py-3 text-[11px] leading-5 text-amber-50 font-mono break-all select-all">
-                    {WALLETS.find((w) => w.code === 'gram')?.address}
-                  </div>
-                  <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.04 }} onClick={copyPartWallet}
-                    className="shrink-0 h-12 min-w-[76px] rounded-xl border border-cyan-300/30 bg-cyan-400/10 px-3 flex flex-col items-center justify-center gap-1 text-cyan-200 text-[10px] font-black">
-                    {partCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {partCopied ? t(lang, 'copied') : t(lang, 'copy')}
-                  </motion.button>
-                </div>
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
-                  <span className="text-amber-200/70 text-xs">{t(lang, 'requiredAmount')}</span>
-                  <motion.span key={selectedPart.price} initial={{ scale: 1.2 }} animate={{ scale: 1 }} className="text-emerald-300 font-black text-2xl">{selectedPart.price} TON</motion.span>
-                </div>
-              </motion.div>
+                <div className="text-emerald-300 font-black text-2xl">{selectedPart.price} TON</div>
+                <p className="mt-2 text-[10px] leading-5 text-amber-100/60">اضغط شراء الآن لفتح محفظتك المتصلة. سيتم تفعيل القطعة بعد التحقق من المعاملة على البلوك تشين.</p>
+              </div>
 
               <AnimatePresence mode="wait">
                 {partVerifying ? (
@@ -455,7 +440,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                       <motion.span aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                         animate={{ x: ['-120%', '120%'] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }} />
                       <span className="relative flex items-center justify-center gap-2">
-                        {partFailed ? t(lang, 'paymentFailedNoActivation') : <><Zap className="w-5 h-5" /> {t(lang, 'confirmPayment')}</>}
+                        {partFailed ? t(lang, 'paymentFailedNoActivation') : <><Zap className="w-5 h-5" /> شراء الآن عبر TON</>}
                       </span>
                     </Button>
                   </motion.div>
