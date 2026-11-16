@@ -8,7 +8,7 @@ import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Store, Zap, Check, Copy, ChevronLeft, Loader2, Sparkles, Coins, Droplet, Clock } from 'lucide-react';
-import { PACKAGES, WALLETS, packageTotal, type UpgradePackage, type CryptoWallet } from '@/lib/wallets';
+import { PACKAGES, WALLETS, packageTotal, UPGRADE_DURATION_MS, type UpgradePackage } from '@/lib/wallets';
 import { CryptoIcon } from '@/components/aram/CryptoIcon';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
@@ -65,16 +65,12 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   const [selectedPart, setSelectedPart] = useState<{ id: string; nameKey: string; label: string; description: string; price: number; multiplier: string; image: string; descriptionKey: string } | null>(null);
   const [partVerifying, setPartVerifying] = useState(false);
   const [partFailed, setPartFailed] = useState(false);
-  const [partCopied, setPartCopied] = useState(false);
-  const [wallet, setWallet] = useState<CryptoWallet | null>(WALLETS.find((w) => w.code === 'gram') ?? null);
   const [verifying, setVerifying] = useState(false);
   const [paymentFailed, setPaymentFailed] = useState(false);
-  const [copiedAddr, setCopiedAddr] = useState(false);
 
   const openPackage = (p: UpgradePackage) => {
     haptic('medium');
     setSelected(p);
-    setWallet(WALLETS.find((w) => w.code === 'gram') ?? null);
     setVerifying(false);
     setPaymentFailed(false);
   };
@@ -83,26 +79,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     if (verifying) return;
     haptic('light');
     setSelected(null);
-    setWallet(null);
     setPaymentFailed(false);
-  };
-
-  const selectWallet = (w: CryptoWallet) => {
-    haptic('light');
-    setWallet(w);
-  };
-
-  const copyAddr = async () => {
-    if (!wallet) return;
-    try {
-      await navigator.clipboard.writeText(wallet.address);
-      setCopiedAddr(true);
-      haptic('medium');
-      toast.success(t(lang, 'addressCopied'));
-      setTimeout(() => setCopiedAddr(false), 2000);
-    } catch {
-      toast.error(t(lang, 'copyFailed'));
-    }
   };
 
   const sendTonPurchase = async (product: { packageId?: string; itemId?: string }, setBusy: (value: boolean) => void, onConfirmed: () => void) => {
@@ -224,20 +201,6 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: t(lang, 'wheelExpansionDesc'), price: 1, multiplier: '×2', image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
   ];
 
-  const copyPartWallet = async () => {
-    const address = WALLETS.find((w) => w.code === 'gram')?.address;
-    if (!address) return;
-    try {
-      await navigator.clipboard.writeText(address);
-      setPartCopied(true);
-      haptic('medium');
-      toast.success(t(lang, 'addressCopied'));
-      window.setTimeout(() => setPartCopied(false), 2200);
-    } catch {
-      toast.error(t(lang, 'copyAddressFailed'));
-    }
-  };
-
   const buyPart = async () => {
     if (!selectedPart || partVerifying) return;
     setPartFailed(false);
@@ -245,7 +208,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   };
 
   return (
-    <div className="h-full min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain px-3 pt-2 pb-6 aram-scroll" style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
+    <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="h-full min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain px-3 pt-2 pb-6 aram-scroll" style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
       {/* Title */}
       <div className="flex items-center gap-2 mb-3">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-lg">
@@ -334,10 +297,10 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                   </div>
                   <div>
                     <div className="text-sm font-black text-[#2a1c0a]">
-                      {t(lang, 'speedPackage')} {p.id.replace('_', ' ').toUpperCase()}
+                      {t(lang, p.id === 'fast_oil' ? 'packageFastOil' : p.id === 'king_oil' ? 'packageKingOil' : 'packageSuperOil')}
                     </div>
                     <div className="text-[11px] text-amber-900/60 font-bold">
-                      {({ fast_oil: 2.5, king_oil: 8, super_oil: 21 } as Record<string, number>)[p.id]} TON · {p.bonusPct > 0 ? `+${p.bonusPct}% ${t(lang, 'bonus')}` : t(lang, 'basePower')}
+                      {p.priceTon} TON · {p.bonusPct > 0 ? `+${p.bonusPct}% ${t(lang, 'bonus')}` : t(lang, 'basePower')}
                     </div>
                   </div>
                 </div>
@@ -379,14 +342,14 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                 onClick={() => openPackage(p)}
                 className={`mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r ${p.color} px-4 py-2.5 text-sm font-black text-white shadow-md transition hover:brightness-105 active:scale-[0.99]`}
               >
-                {t(lang, 'buyThisPackage')}
+                {t(lang, 'viewPackageDetails')}
                 <span aria-hidden="true">←</span>
               </button>
             </motion.div>
               <div className="relative mt-1 overflow-hidden rounded-xl border-2 border-emerald-300/70 bg-gradient-to-br from-emerald-50 via-white to-amber-50 px-3 py-2 shadow-sm">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className={`inline-flex items-center rounded-full bg-gradient-to-r ${p.color} px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-white shadow-sm`}>
-                    {p.id.replace('_', ' ')}
+                    {t(lang, p.id === 'fast_oil' ? 'packageFastOil' : p.id === 'king_oil' ? 'packageKingOil' : 'packageSuperOil')}
                   </span>
                   <span className="text-[9px] font-black text-emerald-800">{t(lang, 'monthlyGrowthForPackage')}</span>
                 </div>
@@ -436,7 +399,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                     <Zap className="w-3 h-3" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-[#2a1c0a]">{pkg.id.replace('_', ' ').toUpperCase()} · {({ fast_oil: 2.5, king_oil: 8, super_oil: 21 } as Record<string, number>)[pkg.id]} TON</div>
+                    <div className="text-xs font-bold text-[#2a1c0a]">{t(lang, pkg.id === 'fast_oil' ? 'packageFastOil' : pkg.id === 'king_oil' ? 'packageKingOil' : 'packageSuperOil')} · {pkg.priceTon} TON</div>
                     <div className="flex items-center gap-1 text-[10px] text-amber-900/50 truncate">
                       {w && <CryptoIcon code={w.code} className="w-3 h-3 flex-shrink-0" />}
                       <span className="truncate">{w?.label} · {u.txHash.slice(0, 10)}...</span>
@@ -557,7 +520,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                   <ChevronLeft className="w-4 h-4" style={{ transform: lang === 'ar' ? 'scaleX(-1)' : 'none' }} />
                 </button>
                 <h3 className="text-amber-100 font-black text-sm">
-                  {t(lang, 'speedPackage')} {selected.id.replace('_', ' ').toUpperCase()}
+                  {t(lang, 'packageDetails')} · t(lang, selected.id === 'fast_oil' ? 'packageFastOil' : selected.id === 'king_oil' ? 'packageKingOil' : 'packageSuperOil')}
                 </h3>
                 <div className="w-8" />
               </div>
@@ -589,95 +552,29 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                   </div>
                 </div>
 
-                {/* Payment currency picker */}
-                {!wallet ? (
-                  <div>
-                    <h4 className="text-amber-100 font-bold text-xs mb-2 uppercase">{t(lang, 'selectCurrency')}</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {WALLETS.map((w) => (
-                        <button
-                          key={w.code}
-                          onClick={() => selectWallet(w)}
-                          className="aram-card-dark rounded-xl p-3 hover:border-amber-400 transition-colors text-left"
-                        >
-                          <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center mb-1.5 overflow-hidden ring-1 ring-white/10">
-                            <CryptoIcon code={w.code} className="w-8 h-8" />
-                          </div>
-                          <div className="text-amber-100 font-black text-sm">{w.label}</div>
-                          <div className="text-[10px] text-amber-200/50 font-bold">{w.network}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="aram-card-dark rounded-2xl p-3"
-                  >
-                    {/* Selected wallet */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center ring-1 ring-white/10 overflow-hidden">
-                        <CryptoIcon code={wallet.code} className="w-7 h-7" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-amber-100 font-black text-sm">{wallet.label}</div>
-                        <div className="text-[10px] text-amber-200/60 font-bold">{wallet.network}</div>
-                      </div>
-                      <button
-                        onClick={() => setWallet(null)}
-                        className="text-[10px] text-amber-200/70 font-bold underline"
-                      >
-                        {t(lang, 'cancel')}
-                      </button>
-                    </div>
-
-                    {/* Address */}
-                    <div className="text-amber-200/70 text-[10px] font-bold mb-1">{t(lang, 'payToAddress')}</div>
-                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/40 border border-amber-500/20 mb-2">
-                      <span className="text-[10px] text-amber-100 font-mono truncate flex-1 break-all">{wallet.address}</span>
-                      <button onClick={copyAddr} className="flex-shrink-0 w-7 h-7 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 flex items-center justify-center text-amber-300">
-                        {copiedAddr ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-
-                    {/* Amount */}
-                    <div className="flex items-center justify-between mb-2 px-1">
-                      <span className="text-[10px] text-amber-200/60 font-bold uppercase">TON Mainnet</span>
-                      <span className="text-amber-300 font-black tabular-nums">{({ fast_oil: 2.5, king_oil: 8, super_oil: 21 } as Record<string, number>)[selected.id]} TON</span>
-                    </div>
-
-                    {/* Note */}
-                    <div className="px-2 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-2">
-                      <p className="text-[10px] text-amber-200/80 font-bold leading-relaxed">
-                        ⓘ {t(lang, 'paymentNote')}
-                      </p>
-                    </div>
-
-                    {/* Confirm */}
-                    <Button
-                      onClick={confirmPaid}
-                      disabled={verifying || paymentFailed}
-                      className="w-full h-12 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-sm disabled:opacity-50"
-                    >
-                      {verifying ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          {t(lang, 'verifying')}
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-4 h-4 mr-2" />
-                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : t(lang, 'buyPartNow')}
-                        </>
-                      )}
-                    </Button>
-                  </motion.div>
-                )}
-
+                <div className="aram-card-dark rounded-2xl border border-amber-400/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-amber-200/70">{t(lang, 'packagePrice')}</span><span className="text-2xl font-black text-emerald-300 tabular-nums">{selected.priceTon} TON</span></div>
+                  <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-amber-200/70">{t(lang, 'packageDuration')}</span><span className="text-sm font-black text-amber-100">{Math.round(UPGRADE_DURATION_MS / 86400000)} {t(lang, 'days')}</span></div>
+                  <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-amber-200/70">{t(lang, 'packagePaymentNetwork')}</span><span className="rounded-full bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-300">TON Mainnet</span></div>
+                  <p className="rounded-xl border border-amber-400/15 bg-amber-400/5 p-3 text-[11px] leading-6 text-amber-100/70">{t(lang, 'packagePaymentHint')}</p>
+                </div>
+                <AnimatePresence mode="wait">
+                  {verifying ? (
+                    <motion.div key="package-checking" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-center text-amber-100 text-sm font-bold">
+                      <Loader2 className="inline w-5 h-5 animate-spin mr-2 text-emerald-300" />{t(lang, 'packagePaymentProcessing')}
+                    </motion.div>
+                  ) : (
+                    <motion.div key="package-buy" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                      <Button onClick={confirmPaid} disabled={verifying || paymentFailed} className={`relative w-full h-14 overflow-hidden rounded-2xl bg-gradient-to-r ${selected.color} text-white font-black text-base shadow-lg disabled:opacity-50`}>
+                        <motion.span aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" animate={{ x: ['-120%', '120%'] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }} />
+                        <span className="relative flex items-center justify-center gap-2"><Zap className="w-5 h-5" />{t(lang, 'packageBuyNow')}</span>
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 {/* Tiny reminder */}
                 <p className="text-[9px] text-amber-200/40 font-bold text-center leading-relaxed">
-                  ⚠ {t(lang, 'disclaimerBody')}
+                  ⚠ {t(lang, 'packageDisclaimer')}
                 </p>
               </div>
             </motion.div>
