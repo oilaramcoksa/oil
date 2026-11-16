@@ -102,7 +102,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
             }
             const sale = { sold: Number(data.sold), coinsEarned: Number(data.coinsEarned) };
             soldRef.current = sale.sold;
-            applyServerSale(sale.sold, sale.coinsEarned, data.wallet.coins);
+            applyServerSale(sale.sold, sale.coinsEarned, data.wallet.oil, data.wallet.coins);
             const start = performance.now();
             const duration = Math.min(1400, 600 + sale.sold * 6);
             const animate = (now: number) => {
