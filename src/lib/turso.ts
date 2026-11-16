@@ -574,6 +574,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
           )=3 THEN 2000 ELSE 1000 END
         FROM ledger_entries l
         WHERE l.asset='coins' AND l.amount>0 AND l.entry_type<>'opening_balance'
+          AND l.entry_type NOT IN ('opening_balance','withdrawal_refund')
           AND date(l.created_at)=date('now')
         GROUP BY l.telegram_id`);
       await db.execute('DROP TRIGGER IF EXISTS player_wallet_daily_coin_cap');
