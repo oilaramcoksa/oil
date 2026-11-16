@@ -6,7 +6,7 @@
   "lang": "ar",
   "dir": "rtl",
   "start_url": "/admin",
-  "scope": "/",
+  "scope": "/admin",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#090d16",
