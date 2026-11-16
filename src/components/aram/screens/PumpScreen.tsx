@@ -36,6 +36,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const lang = useGame((s) => s.lang);
   const oil = useGame((s) => s.oil);
   const [feeActivated, setFeeActivated] = useState(false);
+  const [feeStatusReady, setFeeStatusReady] = useState(false);
   const [feeGateOpen, setFeeGateOpen] = useState(false);
   const coins = useGame((s) => s.coins);
   const upgrades = useGame((s) => s.upgrades);
@@ -132,12 +133,18 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'activation_status_unavailable');
         if (active) {
-          setFeeActivated(data.required !== true);
+          const required = data.required === true;
+          setFeeActivated(!required);
+          setFeeStatusReady(true);
+          setFeeGateOpen(required);
+          // A paid player resumes the existing server-side cycle silently.
+          // "tick" settles elapsed production but never starts a new cycle.
+          if (!required) void refreshMining('tick').catch(() => undefined);
         }
       })
-      .catch(() => { if (active) setFeeActivated(false); });
+      .catch(() => { if (active) setFeeStatusReady(true); });
     return () => { active = false; };
-  }, [initData]);
+  }, [initData, refreshMining]);
 
   const handleTap = () => {
     if (!feeActivated) {
@@ -250,7 +257,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         </AnimatePresence>
 
         {/* Pump OFF overlay */}
-        {!active && (
+        {feeStatusReady && !active && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
