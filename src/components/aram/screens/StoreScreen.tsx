@@ -668,7 +668,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                       ) : (
                         <>
                           <Check className="w-4 h-4 mr-2" />
-                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : '{t(lang, 'buyPartNow')}'}
+                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : t(lang, 'buyPartNow')}
                         </>
                       )}
                     </Button>
