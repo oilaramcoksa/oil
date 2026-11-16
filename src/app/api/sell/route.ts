@@ -123,10 +123,11 @@ export async function POST(req: NextRequest) {
       });
       const cycleEndsAt = Number(cycleState.rows[0]?.cycle_ends_at ?? 0);
       if (!Number.isSafeInteger(cycleEndsAt) || cycleEndsAt <= 0) { await tx.rollback(); return fail('mining_cycle_not_started', 409); }
-      const cycleKey = `oil_sale_cycle:${cycleEndsAt}:coins`;
+      const cycleKey = `oil_sale_cycle:${id}:${cycleEndsAt}:coins`;
+      const legacyCycleKey = `oil_sale_cycle:${cycleEndsAt}:coins`;
       const previous = await tx.execute({
-        sql: 'SELECT metadata_json FROM ledger_entries WHERE telegram_id=? AND idempotency_key=?',
-        args: [id, cycleKey],
+        sql: 'SELECT metadata_json FROM ledger_entries WHERE telegram_id=? AND idempotency_key IN (?,?)',
+        args: [id, cycleKey, legacyCycleKey],
       });
       if (previous.rows.length) {
         const wallet = await tx.execute({ sql: 'SELECT oil_balance, coins_balance FROM player_wallets WHERE telegram_id=?', args: [id] });
@@ -160,7 +161,7 @@ export async function POST(req: NextRequest) {
         sql: `INSERT INTO ledger_entries
           (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'oil', 'oil_sale', ?, 0, 'oil_sale', ?, ?, ?)`,
-        args: [randomUUID(), id, -sold, saleId, `oil_sale_cycle:${cycleEndsAt}:oil`, metadata],
+        args: [randomUUID(), id, -sold, saleId, `oil_sale_cycle:${id}:${cycleEndsAt}:oil`, metadata],
       });
       await tx.execute({
         sql: `INSERT INTO ledger_entries
