@@ -55,7 +55,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       });
     }).catch((error) => {
       console.error('store_tonconnect_init_failed', error);
-      if (alive) toast.error(lang === 'ar' ? 'تعذر تهيئة محفظة TON. أعد فتح المتجر.' : 'Could not initialize TON wallet. Reopen the store.');
+      if (alive) toast.error(t(lang, 'walletConnectFailed'));
     });
     return () => {
       alive = false;
@@ -101,7 +101,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       toast.success(t(lang, 'addressCopied'));
       setTimeout(() => setCopiedAddr(false), 2000);
     } catch {
-      toast.error('Copy failed');
+      toast.error(t(lang, 'copyFailed'));
     }
   };
 
@@ -109,12 +109,12 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     const telegramInitData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
     if (!telegramInitData) { toast.error(t(lang, 'telegramRequired')); return; }
     if (!tonConnector) {
-      toast.error(lang === 'ar' ? 'محفظة TON لم تجهز بعد. حاول مرة أخرى.' : 'TON wallet is not ready yet. Try again.');
+      toast.error(t(lang, 'walletNotReady'));
       return;
     }
     if (!tonConnector.connected) {
       await tonConnector.openModal();
-      toast.info(lang === 'ar' ? 'اربط محفظتك أولًا، ثم اضغط شراء الآن.' : 'Connect your wallet first, then tap Buy.');
+      toast.info(t(lang, 'walletConnectFirst'));
       return;
     }
     setBusy(true);
@@ -127,14 +127,38 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'payment_request_failed');
       const payment = data.payment;
-      if (!tonConnector.connected) throw new Error(lang === 'ar' ? 'انقطع اتصال المحفظة. أعد توصيلها وحاول مجددًا.' : 'Wallet disconnected. Reconnect and try again.');
+      if (!tonConnector.connected) throw new Error('wallet_disconnected');
+      // Check the connected TON Mainnet wallet balance before opening its
+      // confirmation screen. Keep a small reserve for network fees.
+      const accountAddress = tonConnector.account?.address;
+      if (!accountAddress) throw new Error('wallet_not_connected');
+      const balanceUrl = new URL('https://toncenter.com/api/v2/getAddressBalance');
+      balanceUrl.searchParams.set('address', accountAddress);
+      const balanceHeaders: Record<string, string> = {};
+      if (process.env.NEXT_PUBLIC_TONCENTER_API_KEY) {
+        balanceHeaders['X-API-Key'] = process.env.NEXT_PUBLIC_TONCENTER_API_KEY;
+      }
+      const balanceResponse = await fetch(balanceUrl.toString(), {
+        headers: balanceHeaders,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!balanceResponse.ok) throw new Error('wallet_balance_unavailable');
+      const balanceData = await balanceResponse.json().catch(() => ({})) as { ok?: boolean; result?: string };
+      if (balanceData.ok !== true || !/^\\d+$/.test(String(balanceData.result ?? ''))) {
+        throw new Error('wallet_balance_unavailable');
+      }
+      const requiredNanoton = BigInt(String(payment.amountNanoton)) + 50_000_000n;
+      if (BigInt(balanceData.result) < requiredNanoton) {
+        throw new Error('insufficient_ton_balance');
+      }
       const payload = beginCell().storeUint(0, 32).storeStringTail(String(payment.comment)).endCell().toBoc().toString('base64');
       await tonConnector.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
         network: '-239',
         messages: [{ address: String(payment.destination), amount: String(payment.amountNanoton), payload }],
       });
-      toast.info('تم إرسال طلب التحويل. جارٍ التحقق من TON Mainnet تلقائيًا…');
+      toast.info(t(lang, 'paymentSentVerifying'));
       const startedAt = Date.now();
       const poll = async (): Promise<void> => {
         try {
@@ -144,21 +168,40 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
           const statusData = await statusResponse.json().catch(() => ({}));
           if (!statusResponse.ok) throw new Error(statusData.error ?? 'payment_status_unavailable');
           if (statusData.payment?.status === 'confirmed') {
-            setBusy(false); onConfirmed(); toast.success('تم تأكيد الدفع وتفعيل المنتج تلقائيًا 🎉'); return;
+            setBusy(false); onConfirmed(); toast.success(t(lang, 'paymentConfirmedToast')); return;
           }
           if (['expired', 'rejected'].includes(String(statusData.payment?.status)) || Date.now() - startedAt > 35 * 60 * 1000) {
-            setBusy(false); toast.error('انتهت مهلة الدفع أو لم يتم العثور على المعاملة. لم يتم تفعيل المنتج.'); return;
+            setBusy(false); toast.error(t(lang, 'paymentExpiredToast')); return;
           }
           window.setTimeout(() => { void poll(); }, 7000);
         } catch {
-          if (Date.now() - startedAt > 35 * 60 * 1000) { setBusy(false); toast.error('تعذر التحقق من الدفع.'); }
+          if (Date.now() - startedAt > 35 * 60 * 1000) { setBusy(false); toast.error(t(lang, 'paymentVerifyFailedToast')); }
           else window.setTimeout(() => { void poll(); }, 10000);
         }
       };
       void poll();
     } catch (error) {
       setBusy(false);
-      toast.error(error instanceof Error ? error.message : 'تعذر فتح محفظة TON');
+      const raw = error as { code?: number | string; message?: string };
+      const errorText = String(raw?.message ?? '');
+      const isInsufficient = errorText === 'insufficient_ton_balance' ||
+        /insufficient funds|not enough ton|not enough balance|insufficient balance/i.test(errorText);
+      const isUserRejected = Number(raw?.code) === 300 ||
+        /UserRejectsError|User declined the transaction|user rejected|user declined/i.test(errorText);
+      if (isInsufficient) {
+        toast.error(t(lang, 'walletNotEnoughTon'));
+      } else if (isUserRejected) {
+        toast.info(t(lang, 'paymentRejectedToast'));
+      } else if (errorText === 'wallet_balance_unavailable') {
+        toast.error(t(lang, 'walletBalanceUnavailable'));
+      } else if (errorText === 'wallet_not_connected') {
+        toast.error(t(lang, 'walletNotConnected'));
+      } else if (errorText === 'wallet_disconnected') {
+        toast.error(t(lang, 'walletDisconnected'));
+      } else {
+        console.error('ton_purchase_failed', error);
+        toast.error(t(lang, 'purchaseGenericError'));
+      }
     }
   };
 
@@ -177,7 +220,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     { id: 'oil_truck' as const, nameKey: 'oilTruckPart', label: t(lang, 'oilTruckPart'), description: lang === 'ar' ? 'يعزز كفاءة نقل النفط ويرفع الإنتاج إلى 1.5×.' : t(lang, 'oilTruckDescription'), price: 1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
     { id: 'new_background', nameKey: 'specialBackgroundName', label: t(lang, 'specialBackgroundName'), description: lang === 'ar' ? 'خلفية مميزة مع مضاعف إنتاج 1.5×.' : t(lang, 'specialBackgroundDesc'), price: 1, multiplier: '×1.5', image: '/images/shop/day.png', descriptionKey: 'specialBackgroundDesc' },
     { id: 'vip_badge', nameKey: 'vipBadgeName', label: t(lang, 'vipBadgeName'), description: lang === 'ar' ? 'شارة VIP ذهبية تمنحك مضاعف إنتاج 5×.' : t(lang, 'vipBadgeDesc'), price: 5, multiplier: '×5', image: '/images/shop/vip.png', descriptionKey: 'vipBadgeDesc' },
-    { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: lang === 'ar' ? 'توسعة ×2 لمدة 3 أيام أو 5 رهانات، أيهما أقرب.' : '2× wheel expansion for 3 days or 5 bets, whichever comes first.', price: 1, multiplier: '×2', image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
+    { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: t(lang, 'wheelExpansionDesc'), price: 1, multiplier: '×2', image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
   ];
 
   const copyPartWallet = async () => {
