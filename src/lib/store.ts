@@ -166,13 +166,13 @@ function weekKey(d = new Date()): string {
 function defaultTasks(): TaskState[] {
   return [
     { id: 'd_login', kind: 'login', period: 'daily', target: 1, progress: 0, reward: 100, claimed: false },
-    { id: 'd_taps', kind: 'taps', period: 'daily', target: 100, progress: 0, reward: 250, claimed: false },
-    { id: 'd_sell', kind: 'sell', period: 'daily', target: 3, progress: 0, reward: 300, claimed: false },
-    { id: 'd_invite', kind: 'invite', period: 'daily', target: 3, progress: 0, reward: 500, claimed: false },
-    { id: 'd_upgrade', kind: 'upgrade', period: 'daily', target: 1, progress: 0, reward: 1000, claimed: false },
-    { id: 'w_taps', kind: 'weekTaps', period: 'weekly', target: 1000, progress: 0, reward: 2000, claimed: false },
-    { id: 'w_sell', kind: 'weekSell', period: 'weekly', target: 20, progress: 0, reward: 3000, claimed: false },
-    { id: 'w_invite', kind: 'weekInvite', period: 'weekly', target: 10, progress: 0, reward: 5000, claimed: false },
+    { id: 'd_taps', kind: 'taps', period: 'daily', target: 100, progress: 0, reward: 200, claimed: false },
+    { id: 'd_sell', kind: 'sell', period: 'daily', target: 3, progress: 0, reward: 200, claimed: false },
+    { id: 'd_invite', kind: 'invite', period: 'daily', target: 3, progress: 0, reward: 200, claimed: false },
+    { id: 'd_upgrade', kind: 'upgrade', period: 'daily', target: 1, progress: 0, reward: 300, claimed: false },
+    { id: 'w_taps', kind: 'weekTaps', period: 'weekly', target: 1000, progress: 0, reward: 500, claimed: false },
+    { id: 'w_sell', kind: 'weekSell', period: 'weekly', target: 20, progress: 0, reward: 750, claimed: false },
+    { id: 'w_invite', kind: 'weekInvite', period: 'weekly', target: 10, progress: 0, reward: 1000, claimed: false },
   ];
 }
 
