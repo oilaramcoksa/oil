@@ -408,6 +408,12 @@ export async function ensureDatabaseSchema(): Promise<void> {
           args: [migration.version],
         });
       }
+      await db.execute(`CREATE TABLE IF NOT EXISTS player_special_parts (
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        part_id TEXT NOT NULL, purchased_at INTEGER NOT NULL, expires_at INTEGER,
+        payment_id TEXT NOT NULL UNIQUE, usage_count INTEGER NOT NULL DEFAULT 0 CHECK(usage_count >= 0),
+        PRIMARY KEY(telegram_id,part_id,payment_id)
+      )`);
       const legacyColumns: Array<[string, string, string]> = [
         ['player_wallets', 'usd_micros', 'INTEGER NOT NULL DEFAULT 0'],
         ['player_wallets', 'usd_locked_micros', 'INTEGER NOT NULL DEFAULT 0'],
@@ -426,6 +432,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
         ['task_claims', 'active', 'INTEGER NOT NULL DEFAULT 1'],
         ['task_claims', 'last_checked_at', 'TEXT'],
         ['task_claims', 'revoked_at', 'TEXT'],
+        ['player_special_parts', 'usage_count', 'INTEGER NOT NULL DEFAULT 0 CHECK(usage_count >= 0)'],
       ];
       for (const [table, column, definition] of legacyColumns) {
         const info = await db.execute(`PRAGMA table_info(${table})`);
@@ -577,48 +584,36 @@ export async function ensureDatabaseSchema(): Promise<void> {
           AND l.entry_type NOT IN ('opening_balance','withdrawal_refund')
           AND date(l.created_at)=date('now')
         GROUP BY l.telegram_id`);
+      // Central rolling 24-hour cap for every positive coin credit.
+      const ownedPartsSql = `SELECT part_id FROM player_parts
+        WHERE telegram_id=NEW.telegram_id AND quantity>0
+        UNION SELECT part_id FROM player_special_parts
+        WHERE telegram_id=NEW.telegram_id
+          AND (expires_at IS NULL OR expires_at > CAST(strftime('%s','now') AS INTEGER)*1000)`;
+      const dailyTierSql = `CASE
+        WHEN (SELECT COUNT(DISTINCT part_id) FROM (${ownedPartsSql})) >= 6 THEN 2000
+        WHEN EXISTS (SELECT 1 FROM player_upgrades u
+          WHERE u.telegram_id=NEW.telegram_id AND u.status='active'
+            AND u.expires_at>CURRENT_TIMESTAMP
+            AND u.package_id IN ('fast_oil','king_oil','super_oil'))
+          AND (SELECT COUNT(DISTINCT part_id) FROM (${ownedPartsSql})) >= 1 THEN 1500
+        ELSE 1000 END`;
       await db.execute('DROP TRIGGER IF EXISTS player_wallet_daily_coin_cap');
       await db.execute('DROP TRIGGER IF EXISTS player_wallet_daily_coin_budget');
-      await db.execute(`CREATE TRIGGER IF NOT EXISTS player_wallet_daily_coin_cap
+      await db.execute('DROP TRIGGER IF EXISTS player_wallet_daily_coin_cap_v2');
+      await db.execute(`CREATE TRIGGER player_wallet_daily_coin_cap_v2
         BEFORE UPDATE OF coins_balance ON player_wallets
         WHEN NEW.coins_balance>OLD.coins_balance AND NEW.coins_locked>=OLD.coins_locked
         BEGIN
           SELECT CASE WHEN
-            COALESCE((SELECT coins_earned FROM player_daily_coin_budget
-              WHERE telegram_id=NEW.telegram_id AND day_key=date('now')),0)
-            + (NEW.coins_balance-OLD.coins_balance)
-            > CASE WHEN (
-              SELECT COUNT(DISTINCT u.package_id) FROM player_upgrades u
-              WHERE u.telegram_id=NEW.telegram_id AND u.status='active'
-                AND u.expires_at>CURRENT_TIMESTAMP
-                AND u.package_id IN ('fast_oil','king_oil','super_oil')
-            )=3 AND (
-              SELECT COUNT(DISTINCT p.part_id) FROM player_parts p
-              WHERE p.telegram_id=NEW.telegram_id AND p.quantity>0
-                AND p.part_id IN ('oil_pump','fuel_station','oil_truck')
-            )=3 THEN 2000 ELSE 1000 END
+            COALESCE((SELECT SUM(amount) FROM ledger_entries
+              WHERE telegram_id=NEW.telegram_id AND asset='coins' AND amount>0
+                AND entry_type NOT IN ('opening_balance','withdrawal_refund')
+                AND datetime(created_at)>=datetime('now','-24 hours')),0)
+            + (NEW.coins_balance-OLD.coins_balance) > ${dailyTierSql}
           THEN RAISE(ABORT,'daily_coin_limit_reached') END;
         END`);
-      await db.execute(`CREATE TRIGGER IF NOT EXISTS player_wallet_daily_coin_budget
-        AFTER UPDATE OF coins_balance ON player_wallets
-        WHEN NEW.coins_balance>OLD.coins_balance AND NEW.coins_locked>=OLD.coins_locked
-        BEGIN
-          INSERT INTO player_daily_coin_budget(telegram_id,day_key,coins_earned,daily_limit)
-          VALUES(NEW.telegram_id,date('now'),NEW.coins_balance-OLD.coins_balance,
-            CASE WHEN (
-              SELECT COUNT(DISTINCT u.package_id) FROM player_upgrades u
-              WHERE u.telegram_id=NEW.telegram_id AND u.status='active'
-                AND u.expires_at>CURRENT_TIMESTAMP
-                AND u.package_id IN ('fast_oil','king_oil','super_oil')
-            )=3 AND (
-              SELECT COUNT(DISTINCT p.part_id) FROM player_parts p
-              WHERE p.telegram_id=NEW.telegram_id AND p.quantity>0
-                AND p.part_id IN ('oil_pump','fuel_station','oil_truck')
-            )=3 THEN 2000 ELSE 1000 END)
-          ON CONFLICT(telegram_id,day_key) DO UPDATE SET
-            coins_earned=coins_earned+excluded.coins_earned,
-            daily_limit=excluded.daily_limit,updated_at=CURRENT_TIMESTAMP;
-        END`);
+      // The old day-key budget table is retained for historical reporting only.
     })().catch((error) => {
       initialized = undefined;
       throw error;
