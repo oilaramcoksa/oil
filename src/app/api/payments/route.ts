@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
             String(msg.value??'0')===String(payload.amountNanoton) &&
             String(msg.message??'').trim()===String(payload.comment) &&
             Number(item.utime??0)>=created-30 && !!item.transaction_id?.hash &&
-            item.description?.aborted!==true;
+            item.description?.aborted!==true && item.description?.compute_ph?.success!==false && item.description?.action?.success!==false;
         });
         if(foundTx?.transaction_id?.hash) await activatePurchase(id,String(user.id),String(foundTx.transaction_id.hash));
       }
