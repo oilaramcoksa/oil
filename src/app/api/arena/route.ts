@@ -259,7 +259,7 @@ export async function GET(req: NextRequest) {
       args: [playerId],
     });
     const personalRow = personalPrevious.rows[0];
-    let personalLastResult = null;
+    let personalLastResult: { id: string; winnerType: string; winnerTelegramId: string | null; totalEntries: number; wheelStopDegrees: number; completedAt: string | null; seedCommitment: string | null; outcomeSeed: string | null; algorithmVersion: number; resultProofHash: string | null; entries: ReturnType<typeof toPublicEntry>[] } | null = null;
     if (personalRow) {
       const personalEntries = await readEntries(db, String(personalRow.id));
       personalLastResult = {

@@ -240,6 +240,15 @@ export const useGame = create<GameState>()(
       // compatibility shims; PumpScreen calls /api/mining/action instead.
       tapPump: () => ({ oilAdded: 0, newTotal: get().oil, full: false, cycleStarted: false }),
 
+      // Legacy client-side economy actions are intentionally inert. Mining,
+      // sales, purchases, tasks and rewards must be validated by server APIs.
+      sellOil: () => ({ sold: 0, coinsEarned: 0 }),
+      buyUpgrade: () => {},
+      claimTask: () => ({ ok: false }),
+      addReferral: () => {},
+      resetDailyIfNeeded: () => {},
+      resetWeeklyIfNeeded: () => {},
+
       startCycle: () => {
         // A cycle can only be created by the authenticated mining API.
       },
