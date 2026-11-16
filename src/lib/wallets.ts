@@ -78,7 +78,8 @@ export const UPGRADE_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export interface UpgradePackage {
   id: 'super_oil' | 'king_oil' | 'fast_oil';
-  priceUSD: number;       // display only — actual payment is in chosen crypto
+  priceUSD: number;       // reference price in USD
+  priceTon: number;       // fixed TON Mainnet checkout price
   speedBase: number;      // base speed points (in-game only)
   bonusPct: number;       // e.g. 25 for +25%
   oilPerTap: number;      // oil drops produced per tap with this tier
@@ -91,6 +92,7 @@ export const PACKAGES: UpgradePackage[] = [
   {
     id: 'fast_oil',
     priceUSD: 3,
+    priceTon: 2.5,
     speedBase: 60000,
     bonusPct: 25,
     oilPerTap: 6,
@@ -101,6 +103,7 @@ export const PACKAGES: UpgradePackage[] = [
   {
     id: 'king_oil',
     priceUSD: 10,
+    priceTon: 8,
     speedBase: 120000,
     bonusPct: 25,
     oilPerTap: 12,
@@ -111,6 +114,7 @@ export const PACKAGES: UpgradePackage[] = [
   {
     id: 'super_oil',
     priceUSD: 25,
+    priceTon: 21,
     speedBase: 200000,
     bonusPct: 25,
     oilPerTap: 25,
