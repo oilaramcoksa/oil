@@ -18,6 +18,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const tasks = useGame((s) => s.tasks);
   const claimTask = useGame((s) => s.claimTask);
   const applyServerTaskReward = useGame((s) => s.applyServerTaskReward);
+  const applyServerAdReward = useGame((s) => s.applyServerAdReward);
   const syncServerWalletCoins = useGame((s) => s.syncServerWalletCoins);
   const loginStreak = useGame((s) => s.loginStreak);
   const luckyBoxLastOpened = useGame((s) => s.luckyBoxLastOpened);

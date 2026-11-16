@@ -246,6 +246,64 @@ export const useGame = create<GameState>()(
 
       processPassive: () => ({ litersAdded: 0, cycleEnded: false }),
 
+      applyServerSale: (sold, coinsEarned, walletCoins) => {
+        const s = get();
+        const tx: Transaction = {
+          id: makeId(),
+          type: 'sell',
+          amount: coinsEarned,
+          label: 'txSell',
+          createdAt: Date.now(),
+          meta: { sold },
+        };
+        set({
+          oil: Math.max(0, s.oil - sold),
+          coins: Math.max(0, walletCoins),
+          coinsEarnedThisMonth: s.coinsEarnedThisMonth + Math.max(0, coinsEarned),
+          sellsToday: s.sellsToday + 1,
+          sellsThisWeek: s.sellsThisWeek + 1,
+          sellsTotal: s.sellsTotal + 1,
+          qualifiedSellsToday: s.qualifiedSellsToday + (coinsEarned >= 300 ? 1 : 0),
+          transactions: [tx, ...s.transactions].slice(0, 50),
+        });
+      },
+
+      applyServerAdReward: (reward, walletCoins) => {
+        const s = get();
+        const tx: Transaction = {
+          id: makeId(),
+          type: 'ad',
+          amount: reward,
+          label: 'txAdReward',
+          createdAt: Date.now(),
+        };
+        set({
+          coins: Math.max(0, walletCoins),
+          coinsEarnedThisMonth: s.coinsEarnedThisMonth + Math.max(0, reward),
+          transactions: [tx, ...s.transactions].slice(0, 50),
+        });
+      },
+
+      applyServerTaskReward: (reward, walletCoins, taskId) => {
+        const s = get();
+        const tx: Transaction = {
+          id: makeId(),
+          type: 'task',
+          amount: reward,
+          label: 'txTaskReward',
+          createdAt: Date.now(),
+          meta: { taskId },
+        };
+        set({
+          coins: Math.max(0, walletCoins),
+          tasks: s.tasks.map((task) => task.id === taskId ? { ...task, claimed: true } : task),
+          coinsEarnedThisMonth: s.coinsEarnedThisMonth + Math.max(0, reward),
+          transactions: [tx, ...s.transactions].slice(0, 50),
+        });
+      },
+
+      syncServerWalletCoins: (walletCoins) => set({ coins: Math.max(0, walletCoins) }),
+
       claimAchievement: (id, reward) => {
         const s = get();
         if (s.claimedAchievements.includes(id)) return;
