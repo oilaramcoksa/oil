@@ -259,8 +259,16 @@ export function ArenaScreen({
           <motion.div
             key={replaying ? `replay-${replayNonce}` : round?.id ?? state.lastResult?.id ?? 'wheel'}
             initial={replaying ? { rotate: 0 } : false}
-            animate={{ rotate: isSpinning ? 2_880 + displayStop : !round && state.lastResult ? 2_880 + displayStop : displayStop }}
-            transition={isSpinning ? { duration: spinRemaining, ease: [0.08, 0.72, 0.12, 1] } : { duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+            animate={
+              isSpinning
+                ? { rotate: 2_880 + displayStop }
+                : { rotate: [displayStop, displayStop + 360] }
+            }
+            transition={
+              isSpinning
+                ? { duration: spinRemaining, ease: [0.08, 0.72, 0.12, 1] }
+                : { duration: 42, repeat: Infinity, ease: 'linear' }
+            }
             className="absolute inset-[11px] overflow-hidden rounded-full border-[3px] border-[#f8dba5]/90 shadow-[inset_0_0_18px_rgba(107,57,15,.18),0_4px_12px_rgba(120,53,15,.2)]"
             style={{ background: wheelGradient, transformStyle: 'preserve-3d', backfaceVisibility: 'hidden' }}
           >
