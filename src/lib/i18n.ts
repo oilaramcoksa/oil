@@ -176,6 +176,17 @@ const ar: Dict = {
   transactions: 'آخر المعاملات',
   noTransactions: 'لا توجد معاملات بعد',
 
+  // Linked TON wallet
+  tonWalletTitle: "محفظة TON المرتبطة",
+  tonWalletConnected: "متصلة ومحفوظة في حسابك",
+  tonWalletSaved: "عنوان المحفظة المحفوظ",
+  tonWalletBalance: "الرصيد الحالي على شبكة TON",
+  tonWalletAutoRefresh: "يتم تحديث الرصيد تلقائيًا كل 30 ثانية",
+  tonWalletConnect: "ربط محفظة TON",
+  tonWalletDisconnect: "فصل",
+  tonWalletAddress: "نسخ العنوان",
+  tonWalletConnectError: "تعذر الاتصال بالمحفظة. حاول مرة أخرى.",
+
   // Withdrawal
   wdTitle: 'سحب الرصيد',
   wdSubtitle: 'حوّل عملاتك إلى TON',
@@ -687,6 +698,17 @@ const en: Dict = {
   transactions: 'Recent Transactions',
   noTransactions: 'No transactions yet',
 
+  // Linked TON wallet
+  tonWalletTitle: "Linked TON Wallet",
+  tonWalletConnected: "Connected and saved to your account",
+  tonWalletSaved: "Saved wallet address",
+  tonWalletBalance: "Current TON network balance",
+  tonWalletAutoRefresh: "Balance refreshes automatically every 30 seconds",
+  tonWalletConnect: "Connect TON Wallet",
+  tonWalletDisconnect: "Disconnect",
+  tonWalletAddress: "Copy address",
+  tonWalletConnectError: "Could not connect to the wallet. Please try again.",
+
   // Withdrawal
   wdTitle: 'Withdraw',
   wdSubtitle: 'Convert your coins to TON',
@@ -1191,6 +1213,17 @@ const ru: Dict = {
   speedLevel: 'Уровень скорости',
   transactions: 'Последние операции',
   noTransactions: 'Операций пока нет',
+
+  // Linked TON wallet
+  tonWalletTitle: "Подключённый TON-кошелёк",
+  tonWalletConnected: "Подключён и сохранён в аккаунте",
+  tonWalletSaved: "Сохранённый адрес кошелька",
+  tonWalletBalance: "Текущий баланс в сети TON",
+  tonWalletAutoRefresh: "Баланс обновляется автоматически каждые 30 секунд",
+  tonWalletConnect: "Подключить TON-кошелёк",
+  tonWalletDisconnect: "Отключить",
+  tonWalletAddress: "Копировать адрес",
+  tonWalletConnectError: "Не удалось подключить кошелёк. Попробуйте ещё раз.",
 
   // Withdrawal
   wdTitle: 'Вывод средств',
