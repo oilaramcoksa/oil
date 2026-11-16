@@ -550,6 +550,72 @@ export async function ensureDatabaseSchema(): Promise<void> {
       `);
       await db.execute(`INSERT OR IGNORE INTO player_monthly_stats(telegram_id, month_key)
         SELECT telegram_id, strftime('%Y-%m','now') FROM players`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS player_daily_coin_budget (
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        day_key TEXT NOT NULL,
+        coins_earned INTEGER NOT NULL DEFAULT 0 CHECK(coins_earned >= 0),
+        daily_limit INTEGER NOT NULL DEFAULT 1000 CHECK(daily_limit IN (1000,2000)),
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(telegram_id, day_key)
+      )`);
+      // Seed today's usage from the immutable ledger so a deployment mid-day
+      // cannot grant a fresh allowance on top of rewards already paid today.
+      await db.execute(`INSERT OR IGNORE INTO player_daily_coin_budget(telegram_id,day_key,coins_earned,daily_limit)
+        SELECT l.telegram_id,date('now'),SUM(l.amount),
+          CASE WHEN (
+            SELECT COUNT(DISTINCT u.package_id) FROM player_upgrades u
+            WHERE u.telegram_id=l.telegram_id AND u.status='active'
+              AND u.expires_at>CURRENT_TIMESTAMP
+              AND u.package_id IN ('fast_oil','king_oil','super_oil')
+          )=3 AND (
+            SELECT COUNT(DISTINCT p.part_id) FROM player_parts p
+            WHERE p.telegram_id=l.telegram_id AND p.quantity>0
+              AND p.part_id IN ('oil_pump','fuel_station','oil_truck')
+          )=3 THEN 2000 ELSE 1000 END
+        FROM ledger_entries l
+        WHERE l.asset='coins' AND l.amount>0 AND l.entry_type<>'opening_balance'
+          AND date(l.created_at)=date('now')
+        GROUP BY l.telegram_id`);
+      await db.execute(`CREATE TRIGGER IF NOT EXISTS player_wallet_daily_coin_cap
+        BEFORE UPDATE OF coins_balance ON player_wallets
+        WHEN NEW.coins_balance>OLD.coins_balance
+        BEGIN
+          SELECT CASE WHEN
+            COALESCE((SELECT coins_earned FROM player_daily_coin_budget
+              WHERE telegram_id=NEW.telegram_id AND day_key=date('now')),0)
+            + (NEW.coins_balance-OLD.coins_balance)
+            > CASE WHEN (
+              SELECT COUNT(DISTINCT u.package_id) FROM player_upgrades u
+              WHERE u.telegram_id=NEW.telegram_id AND u.status='active'
+                AND u.expires_at>CURRENT_TIMESTAMP
+                AND u.package_id IN ('fast_oil','king_oil','super_oil')
+            )=3 AND (
+              SELECT COUNT(DISTINCT p.part_id) FROM player_parts p
+              WHERE p.telegram_id=NEW.telegram_id AND p.quantity>0
+                AND p.part_id IN ('oil_pump','fuel_station','oil_truck')
+            )=3 THEN 2000 ELSE 1000 END
+          THEN RAISE(ABORT,'daily_coin_limit_reached') END;
+        END`);
+      await db.execute(`CREATE TRIGGER IF NOT EXISTS player_wallet_daily_coin_budget
+        AFTER UPDATE OF coins_balance ON player_wallets
+        WHEN NEW.coins_balance>OLD.coins_balance
+        BEGIN
+          INSERT INTO player_daily_coin_budget(telegram_id,day_key,coins_earned,daily_limit)
+          VALUES(NEW.telegram_id,date('now'),NEW.coins_balance-OLD.coins_balance,
+            CASE WHEN (
+              SELECT COUNT(DISTINCT u.package_id) FROM player_upgrades u
+              WHERE u.telegram_id=NEW.telegram_id AND u.status='active'
+                AND u.expires_at>CURRENT_TIMESTAMP
+                AND u.package_id IN ('fast_oil','king_oil','super_oil')
+            )=3 AND (
+              SELECT COUNT(DISTINCT p.part_id) FROM player_parts p
+              WHERE p.telegram_id=NEW.telegram_id AND p.quantity>0
+                AND p.part_id IN ('oil_pump','fuel_station','oil_truck')
+            )=3 THEN 2000 ELSE 1000 END)
+          ON CONFLICT(telegram_id,day_key) DO UPDATE SET
+            coins_earned=coins_earned+excluded.coins_earned,
+            daily_limit=excluded.daily_limit,updated_at=CURRENT_TIMESTAMP;
+        END`);
     })().catch((error) => {
       initialized = undefined;
       throw error;
