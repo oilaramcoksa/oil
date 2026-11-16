@@ -123,11 +123,14 @@ export async function POST(req: NextRequest) {
       });
       const cycleEndsAt = Number(cycleState.rows[0]?.cycle_ends_at ?? 0);
       if (!Number.isSafeInteger(cycleEndsAt) || cycleEndsAt <= 0) { await tx.rollback(); return fail('mining_cycle_not_started', 409); }
-      const cycleKey = `oil_sale_cycle:${id}:${cycleEndsAt}:coins`;
-      const legacyCycleKey = `oil_sale_cycle:${cycleEndsAt}:coins`;
+      const dayKey = new Date().toISOString().slice(0, 10);
+      const cycleKey = `oil_sale_cycle:${id}:${cycleEndsAt}:coins:${dayKey}`;
+      const oilCycleKey = `oil_sale_cycle:${id}:${cycleEndsAt}:oil:${dayKey}`;
+      const legacyCycleKey = `oil_sale_cycle:${id}:${cycleEndsAt}:coins`;
+      const legacyUnscopedKey = `oil_sale_cycle:${cycleEndsAt}:coins`;
       const previous = await tx.execute({
-        sql: 'SELECT metadata_json FROM ledger_entries WHERE telegram_id=? AND idempotency_key IN (?,?)',
-        args: [id, cycleKey, legacyCycleKey],
+        sql: 'SELECT metadata_json FROM ledger_entries WHERE telegram_id=? AND idempotency_key IN (?,?,?)',
+        args: [id, cycleKey, legacyCycleKey, legacyUnscopedKey],
       });
       if (previous.rows.length) {
         const wallet = await tx.execute({ sql: 'SELECT oil_balance, coins_balance FROM player_wallets WHERE telegram_id=?', args: [id] });
@@ -142,16 +145,26 @@ export async function POST(req: NextRequest) {
       }
       const wallet = await tx.execute({ sql: 'SELECT oil_balance, coins_balance FROM player_wallets WHERE telegram_id=?', args: [id] });
       if (!wallet.rows.length) { await tx.rollback(); return fail('wallet_not_found', 404); }
-      const sold = Number(wallet.rows[0].oil_balance);
+      const oilAvailable = Number(wallet.rows[0].oil_balance);
       const oldCoins = Number(wallet.rows[0].coins_balance);
-      if (!Number.isSafeInteger(sold) || sold <= 0) { await tx.rollback(); return fail('no_oil_to_sell', 409); }
+      if (!Number.isSafeInteger(oilAvailable) || oilAvailable <= 0) { await tx.rollback(); return fail('no_oil_to_sell', 409); }
+      const budget = await tx.execute({
+        sql: "SELECT coins_earned,daily_limit FROM player_daily_coin_budget WHERE telegram_id=? AND day_key=date('now')",
+        args: [id],
+      });
+      const earnedToday = Number(budget.rows[0]?.coins_earned ?? 0);
+      const dailyLimit = Number(budget.rows[0]?.daily_limit ?? 1000);
+      const remainingToday = Math.max(0, dailyLimit - earnedToday);
+      const sold = Math.min(oilAvailable, Math.floor(remainingToday / COINS_PER_LITER));
+      if (sold <= 0) { await tx.rollback(); return fail('daily_coin_limit_reached', 429); }
       const coinsEarned = sold * COINS_PER_LITER;
       const newCoins = oldCoins + coinsEarned;
       if (!Number.isSafeInteger(coinsEarned) || !Number.isSafeInteger(newCoins)) { await tx.rollback(); return fail('invalid_sale_amount', 400); }
 
+      const remainingOil = oilAvailable - sold;
       await tx.execute({
-        sql: 'UPDATE player_wallets SET oil_balance=0, coins_balance=?, lifetime_coins_earned=lifetime_coins_earned+?, lifetime_oil_sold=lifetime_oil_sold+?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
-        args: [newCoins, coinsEarned, sold, id],
+        sql: 'UPDATE player_wallets SET oil_balance=?, coins_balance=?, lifetime_coins_earned=lifetime_coins_earned+?, lifetime_oil_sold=lifetime_oil_sold+?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+        args: [remainingOil, newCoins, coinsEarned, sold, id],
       });
       const saleId = randomUUID();
       const metadata = JSON.stringify({ saleId, sold, coinsEarned });
@@ -161,7 +174,7 @@ export async function POST(req: NextRequest) {
         sql: `INSERT INTO ledger_entries
           (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'oil', 'oil_sale', ?, 0, 'oil_sale', ?, ?, ?)`,
-        args: [randomUUID(), id, -sold, saleId, `oil_sale_cycle:${id}:${cycleEndsAt}:oil`, metadata],
+        args: [randomUUID(), id, -sold, saleId, oilCycleKey, metadata],
       });
       await tx.execute({
         sql: `INSERT INTO ledger_entries
@@ -264,7 +277,7 @@ export async function POST(req: NextRequest) {
 
       await tx.commit();
       await publishSaleToTelegram({ username: user.username, firstName: user.first_name, telegramId: id, sold, coinsEarned });
-      return NextResponse.json({ ok: true, saleId, sold, coinsEarned, wallet: { oil: 0, coins: newCoins } }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ ok: true, saleId, sold, coinsEarned, wallet: { oil: remainingOil, coins: newCoins } }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {
       await tx.rollback();
       throw error;
