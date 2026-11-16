@@ -7,9 +7,9 @@ import { PACKAGES, WALLETS, UPGRADE_DURATION_MS } from '@/lib/wallets';
 import { publishPaymentNotice } from '@/lib/telegram-payment-notice';
 
 const SHOP_PARTS = [
-  { id: 'oil_pump', priceTon: 0.5 }, { id: 'fuel_station', priceTon: 0.3 },
-  { id: 'oil_truck', priceTon: 0.1 }, { id: 'new_background', priceTon: 1 },
-  { id: 'vip_badge', priceTon: 2 }, { id: 'wheel_expansion', priceTon: 2 },
+  { id: 'oil_pump', priceTon: 2 }, { id: 'fuel_station', priceTon: 1.5 },
+  { id: 'oil_truck', priceTon: 1 }, { id: 'new_background', priceTon: 1 },
+  { id: 'vip_badge', priceTon: 5 }, { id: 'wheel_expansion', priceTon: 1 },
 ] as const;
 const PACKAGE_PRICES: Record<string, number> = { fast_oil: 2.5, king_oil: 8, super_oil: 21 };
 const RECEIVER = process.env.TON_MINING_FEE_WALLET || WALLETS.find(w => w.code === 'gram')?.address || '';
