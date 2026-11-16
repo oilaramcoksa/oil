@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 
 export const TELEGRAM_MEMBERSHIP_TASKS = {
-  channel: { chat: '@qrmcooil', dbId: 'telegram_channel', reward: 2000 },
-  group: { chat: '@armcooil', dbId: 'telegram_group', reward: 2000 },
+  channel: { chat: '@qrmcooil', dbId: 'telegram_channel', reward: 150 },
+  group: { chat: '@armcooil', dbId: 'telegram_group', reward: 150 },
 } as const;
 
 export type TelegramMembershipTask = keyof typeof TELEGRAM_MEMBERSHIP_TASKS;
