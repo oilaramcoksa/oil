@@ -149,8 +149,18 @@ export async function POST(req: NextRequest) {
       const oldCoins = Number(wallet.rows[0].coins_balance);
       if (!Number.isSafeInteger(oilAvailable) || oilAvailable <= 0) { await tx.rollback(); return fail('no_oil_to_sell', 409); }
       const budget = await tx.execute({
-        sql: "SELECT coins_earned,daily_limit FROM player_daily_coin_budget WHERE telegram_id=? AND day_key=date('now')",
-        args: [id],
+        sql: `SELECT COALESCE(coins_earned,0) AS coins_earned,
+          CASE WHEN (
+            SELECT COUNT(DISTINCT u.package_id) FROM player_upgrades u
+            WHERE u.telegram_id=? AND u.status='active' AND u.expires_at>CURRENT_TIMESTAMP
+              AND u.package_id IN ('fast_oil','king_oil','super_oil')
+          )=3 AND (
+            SELECT COUNT(DISTINCT p.part_id) FROM player_parts p
+            WHERE p.telegram_id=? AND p.quantity>0
+              AND p.part_id IN ('oil_pump','fuel_station','oil_truck')
+          )=3 THEN 2000 ELSE 1000 END AS daily_limit
+          FROM player_daily_coin_budget WHERE telegram_id=? AND day_key=date('now')`,
+        args: [id, id, id],
       });
       const earnedToday = Number(budget.rows[0]?.coins_earned ?? 0);
       const dailyLimit = Number(budget.rows[0]?.daily_limit ?? 1000);
