@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
   const amount = Number(body.amount);
   let broadcastDelivered: number | null = null;
 
-  if (['grant_coins', 'grant_oil', 'set_speed', 'ban', 'unban'].includes(action) && !target) return fail('player_required');
+  if (['grant_coins', 'grant_oil', 'set_speed', 'ban', 'unban', 'product_control'].includes(action) && !target) return fail('player_required');
   if (['grant_coins', 'grant_oil'].includes(action) &&
       (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000_000)) return fail('invalid_amount');
   if (action === 'grant_coins' && !reason) return fail('reason_required');
@@ -445,6 +445,7 @@ export async function POST(req: NextRequest) {
         const rows = await tx.execute({ sql: "SELECT * FROM payment_transactions WHERE id=? AND status='pending'", args: [id] });
         if (!rows.rows.length) { await tx.rollback(); return fail('payment_not_pending', 409); }
         const payment = rows.rows[0];
+        if (String(payment.provider) === 'tonconnect_auto') { await tx.rollback(); return fail('automatic_ton_payment_cannot_be_manually_approved', 409); }
         const telegramId = String(payment.telegram_id);
         const packageId = String(payment.package_id ?? '');
 
