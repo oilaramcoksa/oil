@@ -4,6 +4,7 @@ import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { getVerifiedTelegramUser } from '@/lib/telegram-auth';
 import { WALLETS } from '@/lib/wallets';
 import { Address } from '@ton/core';
+import { publishPaymentNotice } from '@/lib/telegram-payment-notice';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -181,6 +182,14 @@ export async function POST(req: NextRequest) {
           args:[randomUUID(),'system','mining_fee_paid','player',id,JSON.stringify({txHash:incoming.transaction_id.hash,sender,amountTon:FEE_TON})],
         });
         await tx.commit();
+        await publishPaymentNotice({
+          username: user.username,
+          firstName: user.first_name,
+          telegramId: id,
+          title: 'تم دفع رسوم تفعيل التعدين',
+          amount: FEE_TON + ' TON',
+          txHash: String(incoming.transaction_id.hash),
+        });
         return NextResponse.json({ok:true,activated:true},{headers:{'Cache-Control':'no-store'}});
       } catch(error) { await tx.rollback(); throw error; }
     }
