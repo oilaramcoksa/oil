@@ -49,40 +49,6 @@ export default function Home() {
   const [tournamentsOpen, setTournamentsOpen] = useState(false);
   const [shortsOpen, setShortsOpen] = useState(false);
 
-  // Warm secondary screen chunks during browser idle time so tab changes do not
-  // compete with the first interactive render or trigger a visible loading screen.
-  useEffect(() => {
-    let cancelled = false;
-    let idleHandle: number | undefined;
-    let timerHandle: number | undefined;
-    const preload = () => {
-      if (cancelled) return;
-      void Promise.all([
-        import('@/components/aram/screens/WalletScreen'),
-        import('@/components/aram/screens/TasksScreen'),
-        import('@/components/aram/screens/FriendsScreen'),
-        import('@/components/aram/screens/StoreScreen'),
-        import('@/components/aram/screens/ArenaScreen'),
-        import('@/components/aram/screens/SwapScreen'),
-        import('@/components/aram/ShortsContest'),
-      ]).catch((error) => console.warn('screen_preload_skipped', error));
-    };
-    const idleWindow = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-    if (idleWindow.requestIdleCallback) {
-      idleHandle = idleWindow.requestIdleCallback(preload, { timeout: 2500 });
-    } else {
-      timerHandle = window.setTimeout(preload, 1400);
-    }
-    return () => {
-      cancelled = true;
-      if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
-      if (timerHandle !== undefined) window.clearTimeout(timerHandle);
-    };
-  }, []);
-
   // Daily/weekly/monthly reset on mount
   useEffect(() => {
     resetDaily();
