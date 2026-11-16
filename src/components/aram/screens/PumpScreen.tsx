@@ -78,7 +78,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
       body: JSON.stringify({ action, idempotencyKey: crypto.randomUUID() }),
       cache: 'no-store',
     });
-    const data = await response.json() as { ok?: boolean; error?: string; oil?: number; coins?: number; cycleEndsAt?: number | null; oilAdded?: number };
+    const data = await response.json() as { ok?: boolean; error?: string; oil?: number; coins?: number; cycleEndsAt?: number | null; oilAdded?: number; cycleStarted?: boolean; capacity?: number };
     if (!response.ok || data.ok !== true) throw new Error(data.error || 'mining_unavailable');
     useGame.setState({
       oil: Number(data.oil ?? 0),
