@@ -96,7 +96,7 @@ export default function AdminPage() {
   ];
   if(!token) return <main dir="rtl" className="min-h-screen bg-[#090d16] text-white grid place-items-center p-5"><form onSubmit={login} className="w-full max-w-md rounded-3xl border border-amber-400/20 bg-[#111827] p-8 shadow-2xl"><div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-amber-400/10 text-amber-300"><ShieldCheck size={32}/></div><h1 className="text-center text-2xl font-black">Aramco Oil</h1><p className="mb-7 mt-2 text-center text-sm text-slate-400">بوابة الإدارة الآمنة</p>{error&&<p className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{error}</p>}<label className="mb-2 block text-sm text-slate-300">كلمة مرور الإدارة</label><input autoFocus type="password" value={input} onChange={e=>setInput(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 outline-none focus:border-amber-400" placeholder="أدخل رمز الدخول"/><button disabled={busy} className="mt-4 w-full rounded-xl bg-amber-400 py-3 font-black text-slate-950 disabled:opacity-60">{busy?'جارٍ التحقق…':'دخول لوحة التحكم'}</button><p className="mt-4 text-center text-xs text-slate-500">يتم التحقق من الرمز على الخادم ولا يُحفظ في المتصفح.</p></form></main>;
 
-  const statCards=[
+  const statCards: Array<[string, unknown, string]> = [
     ['إجمالي اللاعبين',overview.players,'users'],['نشطون آخر 7 أيام',overview.activePlayers,'active'],['العملات المتداولة',overview.coins,'coins'],['النفط المخزن',overview.oil,'oil'],['سحب TON معلّق',overview.tonPending,'ton'],['سحب USDT معلّق',overview.usdtPending,'usdt'],['مشتريات قيد المراجعة',overview.paymentPending,'payments'],['ترقيات مفعّلة',overview.activeUpgrades,'upgrades']
   ];
   return <div dir="rtl" className="min-h-screen bg-[#090d16] text-slate-100">
@@ -158,7 +158,7 @@ export default function AdminPage() {
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${row.status==='pending'?'bg-amber-400/10 text-amber-200':row.status==='approved'?'bg-emerald-400/10 text-emerald-200':'bg-red-400/10 text-red-200'}`}>{row.status==='pending'?'قيد المراجعة':row.status==='approved'?'تمت الموافقة':'مرفوضة'}</span>
               </div>
               <a href={String(row.story_url)} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center gap-2 break-all rounded-xl bg-sky-400/10 p-3 text-xs text-sky-200 underline" dir="ltr"><ExternalLink size={16} className="shrink-0"/> {String(row.story_url)}</a>
-              {row.review_reason&&<p className="mt-2 text-xs text-red-300">سبب الرفض: {String(row.review_reason)}</p>}
+              {Boolean(row.review_reason)&&<p className="mt-2 text-xs text-red-300">سبب الرفض: {String(row.review_reason)}</p>}
               {row.status==='pending'&&<div className="mt-3 grid grid-cols-2 gap-2">
                 <button disabled={busy} onClick={()=>act({action:'story_review',id:String(row.id),status:'approved'})} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/15 p-3 text-sm font-black text-emerald-200 disabled:opacity-40"><CheckCircle size={17}/> موافقة وصرف 500</button>
                 <button disabled={busy} onClick={()=>act({action:'story_review',id:String(row.id),status:'rejected'})} className="flex items-center justify-center gap-2 rounded-xl bg-red-500/15 p-3 text-sm font-black text-red-200 disabled:opacity-40"><XOctagon size={17}/> رفض</button>
