@@ -217,7 +217,7 @@ export function TournamentsSheet({ open, onClose }: Props) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-amber-100 font-black text-sm">
-                          {p.labelAr} / {p.labelEn}
+                          {t(lang, p.rank === 1 ? 'rankFirst' : p.rank === 2 ? 'rankSecond' : p.rank === 3 ? 'rankThird' : p.rank === 4 ? 'rankFourth' : 'rankFifth')}
                         </div>
                         <div className="text-[10px] text-amber-200/60 font-bold tabular-nums">
                           {p.coins.toLocaleString()} {t(lang, 'coins')}
@@ -274,7 +274,7 @@ export function TournamentsSheet({ open, onClose }: Props) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] text-amber-200/60 font-bold uppercase">القيمة الكلية</div>
+                  <div className="text-[10px] text-amber-200/60 font-bold uppercase">{t(lang, 'totalValue')}</div>
                   <div className="text-base font-black text-emerald-300 tabular-nums">
                     {coins.toLocaleString()}
                   </div>
