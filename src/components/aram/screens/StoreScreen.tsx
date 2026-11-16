@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { TonConnectUI } from '@tonconnect/ui';
+import { beginCell } from '@ton/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
@@ -37,7 +39,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   const [partVerifying, setPartVerifying] = useState(false);
   const [partFailed, setPartFailed] = useState(false);
   const [partCopied, setPartCopied] = useState(false);
-  const [wallet, setWallet] = useState<CryptoWallet | null>(null);
+  const [wallet, setWallet] = useState<CryptoWallet | null>(WALLETS.find((w) => w.code === 'gram') ?? null);
   const [verifying, setVerifying] = useState(false);
   const [paymentFailed, setPaymentFailed] = useState(false);
   const [copiedAddr, setCopiedAddr] = useState(false);
@@ -45,7 +47,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   const openPackage = (p: UpgradePackage) => {
     haptic('medium');
     setSelected(p);
-    setWallet(null);
+    setWallet(WALLETS.find((w) => w.code === 'gram') ?? null);
     setVerifying(false);
     setPaymentFailed(false);
   };
@@ -76,71 +78,61 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     }
   };
 
-  const confirmPaid = async () => {
-    if (!selected || !wallet || verifying) return;
-    const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
-    if (!initData) {
-      toast.error(t(lang, 'telegramRequired'));
-      return;
-    }
-    setVerifying(true);
-    setPaymentFailed(false);
-    haptic('heavy');
+  const sendTonPurchase = async (product: { packageId?: string; itemId?: string }, setBusy: (value: boolean) => void, onConfirmed: () => void) => {
+    const telegramInitData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
+    if (!telegramInitData) { toast.error(t(lang, 'telegramRequired')); return; }
+    setBusy(true);
     try {
       const response = await fetch('/api/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
-        body: JSON.stringify({ packageId: selected.id, walletCode: wallet.code }),
+        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': telegramInitData },
+        body: JSON.stringify(product),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'payment_request_failed');
-      const paymentId = String(data.payment.id);
+      const payment = data.payment;
+      const connector = new TonConnectUI({ manifestUrl: window.location.origin + '/tonconnect-manifest.json' });
+      const payload = beginCell().storeUint(0, 32).storeStringTail(String(payment.comment)).endCell().toBoc().toString('base64');
+      await connector.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        network: '-239',
+        messages: [{ address: String(payment.destination), amount: String(payment.amountNanoton), payload }],
+      });
+      toast.info('تم إرسال طلب التحويل. جارٍ التحقق من TON Mainnet تلقائيًا…');
       const startedAt = Date.now();
-
-      const checkStatus = async (): Promise<void> => {
+      const poll = async (): Promise<void> => {
         try {
-          const statusResponse = await fetch('/api/payments?id=' + encodeURIComponent(paymentId), {
-            headers: { 'X-Telegram-Init-Data': initData },
-            cache: 'no-store',
+          const statusResponse = await fetch('/api/payments?id=' + encodeURIComponent(String(payment.id)), {
+            headers: { 'X-Telegram-Init-Data': telegramInitData }, cache: 'no-store',
           });
           const statusData = await statusResponse.json().catch(() => ({}));
           if (!statusResponse.ok) throw new Error(statusData.error ?? 'payment_status_unavailable');
           if (statusData.payment?.status === 'confirmed') {
-            // Only a server-confirmed payment may activate an upgrade.
-            toast.success(t(lang, 'paymentConfirmed'));
-            setVerifying(false);
-            return;
+            setBusy(false); onConfirmed(); toast.success('تم تأكيد الدفع وتفعيل المنتج تلقائيًا 🎉'); return;
           }
-          if (statusData.payment?.status === 'expired' || statusData.payment?.status === 'rejected') {
-            setVerifying(false);
-            setPaymentFailed(true);
-            notify('error');
-            toast.error(t(lang, 'paymentTimeout'));
-            return;
+          if (['expired', 'rejected'].includes(String(statusData.payment?.status)) || Date.now() - startedAt > 35 * 60 * 1000) {
+            setBusy(false); toast.error('انتهت مهلة الدفع أو لم يتم العثور على المعاملة. لم يتم تفعيل المنتج.'); return;
           }
-          if (Date.now() - startedAt >= 60 * 60 * 1000 + 5000) {
-            setVerifying(false);
-            setPaymentFailed(true);
-            toast.error(t(lang, 'paymentTimeout'));
-            return;
-          }
-          window.setTimeout(() => { void checkStatus(); }, 15000);
+          window.setTimeout(() => { void poll(); }, 7000);
         } catch {
-          if (Date.now() - startedAt >= 60 * 60 * 1000 + 5000) {
-            setVerifying(false);
-            setPaymentFailed(true);
-            toast.error(t(lang, 'paymentTimeout'));
-          } else {
-            window.setTimeout(() => { void checkStatus(); }, 15000);
-          }
+          if (Date.now() - startedAt > 35 * 60 * 1000) { setBusy(false); toast.error('تعذر التحقق من الدفع.'); }
+          else window.setTimeout(() => { void poll(); }, 10000);
         }
       };
-      toast.info(t(lang, 'paymentRequestCreated'));
-      void checkStatus();
+      void poll();
     } catch (error) {
-      setVerifying(false);
-      toast.error(error instanceof Error ? error.message : t(lang, 'paymentStatusUnavailable'));
+      setBusy(false);
+      toast.error(error instanceof Error ? error.message : 'تعذر فتح محفظة TON');
     }
+  };
+
+  const confirmPaid = async () => {
+    if (!selected || verifying) return;
+    haptic('heavy');
+    await sendTonPurchase({ packageId: selected.id }, setVerifying, () => {
+      setSelected(null);
+      setWallet(WALLETS.find((w) => w.code === 'gram') ?? null);
+    });
   };
 
   const shopParts = [
@@ -168,52 +160,8 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
 
   const buyPart = async () => {
     if (!selectedPart || partVerifying) return;
-    const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
-    if (!initData) { toast.error(t(lang, 'telegramRequired')); return; }
-    setPartVerifying(true);
     setPartFailed(false);
-    try {
-      const response = await fetch('/api/payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
-        body: JSON.stringify({ itemId: selectedPart.id }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.payment?.id) throw new Error(data.error ?? t(lang, 'paymentStatusUnavailable'));
-      await navigator.clipboard?.writeText(data.payment.destination).catch(() => undefined);
-      toast.info(t(lang, 'paymentRequestCreated'));
-      const paymentId = String(data.payment.id);
-      const startedAt = Date.now();
-      const poll = async (): Promise<void> => {
-        try {
-          const res = await fetch('/api/payments?id=' + encodeURIComponent(paymentId), {
-            headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store',
-          });
-          const status = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error('status_unavailable');
-          if (status.payment?.status === 'confirmed') {
-            setPartVerifying(false);
-            toast.success(t(lang, 'paymentConfirmed'));
-            return;
-          }
-          if (status.payment?.status === 'expired' || status.payment?.status === 'rejected' || Date.now() - startedAt >= 3605000) {
-            setPartVerifying(false); setPartFailed(true); notify('error');
-            toast.error(t(lang, 'paymentTimeout'));
-            return;
-          }
-          window.setTimeout(() => { void poll(); }, 15000);
-        } catch {
-          if (Date.now() - startedAt >= 3605000) {
-            setPartVerifying(false); setPartFailed(true);
-            toast.error(t(lang, 'paymentTimeout'));
-          } else window.setTimeout(() => { void poll(); }, 15000);
-        }
-      };
-      void poll();
-    } catch (e) {
-      setPartVerifying(false);
-      toast.error(e instanceof Error ? e.message : t(lang, 'paymentStatusUnavailable'));
-    }
+    await sendTonPurchase({ itemId: selectedPart.id }, setPartVerifying, () => setSelectedPart(null));
   };
 
   return (
