@@ -4,6 +4,7 @@ import { Address, toNano } from '@ton/core';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { getVerifiedTelegramUser } from '@/lib/telegram-auth';
 import { PACKAGES, WALLETS, UPGRADE_DURATION_MS } from '@/lib/wallets';
+import { publishPaymentNotice } from '@/lib/telegram-payment-notice';
 
 const SHOP_PARTS = [
   { id: 'oil_pump', priceTon: 0.5 }, { id: 'fuel_station', priceTon: 0.3 },
@@ -129,7 +130,31 @@ export async function GET(req: NextRequest) {
             Number(item.utime??0)>=created-30 && !!item.transaction_id?.hash &&
             item.description?.aborted!==true && item.description?.compute_ph?.success!==false && item.description?.action?.success!==false;
         });
-        if(foundTx?.transaction_id?.hash) await activatePurchase(id,String(user.id),String(foundTx.transaction_id.hash));
+        if (foundTx?.transaction_id?.hash) {
+          const activated = await activatePurchase(id, String(user.id), String(foundTx.transaction_id.hash));
+          if (activated) {
+            const productId = String(row.package_id);
+            const productNames: Record<string, string> = {
+              fast_oil: 'باقة تسريع Fast Oil',
+              king_oil: 'باقة تسريع King Oil',
+              super_oil: 'باقة تسريع Super Oil',
+              oil_pump: 'قطعة مضخة النفط',
+              fuel_station: 'قطعة محطة الوقود',
+              oil_truck: 'قطعة شاحنة النفط',
+              new_background: 'قطعة خلفية جديدة',
+              vip_badge: 'شارة VIP',
+              wheel_expansion: 'توسعة العجلة',
+            };
+            await publishPaymentNotice({
+              username: user.username,
+              firstName: user.first_name,
+              telegramId: String(user.id),
+              title: 'تم شراء ' + (productNames[productId] ?? productId),
+              amount: String(row.amount) + ' TON',
+              txHash: String(foundTx.transaction_id.hash),
+            });
+          }
+        }
       }
     }
     const current=await db.execute({sql:'SELECT id,status,package_id,tx_hash,confirmed_at FROM payment_transactions WHERE id=? AND telegram_id=?',args:[id,String(user.id)]});
