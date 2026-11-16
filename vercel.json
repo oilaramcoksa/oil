@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/telegram-oil-reminder",
-      "schedule": "0 7,8 * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
