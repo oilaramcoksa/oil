@@ -552,6 +552,7 @@ export async function POST(req: NextRequest) {
       throw error;
     }
   } catch (error) {
+    if (error instanceof Error && error.message.includes('daily_coin_limit_reached')) return fail('daily_reward_limit_reached', 429);
     console.error('admin_action_failed', error);
     return fail('admin_action_failed', 503);
   }
