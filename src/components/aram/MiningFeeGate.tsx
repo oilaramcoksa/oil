@@ -40,11 +40,11 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
     fetch('/api/mining/activation', { headers, cache: 'no-store' })
       .then(async r => {
         const d = await r.json();
-        if (!r.ok) throw new Error(d.error || t(lang, 'miningFeeLoadError'));
+        if (!r.ok) throw new Error(t(lang, 'miningFeeLoadError'));
         return d as Status;
       })
       .then(d => { if (alive) { setStatus(d); setSavedAddress(d.savedWalletAddress || ''); if (!d.required) onActivated(); } })
-      .catch(e => { if (alive) setError(e instanceof Error ? e.message : t(lang, 'miningFeeVerifyError')); });
+      .catch(e => { if (alive) setError(t(lang, 'miningFeeVerifyError')); });
     return () => { alive = false; };
   }, [initData, onActivated, lang]);
 
@@ -95,7 +95,7 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
         body: JSON.stringify({ action: 'create', walletAddress: address }),
       });
       const created = await createResponse.json();
-      if (!createResponse.ok) throw new Error(created.error || t(lang, 'miningFeeCreateError'));
+      if (!createResponse.ok) throw new Error(t(lang, 'miningFeeCreateError'));
       const { comment } = await import('@ton/ton');
       const note = comment('ARMCO MINING ' + created.paymentId).toBoc().toString('base64');
       try {
@@ -125,13 +125,13 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
         const data = await response.json();
         if (response.ok && data.activated) { activated = true; break; }
         if (response.status !== 202 && data.error !== 'payment_not_found_yet') {
-          throw new Error(data.error || 'تعذر التحقق من التحويل');
+          throw new Error(t(lang, 'miningFeeVerifyError'));
         }
       }
       if (!activated) throw new Error(t(lang, 'miningFeeTransferPending'));
       onActivated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t(lang, 'miningFeePaymentFailed'));
+      setError(t(lang, 'miningFeePaymentFailed'));
     } finally {
       setBusy(false);
     }
