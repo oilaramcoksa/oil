@@ -108,7 +108,14 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   }, []);
 
   const cap = effectiveCapacity(upgrades);
-  const perTap = Math.floor(effectiveOilPerTap(upgrades, Date.now(), baseOilPerTap) * (specialParts.new_background ? 5 : 1) * (specialParts.vip_badge ? 4 : 1));
+  const perTap = Math.floor(
+    effectiveOilPerTap(upgrades, Date.now(), baseOilPerTap) *
+    (parts.oil_pump > 0 ? 3 : 1) *
+    (parts.fuel_station > 0 ? 2 : 1) *
+    (parts.oil_truck > 0 ? 1.5 : 1) *
+    (specialParts.new_background ? 1.5 : 1) *
+    (specialParts.vip_badge ? 5 : 1)
+  );
   const coinsPerHour = effectiveCoinsPerHour(upgrades);
   const oilRatio = oil / cap;
   const isFull = oil >= cap;
