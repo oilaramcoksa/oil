@@ -71,12 +71,13 @@ export async function POST(req: NextRequest) {
       });
       const packageTap=activePackages.reduce((n,p)=>{const control=controlMap.get('package:'+String(p!.id));return n+Number(p!.oilPerTap??0)*Math.max(0,Math.min(100,Number(control?.speed_multiplier??1)));},0);
       const packageRate=activePackages.reduce((n,p)=>{const control=controlMap.get('package:'+String(p!.id));return n+Number(p!.perHour??0)*Math.max(0,Math.min(100,Number(control?.speed_multiplier??1)));},0);
+      const packageCapacity=activePackages.reduce((n,p)=>{const control=controlMap.get('package:'+String(p!.id));return n+250*Math.max(0,Math.min(100,Number(control?.speed_multiplier??1)));},0);
       const partMultiplier=(partId:string)=> {
         const control=controlMap.get('part:'+partId);
         return String(control?.status ?? 'active') === 'active'
           ? Math.max(0,Math.min(100,Number(control?.speed_multiplier ?? 1))) : 0;
       };
-      const capacity=Number(g.base_capacity??500)+activePackages.length*250+quantities.fuel_station*250*partMultiplier('fuel_station');
+      const capacity=Number(g.base_capacity??500)+packageCapacity+quantities.fuel_station*250*partMultiplier('fuel_station');
       const upgradeTap=packageTap;
       const perTap=Math.max(1,Math.floor((Number(g.base_oil_per_tap??2)+upgradeTap)*(1+quantities.oil_pump*0.5*partMultiplier('oil_pump'))));
       const rateCoinsHour=60+packageRate+quantities.oil_truck*30*partMultiplier('oil_truck');
