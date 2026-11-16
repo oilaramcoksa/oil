@@ -5,7 +5,7 @@ import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const REWARD = 500;
+const REWARD = 200;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 function storyLink(value: unknown): string | null {

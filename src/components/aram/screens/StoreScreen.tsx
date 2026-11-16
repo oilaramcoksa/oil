@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TonConnectUI } from '@tonconnect/ui';
 import { beginCell } from '@ton/core';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,7 +34,34 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     else toast.error(t(lang, 'tadsUnavailable'));
   };
 
+  const [tonConnector, setTonConnector] = useState<TonConnectUI | null>(null);
+  const [tonConnected, setTonConnected] = useState(false);
   const [selected, setSelected] = useState<UpgradePackage | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    let connector: TonConnectUI | null = null;
+    let unsubscribe: (() => void) | undefined;
+    void import('@tonconnect/ui').then(({ TonConnectUI: TonConnect }) => {
+      if (!alive) return;
+      connector = new TonConnect({
+        manifestUrl: new URL('/api/mining/activation/tonconnect-manifest.json', window.location.origin).toString(),
+        restoreConnection: true,
+      });
+      setTonConnector(connector);
+      setTonConnected(Boolean(connector.connected));
+      unsubscribe = connector.onStatusChange((account) => {
+        if (alive) setTonConnected(Boolean(account?.account?.address));
+      });
+    }).catch((error) => {
+      console.error('store_tonconnect_init_failed', error);
+      if (alive) toast.error(lang === 'ar' ? 'تعذر تهيئة محفظة TON. أعد فتح المتجر.' : 'Could not initialize TON wallet. Reopen the store.');
+    });
+    return () => {
+      alive = false;
+      unsubscribe?.();
+    };
+  }, [lang]);
   const [selectedPart, setSelectedPart] = useState<{ id: string; nameKey: string; label: string; description: string; price: number; multiplier: string; image: string; descriptionKey: string } | null>(null);
   const [partVerifying, setPartVerifying] = useState(false);
   const [partFailed, setPartFailed] = useState(false);
@@ -81,6 +108,15 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   const sendTonPurchase = async (product: { packageId?: string; itemId?: string }, setBusy: (value: boolean) => void, onConfirmed: () => void) => {
     const telegramInitData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
     if (!telegramInitData) { toast.error(t(lang, 'telegramRequired')); return; }
+    if (!tonConnector) {
+      toast.error(lang === 'ar' ? 'محفظة TON لم تجهز بعد. حاول مرة أخرى.' : 'TON wallet is not ready yet. Try again.');
+      return;
+    }
+    if (!tonConnector.connected) {
+      await tonConnector.openModal();
+      toast.info(lang === 'ar' ? 'اربط محفظتك أولًا، ثم اضغط شراء الآن.' : 'Connect your wallet first, then tap Buy.');
+      return;
+    }
     setBusy(true);
     try {
       const response = await fetch('/api/payments', {
@@ -91,9 +127,9 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'payment_request_failed');
       const payment = data.payment;
-      const connector = new TonConnectUI({ manifestUrl: window.location.origin + '/tonconnect-manifest.json' });
+      if (!tonConnector.connected) throw new Error(lang === 'ar' ? 'انقطع اتصال المحفظة. أعد توصيلها وحاول مجددًا.' : 'Wallet disconnected. Reconnect and try again.');
       const payload = beginCell().storeUint(0, 32).storeStringTail(String(payment.comment)).endCell().toBoc().toString('base64');
-      await connector.sendTransaction({
+      await tonConnector.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
         network: '-239',
         messages: [{ address: String(payment.destination), amount: String(payment.amountNanoton), payload }],
@@ -136,12 +172,12 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   };
 
   const shopParts = [
-    { id: 'oil_pump' as const, nameKey: 'oilPumpPart', label: t(lang, 'oilPumpPart'), description: t(lang, 'oilPumpDescription'), price: 0.5, multiplier: '×3', image: '/images/shop/oil-pump.png', descriptionKey: 'oilPumpDescription' },
-    { id: 'fuel_station' as const, nameKey: 'fuelStationPart', label: t(lang, 'fuelStationPart'), description: t(lang, 'fuelStationDescription'), price: 0.3, multiplier: '×2', image: '/images/shop/fuel-station.png', descriptionKey: 'fuelStationDescription' },
-    { id: 'oil_truck' as const, nameKey: 'oilTruckPart', label: t(lang, 'oilTruckPart'), description: t(lang, 'oilTruckDescription'), price: 0.1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
-    { id: 'new_background', nameKey: 'specialBackgroundName', label: t(lang, 'specialBackgroundName'), description: t(lang, 'specialBackgroundDesc'), price: 1, multiplier: t(lang, 'specialBackgroundMultiplier'), image: '/images/shop/day.png', descriptionKey: 'specialBackgroundDesc' },
-    { id: 'vip_badge', nameKey: 'vipBadgeName', label: t(lang, 'vipBadgeName'), description: t(lang, 'vipBadgeDesc'), price: 2, multiplier: t(lang, 'vipBadgeMultiplier'), image: '/images/shop/vip.png', descriptionKey: 'vipBadgeDesc' },
-    { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: t(lang, 'wheelExpansionDesc'), price: 2, multiplier: t(lang, 'wheelExpansionMultiplier'), image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
+    { id: 'oil_pump' as const, nameKey: 'oilPumpPart', label: t(lang, 'oilPumpPart'), description: lang === 'ar' ? 'يرفع إنتاج المضخة إلى 3 أضعاف المعدل الأساسي.' : t(lang, 'oilPumpDescription'), price: 2, multiplier: '×3', image: '/images/shop/oil-pump.png', descriptionKey: 'oilPumpDescription' },
+    { id: 'fuel_station' as const, nameKey: 'fuelStationPart', label: t(lang, 'fuelStationPart'), description: lang === 'ar' ? 'يضاعف إنتاجك إلى مرتين مع سعة تخزين إضافية.' : t(lang, 'fuelStationDescription'), price: 1.5, multiplier: '×2', image: '/images/shop/fuel-station.png', descriptionKey: 'fuelStationDescription' },
+    { id: 'oil_truck' as const, nameKey: 'oilTruckPart', label: t(lang, 'oilTruckPart'), description: lang === 'ar' ? 'يعزز كفاءة نقل النفط ويرفع الإنتاج إلى 1.5×.' : t(lang, 'oilTruckDescription'), price: 1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
+    { id: 'new_background', nameKey: 'specialBackgroundName', label: t(lang, 'specialBackgroundName'), description: lang === 'ar' ? 'خلفية مميزة مع مضاعف إنتاج 1.5×.' : t(lang, 'specialBackgroundDesc'), price: 1, multiplier: '×1.5', image: '/images/shop/day.png', descriptionKey: 'specialBackgroundDesc' },
+    { id: 'vip_badge', nameKey: 'vipBadgeName', label: t(lang, 'vipBadgeName'), description: lang === 'ar' ? 'شارة VIP ذهبية تمنحك مضاعف إنتاج 5×.' : t(lang, 'vipBadgeDesc'), price: 5, multiplier: '×5', image: '/images/shop/vip.png', descriptionKey: 'vipBadgeDesc' },
+    { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: lang === 'ar' ? 'توسعة ×2 لمدة 3 أيام أو 5 رهانات، أيهما أقرب.' : '2× wheel expansion for 3 days or 5 bets, whichever comes first.', price: 1, multiplier: '×2', image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
   ];
 
   const copyPartWallet = async () => {

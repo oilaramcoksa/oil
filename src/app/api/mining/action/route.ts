@@ -49,12 +49,13 @@ export async function POST(req: NextRequest) {
       }
 
       await tx.execute(`CREATE TABLE IF NOT EXISTS player_product_controls (id TEXT PRIMARY KEY,telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,product_id TEXT NOT NULL,product_type TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'active',speed_multiplier REAL NOT NULL DEFAULT 1,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(telegram_id,product_id,product_type))`);
-      const [game,wallet,parts,upgrades,controls] = await Promise.all([
+      const [game,wallet,parts,upgrades,controls,specialParts] = await Promise.all([
         tx.execute({sql:'SELECT base_oil_per_tap,base_capacity,cycle_started_at,cycle_ends_at,last_tick_at FROM player_game_state WHERE telegram_id=?',args:[id]}),
         tx.execute({sql:'SELECT oil_balance,coins_balance FROM player_wallets WHERE telegram_id=?',args:[id]}),
         tx.execute({sql:'SELECT part_id,quantity FROM player_parts WHERE telegram_id=?',args:[id]}),
         tx.execute({sql:"SELECT package_id FROM player_upgrades WHERE telegram_id=? AND status='active' AND expires_at>CURRENT_TIMESTAMP",args:[id]}),
-        tx.execute({sql:'SELECT product_id,product_type,status,speed_multiplier FROM player_product_controls WHERE telegram_id=?',args:[id]})
+        tx.execute({sql:'SELECT product_id,product_type,status,speed_multiplier FROM player_product_controls WHERE telegram_id=?',args:[id]}),
+        tx.execute({sql:'SELECT part_id,MAX(expires_at) AS expires_at FROM player_special_parts WHERE telegram_id=? AND (expires_at IS NULL OR expires_at>?) GROUP BY part_id',args:[id,Date.now()]})
       ]);
       if (!game.rows.length || !wallet.rows.length) { await tx.rollback(); return fail('mining_state_missing',409); }
       const g=game.rows[0], w=wallet.rows[0];
@@ -77,10 +78,17 @@ export async function POST(req: NextRequest) {
         return String(control?.status ?? 'active') === 'active'
           ? Math.max(0,Math.min(100,Number(control?.speed_multiplier ?? 1))) : 0;
       };
+      const specialOwned = new Set(specialParts.rows.map(row => String(row.part_id)));
+      const productionMultiplier =
+        (1 + (3 - 1) * (quantities.oil_pump > 0 ? partMultiplier('oil_pump') : 0)) *
+        (1 + (2 - 1) * (quantities.fuel_station > 0 ? partMultiplier('fuel_station') : 0)) *
+        (1 + (1.5 - 1) * (quantities.oil_truck > 0 ? partMultiplier('oil_truck') : 0)) *
+        (specialOwned.has('new_background') ? 1.5 : 1) *
+        (specialOwned.has('vip_badge') ? 5 : 1);
       const capacity=Number(g.base_capacity??500)+packageCapacity+quantities.fuel_station*250*partMultiplier('fuel_station');
       const upgradeTap=packageTap;
-      const perTap=Math.max(1,Math.floor((Number(g.base_oil_per_tap??2)+upgradeTap)*(1+quantities.oil_pump*0.5*partMultiplier('oil_pump'))));
-      const rateCoinsHour=60+packageRate+quantities.oil_truck*30*partMultiplier('oil_truck');
+      const perTap=Math.max(1,Math.floor((Number(g.base_oil_per_tap??2)+upgradeTap)*productionMultiplier));
+      const rateCoinsHour=(60+packageRate+quantities.oil_truck*30*partMultiplier('oil_truck'))*productionMultiplier;
       let oil=Number(w.oil_balance??0);
       let coins=Number(w.coins_balance??0);
       let currentCycleEnd=cycleEnd;

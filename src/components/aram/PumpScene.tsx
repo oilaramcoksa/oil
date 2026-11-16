@@ -791,30 +791,6 @@ export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, par
           </circle>
         </g>
 
-        {/* === Tap hint badge (no black frame — just a soft amber text) === */}
-        {oilRatio < 0.05 && !pumping && (
-          <motion.g
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <text
-              x="200"
-              y="174"
-              fontSize="13"
-              fill={isNight ? "#FEF3C7" : "#7C2D12"}
-              textAnchor="middle"
-              fontWeight="900"
-              fontFamily="sans-serif"
-              stroke={isNight ? "#0B1026" : "#FEF3C7"}
-              strokeWidth="3"
-              paintOrder="stroke"
-              style={{ filter: isNight ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' : 'none' }}
-            >
-              اضغط على المضخة · Tap the pump
-            </text>
-          </motion.g>
-        )}
       </svg>
 
       {/* Tap ripples (DOM overlay for crisp pointer feedback) */}
