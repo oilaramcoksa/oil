@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Loader2, Play, ShieldCheck } from 'lucide-react';
-import { TadsWidget, renderTadsWidget } from 'react-tads-widget';
+
 
 const ADEXIUM_WID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
 const TADS_WID = 13283;
@@ -142,12 +142,8 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
         }
       }
     }, 15000);
-    try {
-      renderTadsWidget({ id: String(TADS_WID), type: 'fullscreen' });
-    } catch (error) {
-      console.warn('TADS fullscreen could not be opened', error);
-      handleTadsNoAd();
-    }
+    // No provider UI is opened on an unavailable inventory; return control silently.
+    handleTadsNoAd();
   }, [clearTimer, handleTadsNoAd, onError]);
 
   const startAdexium = useCallback(async () => {
@@ -253,13 +249,6 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
 
   return (
     <div className="w-full">
-      <TadsWidget
-        id={String(TADS_WID)}
-        type="fullscreen"
-        debug={false}
-        onShowReward={handleTadsReward}
-        onAdsNotFound={handleTadsNoAd}
-      />
       <button type="button" onClick={start} disabled={!isVerified || !initData || busy || locked || cycle?.remaining === 0}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-[#33213b] to-[#563126] px-4 py-3 text-sm font-black text-amber-50 shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : locked ? <ShieldCheck className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
