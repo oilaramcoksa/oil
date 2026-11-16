@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
     const db = getTurso();
     await db.execute(`CREATE TABLE IF NOT EXISTS telegram_daily_broadcasts (
       day_key TEXT NOT NULL, telegram_id TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','sent','failed')),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','sending','sent','failed')),
       attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, sent_at TEXT,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY(day_key, telegram_id)
@@ -91,26 +91,35 @@ export async function GET(req: NextRequest) {
     let sent = 0, failed = 0;
     for (const row of pending.rows) {
       const telegramId = String(row.telegram_id);
-      await db.execute({
-        sql: "UPDATE telegram_daily_broadcasts SET attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE day_key=? AND telegram_id=?",
+      const claim = await db.execute({
+        sql: "UPDATE telegram_daily_broadcasts SET status='sending',attempts=attempts+1,updated_at=CURRENT_TIMESTAMP WHERE day_key=? AND telegram_id=? AND status IN ('pending','failed')",
         args: [day, telegramId],
       });
-      try {
-        await sendTelegramMessage(token, telegramId, appUrl);
+      if (claim.rowsAffected !== 1) continue;
+      let delivered = false;
+      let lastError = 'telegram_send_failed';
+      for (let attempt = 0; attempt < 3 && !delivered; attempt++) {
+        try {
+          await sendTelegramMessage(token, telegramId, appUrl);
+          delivered = true;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : 'telegram_send_failed';
+          const retryAfter = Number((error as { retryAfter?: number }).retryAfter ?? 0);
+          if (attempt < 2) await wait(retryAfter > 0 ? Math.min(retryAfter, 60) * 1000 : 1000 * (attempt + 1));
+        }
+      }
+      if (delivered) {
         await db.execute({
           sql: "UPDATE telegram_daily_broadcasts SET status='sent',last_error=NULL,sent_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE day_key=? AND telegram_id=?",
           args: [day, telegramId],
         });
         sent++;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'telegram_send_failed';
+      } else {
         await db.execute({
           sql: "UPDATE telegram_daily_broadcasts SET status='failed',last_error=?,updated_at=CURRENT_TIMESTAMP WHERE day_key=? AND telegram_id=?",
-          args: [message.slice(0, 500), day, telegramId],
+          args: [lastError.slice(0, 500), day, telegramId],
         });
         failed++;
-        const retryAfter = Number((error as { retryAfter?: number }).retryAfter ?? 0);
-        if (retryAfter > 0) await wait(Math.min(retryAfter, 60) * 1000);
       }
       await wait(40);
     }
