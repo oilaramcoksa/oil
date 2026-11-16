@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         tx.execute({sql:'SELECT base_oil_per_tap,base_capacity,cycle_started_at,cycle_ends_at,last_tick_at FROM player_game_state WHERE telegram_id=?',args:[id]}),
         tx.execute({sql:'SELECT oil_balance,coins_balance FROM player_wallets WHERE telegram_id=?',args:[id]}),
         tx.execute({sql:'SELECT part_id,quantity FROM player_parts WHERE telegram_id=?',args:[id]}),
-        tx.execute({sql:"SELECT package_id FROM player_upgrades WHERE telegram_id=? AND status='active' AND expires_at>CURRENT_TIMESTAMP",args:[id]})
+        tx.execute({sql:"SELECT package_id FROM player_upgrades WHERE telegram_id=? AND status='active' AND expires_at>CURRENT_TIMESTAMP",args:[id]}),
         tx.execute({sql:'SELECT product_id,product_type,status,speed_multiplier FROM player_product_controls WHERE telegram_id=?',args:[id]})
       ]);
       if (!game.rows.length || !wallet.rows.length) { await tx.rollback(); return fail('mining_state_missing',409); }
