@@ -145,11 +145,12 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       });
       if (!balanceResponse.ok) throw new Error('wallet_balance_unavailable');
       const balanceData = await balanceResponse.json().catch(() => ({})) as { ok?: boolean; result?: string };
-      if (balanceData.ok !== true || !/^\\d+$/.test(String(balanceData.result ?? ''))) {
+      const balanceNanoton = String(balanceData.result ?? '');
+      if (balanceData.ok !== true || !/^\d+$/.test(balanceNanoton)) {
         throw new Error('wallet_balance_unavailable');
       }
       const requiredNanoton = BigInt(String(payment.amountNanoton)) + 50_000_000n;
-      if (BigInt(balanceData.result) < requiredNanoton) {
+      if (BigInt(balanceNanoton) < requiredNanoton) {
         throw new Error('insufficient_ton_balance');
       }
       const payload = beginCell().storeUint(0, 32).storeStringTail(String(payment.comment)).endCell().toBoc().toString('base64');
