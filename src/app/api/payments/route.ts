@@ -65,10 +65,10 @@ async function activatePurchase(id: string, telegramId: string, txHash: string) 
         await tx.execute(`CREATE TABLE IF NOT EXISTS player_special_parts (
           telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
           part_id TEXT NOT NULL, purchased_at INTEGER NOT NULL, expires_at INTEGER,
-          payment_id TEXT NOT NULL UNIQUE, PRIMARY KEY(telegram_id,part_id,payment_id)
+          payment_id TEXT NOT NULL UNIQUE, usage_count INTEGER NOT NULL DEFAULT 0 CHECK(usage_count >= 0), PRIMARY KEY(telegram_id,part_id,payment_id)
         )`);
         const now=Date.now();
-        await tx.execute({sql:'INSERT INTO player_special_parts(telegram_id,part_id,purchased_at,expires_at,payment_id) VALUES(?,?,?,?,?)',args:[telegramId,productId,now,productId==='wheel_expansion'?now+72*60*60*1000:null,id]});
+        await tx.execute({sql:'INSERT INTO player_special_parts(telegram_id,part_id,purchased_at,expires_at,payment_id,usage_count) VALUES(?,?,?,?,?,0)',args:[telegramId,productId,now,productId==='wheel_expansion'?now+72*60*60*1000:null,id]});
       }
     } else {
       if (!PACKAGES.some(p=>p.id===productId)) { await tx.rollback(); return false; }

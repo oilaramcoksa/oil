@@ -422,6 +422,27 @@ export async function POST(req: NextRequest) {
         sql: 'INSERT INTO arena_entries(id, round_id, telegram_id, amount) VALUES (?, ?, ?, ?)',
         args: [randomUUID(), roundId, playerId, body.amount],
       });
+      // A wheel expansion lasts for 72 hours or five arena bets, whichever
+      // happens first. Consume one use only after the player's bet is recorded.
+      const wheelExpansion = await tx.execute({
+        sql: `SELECT payment_id, usage_count FROM player_special_parts
+          WHERE telegram_id=? AND part_id='wheel_expansion'
+            AND expires_at>? AND usage_count<5
+          ORDER BY purchased_at DESC LIMIT 1`,
+        args: [playerId, Date.now()],
+      });
+      if (wheelExpansion.rows.length) {
+        const paymentId = String(wheelExpansion.rows[0].payment_id);
+        const used = Number(wheelExpansion.rows[0].usage_count ?? 0);
+        const now = Date.now();
+        await tx.execute({
+          sql: `UPDATE player_special_parts
+            SET usage_count=usage_count+1,
+                expires_at=CASE WHEN usage_count+1>=5 THEN ? ELSE expires_at END
+            WHERE payment_id=? AND usage_count=? AND expires_at>?`,
+          args: [now, paymentId, used, now],
+        });
+      }
 
       const counts = await tx.execute({
         sql: 'SELECT COUNT(*) AS entry_count, SUM(amount) AS total FROM arena_entries WHERE round_id=?',
