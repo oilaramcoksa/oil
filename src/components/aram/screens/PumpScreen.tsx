@@ -35,6 +35,8 @@ interface Props {
 export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, isVerified }: Props) {
   const lang = useGame((s) => s.lang);
   const oil = useGame((s) => s.oil);
+  const [feeActivated, setFeeActivated] = useState(false);
+  const [feeGateOpen, setFeeGateOpen] = useState(false);
   const coins = useGame((s) => s.coins);
   const upgrades = useGame((s) => s.upgrades);
   const baseOilPerTap = useGame((s) => s.baseOilPerTap);
@@ -115,8 +117,6 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const secRem = cycleSecondsRemaining(cycleEndsAt, now);
   const cycleProgress = cycleEndsAt ? (active ? 1 - secRem / CYCLE_SECONDS : 1) : 0;
 
-  const [feeActivated, setFeeActivated] = useState(false);
-  const [feeGateOpen, setFeeGateOpen] = useState(false);
   const handleFeeActivated = useCallback(() => {
     setFeeActivated(true);
     setFeeGateOpen(false);
