@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ok:true,duplicate:true,oil:Number(w.rows[0]?.oil_balance??0),coins:Number(w.rows[0]?.coins_balance??0),cycleEndsAt:Number(c.rows[0]?.cycle_ends_at??0)||null},{headers:{'Cache-Control':'no-store'}});
       }
 
+      await tx.execute(`CREATE TABLE IF NOT EXISTS player_product_controls (id TEXT PRIMARY KEY,telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,product_id TEXT NOT NULL,product_type TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'active',speed_multiplier REAL NOT NULL DEFAULT 1,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(telegram_id,product_id,product_type))`);
       const [game,wallet,parts,upgrades,controls] = await Promise.all([
         tx.execute({sql:'SELECT base_oil_per_tap,base_capacity,cycle_started_at,cycle_ends_at,last_tick_at FROM player_game_state WHERE telegram_id=?',args:[id]}),
         tx.execute({sql:'SELECT oil_balance,coins_balance FROM player_wallets WHERE telegram_id=?',args:[id]}),
@@ -68,19 +69,17 @@ export async function POST(req: NextRequest) {
         const control=controlMap.get('package:'+String(p?.id));
         return !!p && String(control?.status ?? 'active') === 'active';
       });
-      const packageMultiplier=activePackages.reduce((n,p)=>{
-        const control=controlMap.get('package:'+String(p!.id));
-        return n * Math.max(0,Math.min(100,Number(control?.speed_multiplier ?? 1)));
-      },1);
+      const packageTap=activePackages.reduce((n,p)=>{const control=controlMap.get('package:'+String(p!.id));return n+Number(p!.oilPerTap??0)*Math.max(0,Math.min(100,Number(control?.speed_multiplier??1)));},0);
+      const packageRate=activePackages.reduce((n,p)=>{const control=controlMap.get('package:'+String(p!.id));return n+Number(p!.perHour??0)*Math.max(0,Math.min(100,Number(control?.speed_multiplier??1)));},0);
       const partMultiplier=(partId:string)=> {
         const control=controlMap.get('part:'+partId);
         return String(control?.status ?? 'active') === 'active'
           ? Math.max(0,Math.min(100,Number(control?.speed_multiplier ?? 1))) : 0;
       };
       const capacity=Number(g.base_capacity??500)+activePackages.length*250+quantities.fuel_station*250*partMultiplier('fuel_station');
-      const upgradeTap=activePackages.reduce((n,p)=>n+Number(p!.oilPerTap??0),0)*packageMultiplier;
+      const upgradeTap=packageTap;
       const perTap=Math.max(1,Math.floor((Number(g.base_oil_per_tap??2)+upgradeTap)*(1+quantities.oil_pump*0.5*partMultiplier('oil_pump'))));
-      const rateCoinsHour=60+activePackages.reduce((n,p)=>n+Number(p!.perHour??0),0)*packageMultiplier+quantities.oil_truck*30*partMultiplier('oil_truck');
+      const rateCoinsHour=60+packageRate+quantities.oil_truck*30*partMultiplier('oil_truck');
       let oil=Number(w.oil_balance??0);
       let coins=Number(w.coins_balance??0);
       let currentCycleEnd=cycleEnd;
