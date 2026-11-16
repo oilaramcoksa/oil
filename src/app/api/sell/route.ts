@@ -223,7 +223,22 @@ export async function POST(req: NextRequest) {
           args: [id, saleDay],
         });
         const alreadyCredited = Number(prior.rows[0]?.commission_coins ?? 0);
-        const delta = Math.max(0, targetCommission - alreadyCredited);
+        await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [referrerId] });
+        const inviterBudget = await tx.execute({
+          sql: `SELECT COALESCE((SELECT coins_earned FROM player_daily_coin_budget WHERE telegram_id=? AND day_key=date('now')),0) AS coins_earned,
+            CASE WHEN (
+              SELECT COUNT(DISTINCT u.package_id) FROM player_upgrades u
+              WHERE u.telegram_id=? AND u.status='active' AND u.expires_at>CURRENT_TIMESTAMP
+                AND u.package_id IN ('fast_oil','king_oil','super_oil')
+            )=3 AND (
+              SELECT COUNT(DISTINCT p.part_id) FROM player_parts p
+              WHERE p.telegram_id=? AND p.quantity>0
+                AND p.part_id IN ('oil_pump','fuel_station','oil_truck')
+            )=3 THEN 2000 ELSE 1000 END AS daily_limit FROM (SELECT 1)`,
+          args: [referrerId, referrerId, referrerId],
+        });
+        const inviterRemaining = Math.max(0, Number(inviterBudget.rows[0]?.daily_limit ?? 1000) - Number(inviterBudget.rows[0]?.coins_earned ?? 0));
+        const delta = Math.min(Math.max(0, targetCommission - alreadyCredited), inviterRemaining);
         await tx.execute({
           sql: `INSERT INTO referral_daily_commissions(referee_telegram_id,day_key,revenue_coins,commission_coins)
                 VALUES(?,?,?,?) ON CONFLICT(referee_telegram_id,day_key) DO UPDATE SET
@@ -231,7 +246,6 @@ export async function POST(req: NextRequest) {
           args: [id, saleDay, revenueCoins, targetCommission],
         });
         if (delta > 0) {
-          await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [referrerId] });
           await tx.execute({
             sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
             args: [delta, delta, referrerId],
