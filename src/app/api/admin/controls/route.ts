@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`);
         try { await tx.execute("ALTER TABLE shorts_contest ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','cancelled'))"); } catch { /* Column already exists. */ }
-        await tx.execute("INSERT OR IGNORE INTO shorts_contest(id,starts_at,ends_at) VALUES('main',?,?)", [Date.now(), Date.now()+60*24*60*60*1000]);
+        await tx.execute({ sql: "INSERT OR IGNORE INTO shorts_contest(id,starts_at,ends_at) VALUES('main',?,?)", args: [Date.now(), Date.now()+60*24*60*60*1000] });
         if (operation === 'extend') {
           const hours = Number(body.hours);
           if (!Number.isSafeInteger(hours) || hours < 1 || hours > 2160) { await tx.rollback(); return fail('invalid_extension_hours'); }
