@@ -170,6 +170,12 @@ export async function POST(req: NextRequest) {
           args:[id],
         });
         if (Number(update.rowsAffected)!==1) { await tx.rollback(); return fail('activation_conflict',409); }
+        // Expire legacy cycle state but preserve accumulated oil so it can be sold after activation.
+        const activationNow = Date.now();
+        await tx.execute({
+          sql: 'UPDATE player_game_state SET cycle_started_at=?,cycle_ends_at=?,last_tick_at=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+          args: [activationNow - 43200000, activationNow - 1, activationNow - 1, id],
+        });
         await tx.execute({
           sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
           args:[randomUUID(),'system','mining_fee_paid','player',id,JSON.stringify({txHash:incoming.transaction_id.hash,sender,amountTon:FEE_TON})],

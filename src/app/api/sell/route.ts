@@ -105,8 +105,16 @@ export async function POST(req: NextRequest) {
     const id = String(user.id);
     const tx = await db.transaction('write');
     try {
-      const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [id] });
+      const player = await tx.execute({
+        sql: "SELECT p.telegram_id,p.fee_exempt,p.mining_fee_paid_at,COALESCE(s.setting_value,'1') AS fee_enabled FROM players p LEFT JOIN app_settings s ON s.setting_key='mining_fee_enabled' WHERE p.telegram_id=? AND p.status='active'",
+        args: [id],
+      });
       if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
+      const playerRow = player.rows[0];
+      if (String(playerRow.fee_enabled) !== '0' && Number(playerRow.fee_exempt ?? 0) !== 1 && !playerRow.mining_fee_paid_at) {
+        await tx.rollback();
+        return fail('mining_activation_required', 403);
+      }
 
       // A sale is allowed once, only after the server-recorded 12-hour cycle ends.
       const cycleState = await tx.execute({
@@ -115,10 +123,11 @@ export async function POST(req: NextRequest) {
       });
       const cycleEndsAt = Number(cycleState.rows[0]?.cycle_ends_at ?? 0);
       if (!Number.isSafeInteger(cycleEndsAt) || cycleEndsAt <= 0) { await tx.rollback(); return fail('mining_cycle_not_started', 409); }
-      const cycleKey = `oil_sale_cycle:${cycleEndsAt}:coins`;
+      const cycleKey = `oil_sale_cycle:${id}:${cycleEndsAt}:coins`;
+      const legacyCycleKey = `oil_sale_cycle:${cycleEndsAt}:coins`;
       const previous = await tx.execute({
-        sql: 'SELECT metadata_json FROM ledger_entries WHERE telegram_id=? AND idempotency_key=?',
-        args: [id, cycleKey],
+        sql: 'SELECT metadata_json FROM ledger_entries WHERE telegram_id=? AND idempotency_key IN (?,?)',
+        args: [id, cycleKey, legacyCycleKey],
       });
       if (previous.rows.length) {
         const wallet = await tx.execute({ sql: 'SELECT oil_balance, coins_balance FROM player_wallets WHERE telegram_id=?', args: [id] });
@@ -152,7 +161,7 @@ export async function POST(req: NextRequest) {
         sql: `INSERT INTO ledger_entries
           (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'oil', 'oil_sale', ?, 0, 'oil_sale', ?, ?, ?)`,
-        args: [randomUUID(), id, -sold, saleId, `oil_sale_cycle:${cycleEndsAt}:oil`, metadata],
+        args: [randomUUID(), id, -sold, saleId, `oil_sale_cycle:${id}:${cycleEndsAt}:oil`, metadata],
       });
       await tx.execute({
         sql: `INSERT INTO ledger_entries
@@ -261,7 +270,7 @@ export async function POST(req: NextRequest) {
       throw error;
     }
   } catch (error) {
-    console.error('oil_sale_failed', error);
+    console.error('oil_sale_failed', error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error);
     return fail('oil_sale_failed', 503);
   }
 }

@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       if(action==='tap'){
         if(!currentCycleEnd || now>=currentCycleEnd){
           if(currentCycleEnd){
-            const sold=await tx.execute({sql:'SELECT 1 FROM ledger_entries WHERE telegram_id=? AND idempotency_key=?',args:[id,`oil_sale_cycle:${currentCycleEnd}:coins`]});
+            const sold=await tx.execute({sql:'SELECT 1 FROM ledger_entries WHERE telegram_id=? AND idempotency_key IN (?,?)',args:[id,`oil_sale_cycle:${id}:${currentCycleEnd}:coins`,`oil_sale_cycle:${currentCycleEnd}:coins`]});
             if(!sold.rows.length){await tx.rollback();return fail('previous_cycle_must_be_sold',409);}
           }
           if(oil>0){await tx.rollback();return fail('oil_must_be_sold_before_new_cycle',409);}
