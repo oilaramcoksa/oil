@@ -25,13 +25,13 @@ function canonical(value: string) {
 }
 async function ensurePurchaseSchema() {
   const db = getTurso();
-  await db.execute(\`CREATE TABLE IF NOT EXISTS player_product_controls (
+  await db.execute(`CREATE TABLE IF NOT EXISTS player_product_controls (
     id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
     product_id TEXT NOT NULL, product_type TEXT NOT NULL CHECK(product_type IN ('part','package')),
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','revoked')),
     speed_multiplier REAL NOT NULL DEFAULT 1 CHECK(speed_multiplier >= 0 AND speed_multiplier <= 100),
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(telegram_id,product_id,product_type)
-  )\`);
+  )`);
 }
 async function incomingTransactions() {
   const headers: Record<string,string> = { 'Content-Type':'application/json' };
@@ -61,11 +61,11 @@ async function activatePurchase(id: string, telegramId: string, txHash: string) 
       if (['oil_pump','fuel_station','oil_truck'].includes(productId)) {
         await tx.execute({sql:'INSERT INTO player_parts(telegram_id,part_id,quantity) VALUES(?,?,1) ON CONFLICT(telegram_id,part_id) DO UPDATE SET quantity=quantity+1,updated_at=CURRENT_TIMESTAMP',args:[telegramId,productId]});
       } else {
-        await tx.execute(\`CREATE TABLE IF NOT EXISTS player_special_parts (
+        await tx.execute(`CREATE TABLE IF NOT EXISTS player_special_parts (
           telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
           part_id TEXT NOT NULL, purchased_at INTEGER NOT NULL, expires_at INTEGER,
           payment_id TEXT NOT NULL UNIQUE, PRIMARY KEY(telegram_id,part_id,payment_id)
-        )\`);
+        )`);
         const now=Date.now();
         await tx.execute({sql:'INSERT INTO player_special_parts(telegram_id,part_id,purchased_at,expires_at,payment_id) VALUES(?,?,?,?,?)',args:[telegramId,productId,now,productId==='wheel_expansion'?now+72*60*60*1000:null,id]});
       }
@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
     const kind=part?'shop_part':'upgrade_package';
     const comment='ARMCO STORE '+id;
     const db=getTurso();
-    await db.execute({sql:\`INSERT INTO payment_transactions
+    await db.execute({sql:`INSERT INTO payment_transactions
       (id,telegram_id,provider,asset,network,amount,package_id,status,provider_payload_json)
-      VALUES(?,?,'tonconnect_auto','TON','TON Mainnet',?,?,'pending',?)\`,
+      VALUES(?,?,'tonconnect_auto','TON','TON Mainnet',?,?,'pending',?)`,
       args:[id,String(user.id),String(amount),part?.id??pkg!.id,JSON.stringify({kind,destination:RECEIVER,amountNanoton:toNano(String(amount)).toString(),comment,expiresAt:Date.now()+WINDOW_MS})]});
     return NextResponse.json({payment:{id,status:'pending',itemId:part?.id??null,packageId:pkg?.id??null,amount,currency:'TON',destination:RECEIVER,comment,amountNanoton:toNano(String(amount)).toString(),expiresAt:Date.now()+WINDOW_MS}},{status:201,headers:{'Cache-Control':'no-store'}});
   }catch(e){console.error('payment_request_failed',e);return error('payment_request_failed',503);}
