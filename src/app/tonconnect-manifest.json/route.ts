@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-export async function GET() {
-  const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://armco-oil.vercel.app';
+import { NextRequest, NextResponse } from 'next/server';
+export async function GET(req: NextRequest) {
+  const origin = req.nextUrl.origin;
   return NextResponse.json({
     url: origin,
     name: 'ARMCO OIL',
