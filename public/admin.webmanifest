@@ -1,0 +1,17 @@
+{
+  "id": "/admin",
+  "name": "Aramco Oil Admin",
+  "short_name": "Oil Admin",
+  "description": "لوحة إدارة ومتابعة لعبة Aramco Oil",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/admin",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090d16",
+  "theme_color": "#0d1422",
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
