@@ -118,7 +118,7 @@ interface GameState {
 
   tapPump: () => { oilAdded: number; newTotal: number; full: boolean; cycleStarted: boolean };
   sellOil: () => { sold: number; coinsEarned: number };
-  applyServerSale: (sold: number, coinsEarned: number, walletCoins: number) => void;
+  applyServerSale: (sold: number, coinsEarned: number, walletOil: number, walletCoins: number) => void;
   applyServerAdReward: (reward: number, walletCoins: number) => void;
   applyServerTaskReward: (reward: number, walletCoins: number, taskId: string) => void;
   syncServerWalletCoins: (walletCoins: number) => void;
@@ -255,7 +255,7 @@ export const useGame = create<GameState>()(
 
       processPassive: () => ({ litersAdded: 0, cycleEnded: false }),
 
-      applyServerSale: (sold, coinsEarned, walletCoins) => {
+      applyServerSale: (sold, coinsEarned, walletOil, walletCoins) => {
         const s = get();
         const tx: Transaction = {
           id: makeId(),
@@ -266,7 +266,7 @@ export const useGame = create<GameState>()(
           meta: { sold },
         };
         set({
-          oil: Math.max(0, s.oil - sold),
+          oil: Math.max(0, Number.isSafeInteger(walletOil) ? walletOil : s.oil - sold),
           coins: Math.max(0, walletCoins),
           coinsEarnedThisMonth: s.coinsEarnedThisMonth + Math.max(0, coinsEarned),
           sellsToday: s.sellsToday + 1,
