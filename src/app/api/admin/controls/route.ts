@@ -184,6 +184,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ referrals: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
+    if (section === 'broadcasts') {
+      const rows = await db.execute({
+        sql: "SELECT id,action,target_type,target_id,details_json,created_at FROM admin_audit_logs WHERE action='broadcast' ORDER BY created_at DESC LIMIT 100",
+      });
+      return NextResponse.json({ broadcasts: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
     if (section === 'storyTasks') {
       const rows = await db.execute({
         sql: `SELECT s.*,p.username,p.first_name,p.last_name
