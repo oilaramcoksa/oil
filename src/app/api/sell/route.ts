@@ -149,18 +149,27 @@ export async function POST(req: NextRequest) {
       const oldCoins = Number(wallet.rows[0].coins_balance);
       if (!Number.isSafeInteger(oilAvailable) || oilAvailable <= 0) { await tx.rollback(); return fail('no_oil_to_sell', 409); }
       const budget = await tx.execute({
-        sql: `SELECT COALESCE((SELECT coins_earned FROM player_daily_coin_budget WHERE telegram_id=? AND day_key=date('now')),0) AS coins_earned,
-          CASE WHEN (
-            SELECT COUNT(DISTINCT u.package_id) FROM player_upgrades u
-            WHERE u.telegram_id=? AND u.status='active' AND u.expires_at>CURRENT_TIMESTAMP
-              AND u.package_id IN ('fast_oil','king_oil','super_oil')
-          )=3 AND (
-            SELECT COUNT(DISTINCT p.part_id) FROM player_parts p
-            WHERE p.telegram_id=? AND p.quantity>0
-              AND p.part_id IN ('oil_pump','fuel_station','oil_truck')
-          )=3 THEN 2000 ELSE 1000 END AS daily_limit
-          FROM (SELECT 1)`,
-        args: [id, id, id],
+        sql: `SELECT
+          COALESCE((SELECT SUM(amount) FROM ledger_entries
+            WHERE telegram_id=? AND asset='coins' AND amount>0
+              AND entry_type NOT IN ('opening_balance','withdrawal_refund')
+              AND datetime(created_at)>=datetime('now','-24 hours')),0) AS coins_earned,
+          CASE
+            WHEN (SELECT COUNT(DISTINCT part_id) FROM (
+              SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
+              UNION SELECT part_id FROM player_special_parts WHERE telegram_id=?
+                AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
+            ))>=6 THEN 2000
+            WHEN EXISTS (SELECT 1 FROM player_upgrades WHERE telegram_id=?
+              AND status='active' AND expires_at>CURRENT_TIMESTAMP
+              AND package_id IN ('fast_oil','king_oil','super_oil'))
+              AND (SELECT COUNT(DISTINCT part_id) FROM (
+                SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
+                UNION SELECT part_id FROM player_special_parts WHERE telegram_id=?
+                  AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
+              ))>=1 THEN 1500
+            ELSE 1000 END AS daily_limit FROM (SELECT 1)`,
+        args: [id, id, id, id, id, id],
       });
       const earnedToday = Number(budget.rows[0]?.coins_earned ?? 0);
       const dailyLimit = Number(budget.rows[0]?.daily_limit ?? 1000);
@@ -225,17 +234,27 @@ export async function POST(req: NextRequest) {
         const alreadyCredited = Number(prior.rows[0]?.commission_coins ?? 0);
         await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [referrerId] });
         const inviterBudget = await tx.execute({
-          sql: `SELECT COALESCE((SELECT coins_earned FROM player_daily_coin_budget WHERE telegram_id=? AND day_key=date('now')),0) AS coins_earned,
-            CASE WHEN (
-              SELECT COUNT(DISTINCT u.package_id) FROM player_upgrades u
-              WHERE u.telegram_id=? AND u.status='active' AND u.expires_at>CURRENT_TIMESTAMP
-                AND u.package_id IN ('fast_oil','king_oil','super_oil')
-            )=3 AND (
-              SELECT COUNT(DISTINCT p.part_id) FROM player_parts p
-              WHERE p.telegram_id=? AND p.quantity>0
-                AND p.part_id IN ('oil_pump','fuel_station','oil_truck')
-            )=3 THEN 2000 ELSE 1000 END AS daily_limit FROM (SELECT 1)`,
-          args: [referrerId, referrerId, referrerId],
+          sql: `SELECT
+            COALESCE((SELECT SUM(amount) FROM ledger_entries
+              WHERE telegram_id=? AND asset='coins' AND amount>0
+                AND entry_type NOT IN ('opening_balance','withdrawal_refund')
+                AND datetime(created_at)>=datetime('now','-24 hours')),0) AS coins_earned,
+            CASE
+              WHEN (SELECT COUNT(DISTINCT part_id) FROM (
+                SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
+                UNION SELECT part_id FROM player_special_parts WHERE telegram_id=?
+                  AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
+              ))>=6 THEN 2000
+              WHEN EXISTS (SELECT 1 FROM player_upgrades WHERE telegram_id=?
+                AND status='active' AND expires_at>CURRENT_TIMESTAMP
+                AND package_id IN ('fast_oil','king_oil','super_oil'))
+                AND (SELECT COUNT(DISTINCT part_id) FROM (
+                  SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
+                  UNION SELECT part_id FROM player_special_parts WHERE telegram_id=?
+                    AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
+                ))>=1 THEN 1500
+              ELSE 1000 END AS daily_limit FROM (SELECT 1)`,
+          args: [referrerId, referrerId, referrerId, referrerId, referrerId, referrerId],
         });
         const inviterRemaining = Math.max(0, Number(inviterBudget.rows[0]?.daily_limit ?? 1000) - Number(inviterBudget.rows[0]?.coins_earned ?? 0));
         const delta = Math.min(Math.max(0, targetCommission - alreadyCredited), inviterRemaining);
