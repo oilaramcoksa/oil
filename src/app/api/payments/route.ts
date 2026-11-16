@@ -11,7 +11,6 @@ const SHOP_PARTS = [
   { id: 'oil_truck', priceTon: 1 }, { id: 'new_background', priceTon: 1 },
   { id: 'vip_badge', priceTon: 5 }, { id: 'wheel_expansion', priceTon: 1 },
 ] as const;
-const PACKAGE_PRICES: Record<string, number> = { fast_oil: 2.5, king_oil: 8, super_oil: 21 };
 const RECEIVER = process.env.TON_MINING_FEE_WALLET || WALLETS.find(w => w.code === 'gram')?.address || '';
 const TONCENTER = (process.env.TONCENTER_API_URL || 'https://toncenter.com/api/v2').replace(/\/$/, '');
 const WINDOW_MS = 30 * 60 * 1000;
@@ -93,7 +92,7 @@ export async function POST(req: NextRequest) {
   try{
     await ensureDatabaseSchema(); await ensurePurchaseSchema();
     const id=randomUUID();
-    const amount=part?part.priceTon:PACKAGE_PRICES[pkg!.id];
+    const amount=part?part.priceTon:pkg!.priceTon;
     const kind=part?'shop_part':'upgrade_package';
     const comment='ARMCO STORE '+id;
     const db=getTurso();
