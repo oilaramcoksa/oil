@@ -576,9 +576,11 @@ export async function ensureDatabaseSchema(): Promise<void> {
         WHERE l.asset='coins' AND l.amount>0 AND l.entry_type<>'opening_balance'
           AND date(l.created_at)=date('now')
         GROUP BY l.telegram_id`);
+      await db.execute('DROP TRIGGER IF EXISTS player_wallet_daily_coin_cap');
+      await db.execute('DROP TRIGGER IF EXISTS player_wallet_daily_coin_budget');
       await db.execute(`CREATE TRIGGER IF NOT EXISTS player_wallet_daily_coin_cap
         BEFORE UPDATE OF coins_balance ON player_wallets
-        WHEN NEW.coins_balance>OLD.coins_balance
+        WHEN NEW.coins_balance>OLD.coins_balance AND NEW.coins_locked>=OLD.coins_locked
         BEGIN
           SELECT CASE WHEN
             COALESCE((SELECT coins_earned FROM player_daily_coin_budget
@@ -598,7 +600,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
         END`);
       await db.execute(`CREATE TRIGGER IF NOT EXISTS player_wallet_daily_coin_budget
         AFTER UPDATE OF coins_balance ON player_wallets
-        WHEN NEW.coins_balance>OLD.coins_balance
+        WHEN NEW.coins_balance>OLD.coins_balance AND NEW.coins_locked>=OLD.coins_locked
         BEGIN
           INSERT INTO player_daily_coin_budget(telegram_id,day_key,coins_earned,daily_limit)
           VALUES(NEW.telegram_id,date('now'),NEW.coins_balance-OLD.coins_balance,
