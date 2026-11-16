@@ -73,6 +73,7 @@ async function publishSaleToTelegram(input: {
           disable_web_page_preview: true,
         }),
         cache: 'no-store',
+        signal: AbortSignal.timeout(4000),
       });
       const result = await response.json().catch(() => ({})) as { ok?: boolean; description?: string };
       if (!response.ok || result.ok !== true) {
