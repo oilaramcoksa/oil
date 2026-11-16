@@ -65,7 +65,8 @@ export async function GET(req: NextRequest) {
     const query = (req.nextUrl.searchParams.get('q') ?? '').trim().slice(0, 80);
 
     if (section === 'overview') {
-      const [players, active, wallet, ton, usdt, payments, upgrades, ledger] = await Promise.all([
+      const monthKey = new Date().toISOString().slice(0, 7);
+      const [players, active, wallet, ton, usdt, payments, upgrades, ledger, monthly] = await Promise.all([
         db.execute('SELECT COUNT(*) AS total FROM players'),
         db.execute("SELECT COUNT(*) AS total FROM players WHERE status='active' AND last_seen_at >= datetime('now','-7 days')"),
         db.execute('SELECT COALESCE(SUM(coins_balance),0) AS coins, COALESCE(SUM(oil_balance),0) AS oil, COALESCE(SUM(coins_locked),0) AS locked FROM player_wallets'),
@@ -74,6 +75,7 @@ export async function GET(req: NextRequest) {
         db.execute("SELECT COUNT(*) AS total, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending FROM payment_transactions"),
         db.execute("SELECT COUNT(*) AS total FROM player_upgrades WHERE status='active' AND expires_at > CURRENT_TIMESTAMP"),
         db.execute('SELECT COUNT(*) AS total FROM ledger_entries'),
+        db.execute({sql:'SELECT COUNT(*) AS players, COALESCE(SUM(coins_earned),0) AS coins_earned, COALESCE(SUM(taps),0) AS taps, COALESCE(SUM(sells),0) AS sells FROM player_monthly_stats WHERE month_key=?',args:[monthKey]}),
       ]);
       const n = (rows: Array<Record<string, unknown>>, key: string) => Number(rows[0]?.[key] ?? 0);
       return NextResponse.json({ overview: {
@@ -87,6 +89,10 @@ export async function GET(req: NextRequest) {
         paymentPending: n(payments.rows as unknown as Array<Record<string, unknown>>, 'pending'),
         activeUpgrades: n(upgrades.rows as unknown as Array<Record<string, unknown>>, 'total'),
         ledgerEntries: n(ledger.rows as unknown as Array<Record<string, unknown>>, 'total'),
+        monthPlayers: n(monthly.rows as unknown as Array<Record<string, unknown>>, 'players'),
+        monthCoinsEarned: n(monthly.rows as unknown as Array<Record<string, unknown>>, 'coins_earned'),
+        monthTaps: n(monthly.rows as unknown as Array<Record<string, unknown>>, 'taps'),
+        monthSales: n(monthly.rows as unknown as Array<Record<string, unknown>>, 'sells'),
       } }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
