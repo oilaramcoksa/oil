@@ -50,8 +50,8 @@ const ar: Dict = {
   swapRejected: 'مرفوض',
   swapInsufficientUsd: 'رصيد الدولار غير كافٍ',
   swapInvalidAddress: 'عنوان TRON غير صالح. تحقق من عنوان TRC20.',
-  swapMinWithdrawError: 'الحد الأدنى للسحب دولار واحد',
-  swapMinWithdrawHint: 'الحد الأدنى للسحب 1 دولار. تأكد من صحة عنوان TRON قبل الإرسال.',
+  swapMinWithdrawError: 'الحد الأدنى للسحب 100 دولار',
+  swapMinWithdrawHint: 'الحد الأدنى للسحب 100 دولار (100,000 عملة). تأكد من صحة عنوان TRON قبل الإرسال.',
   swapWithdrawError: 'تعذر إرسال طلب السحب، حاول مرة أخرى',
 
   // Brand
@@ -661,8 +661,8 @@ const en: Dict = {
   swapRejected: 'Rejected',
   swapInsufficientUsd: 'Insufficient USD balance',
   swapInvalidAddress: 'Invalid TRON address. Check your TRC20 address.',
-  swapMinWithdrawError: 'Minimum withdrawal is one dollar',
-  swapMinWithdrawHint: 'Minimum withdrawal is $1. Check your TRON address carefully before submitting.',
+  swapMinWithdrawError: 'Minimum withdrawal is 100 dollars',
+  swapMinWithdrawHint: 'Minimum withdrawal is $100 (100,000 coins). Check your TRON address carefully before submitting.',
   swapWithdrawError: 'Could not submit withdrawal request. Please try again.',
 
   // Tournaments
@@ -1188,8 +1188,8 @@ const ru: Dict = {
   swapRejected: 'Отклонено',
   swapInsufficientUsd: 'Недостаточно средств в долларах',
   swapInvalidAddress: 'Неверный адрес TRON. Проверьте адрес TRC20.',
-  swapMinWithdrawError: 'Минимальная сумма вывода — 1 доллар',
-  swapMinWithdrawHint: 'Минимальная сумма вывода — 1 $. Внимательно проверьте адрес TRON.',
+  swapMinWithdrawError: 'Минимальная сумма вывода — 100 долларов',
+  swapMinWithdrawHint: 'Минимальная сумма вывода — 100 $ (100 000 монет). Внимательно проверьте адрес TRON.',
   swapWithdrawError: 'Не удалось отправить запрос. Попробуйте ещё раз.',
 
   // Tournaments
