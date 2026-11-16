@@ -220,7 +220,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     { id: 'oil_truck' as const, nameKey: 'oilTruckPart', label: t(lang, 'oilTruckPart'), description: lang === 'ar' ? 'يعزز كفاءة نقل النفط ويرفع الإنتاج إلى 1.5×.' : t(lang, 'oilTruckDescription'), price: 1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
     { id: 'new_background', nameKey: 'specialBackgroundName', label: t(lang, 'specialBackgroundName'), description: lang === 'ar' ? 'خلفية مميزة مع مضاعف إنتاج 1.5×.' : t(lang, 'specialBackgroundDesc'), price: 1, multiplier: '×1.5', image: '/images/shop/day.png', descriptionKey: 'specialBackgroundDesc' },
     { id: 'vip_badge', nameKey: 'vipBadgeName', label: t(lang, 'vipBadgeName'), description: lang === 'ar' ? 'شارة VIP ذهبية تمنحك مضاعف إنتاج 5×.' : t(lang, 'vipBadgeDesc'), price: 5, multiplier: '×5', image: '/images/shop/vip.png', descriptionKey: 'vipBadgeDesc' },
-    { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: lang === 'ar' ? 'توسعة ×2 لمدة 3 أيام أو 5 رهانات، أيهما أقرب.' : '2× wheel expansion for 3 days or 5 bets, whichever comes first.', price: 1, multiplier: '×2', image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
+    { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: t(lang, 'wheelExpansionDesc'), price: 1, multiplier: '×2', image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
   ];
 
   const copyPartWallet = async () => {
