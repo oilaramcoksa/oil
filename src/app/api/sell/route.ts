@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
         return fail('mining_activation_required', 403);
       }
 
-      // A sale is allowed once, only after the server-recorded 12-hour cycle ends.
+      // Sell once after the server-recorded 12-hour cycle ends; the full oil balance is sold.
       const cycleState = await tx.execute({
         sql: 'SELECT cycle_ends_at FROM player_game_state WHERE telegram_id=?',
         args: [id],
@@ -149,34 +149,9 @@ export async function POST(req: NextRequest) {
       const oilAvailable = Number(wallet.rows[0].oil_balance);
       const oldCoins = Number(wallet.rows[0].coins_balance);
       if (!Number.isSafeInteger(oilAvailable) || oilAvailable <= 0) { await tx.rollback(); return fail('no_oil_to_sell', 409); }
-      const budget = await tx.execute({
-        sql: `SELECT
-          COALESCE((SELECT SUM(amount) FROM ledger_entries
-            WHERE telegram_id=? AND asset='coins' AND amount>0
-              AND entry_type NOT IN ('opening_balance','withdrawal_refund')
-              AND datetime(created_at)>=datetime('now','-24 hours')),0) AS coins_earned,
-          CASE
-            WHEN (SELECT COUNT(DISTINCT part_id) FROM (
-              SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
-              UNION SELECT part_id FROM player_special_parts WHERE telegram_id=?
-                AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
-            ))>=6 THEN 2000
-            WHEN EXISTS (SELECT 1 FROM player_upgrades WHERE telegram_id=?
-              AND status='active' AND expires_at>CURRENT_TIMESTAMP
-              AND package_id IN ('fast_oil','king_oil','super_oil'))
-              AND (SELECT COUNT(DISTINCT part_id) FROM (
-                SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
-                UNION SELECT part_id FROM player_special_parts WHERE telegram_id=?
-                  AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
-              ))>=1 THEN 1500
-            ELSE 1000 END AS daily_limit FROM (SELECT 1)`,
-        args: [id, id, id, id, id, id],
-      });
-      const earnedToday = Number(budget.rows[0]?.coins_earned ?? 0);
-      const dailyLimit = Number(budget.rows[0]?.daily_limit ?? 1000);
-      const remainingToday = Math.max(0, dailyLimit - earnedToday);
-      const sold = Math.min(oilAvailable, Math.floor(remainingToday / COINS_PER_LITER));
-      if (sold <= 0) { await tx.rollback(); return fail('daily_coin_limit_reached', 429); }
+      // Sell the complete oil balance in one atomic transaction.
+      // Daily coin caps must not leave unsold oil stranded in the player's wallet.
+      const sold = oilAvailable;
       const coinsEarned = sold * COINS_PER_LITER;
       const newCoins = oldCoins + coinsEarned;
       if (!Number.isSafeInteger(coinsEarned) || !Number.isSafeInteger(newCoins)) { await tx.rollback(); return fail('invalid_sale_amount', 400); }
