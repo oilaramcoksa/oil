@@ -188,7 +188,6 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     haptic('heavy');
     await sendTonPurchase({ packageId: selected.id }, setVerifying, () => {
       setSelected(null);
-      setWallet(WALLETS.find((w) => w.code === 'gram') ?? null);
     });
   };
 
@@ -520,7 +519,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                   <ChevronLeft className="w-4 h-4" style={{ transform: lang === 'ar' ? 'scaleX(-1)' : 'none' }} />
                 </button>
                 <h3 className="text-amber-100 font-black text-sm">
-                  {t(lang, 'packageDetails')} · t(lang, selected.id === 'fast_oil' ? 'packageFastOil' : selected.id === 'king_oil' ? 'packageKingOil' : 'packageSuperOil')}
+                  {t(lang, 'packageDetails')} · {t(lang, selected.id === 'fast_oil' ? 'packageFastOil' : selected.id === 'king_oil' ? 'packageKingOil' : 'packageSuperOil')}
                 </h3>
                 <div className="w-8" />
               </div>
