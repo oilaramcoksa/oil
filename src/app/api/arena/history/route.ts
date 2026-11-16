@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
         LIMIT 40`,
     });
 
-    const rounds = [];
+    const rounds: Array<{ id: string; status: string; occurredAt: string; total: number; winnerTelegramId: string | null; winnerType: string | null; entries: Array<{ telegramId: string; username: string; stake: number; outcome: string; amount: number; multiplier: number }> }> = [];
     for (const row of roundsResult.rows) {
       const roundId = String(row.id);
       const entriesResult = await db.execute({
