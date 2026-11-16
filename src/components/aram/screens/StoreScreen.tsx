@@ -216,11 +216,11 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
   };
 
   const shopParts = [
-    { id: 'oil_pump' as const, nameKey: 'oilPumpPart', label: t(lang, 'oilPumpPart'), description: lang === 'ar' ? 'يرفع إنتاج المضخة إلى 3 أضعاف المعدل الأساسي.' : t(lang, 'oilPumpDescription'), price: 2, multiplier: '×3', image: '/images/shop/oil-pump.png', descriptionKey: 'oilPumpDescription' },
-    { id: 'fuel_station' as const, nameKey: 'fuelStationPart', label: t(lang, 'fuelStationPart'), description: lang === 'ar' ? 'يضاعف إنتاجك إلى مرتين مع سعة تخزين إضافية.' : t(lang, 'fuelStationDescription'), price: 1.5, multiplier: '×2', image: '/images/shop/fuel-station.png', descriptionKey: 'fuelStationDescription' },
-    { id: 'oil_truck' as const, nameKey: 'oilTruckPart', label: t(lang, 'oilTruckPart'), description: lang === 'ar' ? 'يعزز كفاءة نقل النفط ويرفع الإنتاج إلى 1.5×.' : t(lang, 'oilTruckDescription'), price: 1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
-    { id: 'new_background', nameKey: 'specialBackgroundName', label: t(lang, 'specialBackgroundName'), description: lang === 'ar' ? 'خلفية مميزة مع مضاعف إنتاج 1.5×.' : t(lang, 'specialBackgroundDesc'), price: 1, multiplier: '×1.5', image: '/images/shop/day.png', descriptionKey: 'specialBackgroundDesc' },
-    { id: 'vip_badge', nameKey: 'vipBadgeName', label: t(lang, 'vipBadgeName'), description: lang === 'ar' ? 'شارة VIP ذهبية تمنحك مضاعف إنتاج 5×.' : t(lang, 'vipBadgeDesc'), price: 5, multiplier: '×5', image: '/images/shop/vip.png', descriptionKey: 'vipBadgeDesc' },
+    { id: 'oil_pump' as const, nameKey: 'oilPumpPart', label: t(lang, 'oilPumpPart'), description: t(lang, 'oilPumpDescription'), price: 2, multiplier: '×3', image: '/images/shop/oil-pump.png', descriptionKey: 'oilPumpDescription' },
+    { id: 'fuel_station' as const, nameKey: 'fuelStationPart', label: t(lang, 'fuelStationPart'), description: t(lang, 'fuelStationDescription'), price: 1.5, multiplier: '×2', image: '/images/shop/fuel-station.png', descriptionKey: 'fuelStationDescription' },
+    { id: 'oil_truck' as const, nameKey: 'oilTruckPart', label: t(lang, 'oilTruckPart'), description: t(lang, 'oilTruckDescription'), price: 1, multiplier: '×1.5', image: '/images/shop/oil-truck.png', descriptionKey: 'oilTruckDescription' },
+    { id: 'new_background', nameKey: 'specialBackgroundName', label: t(lang, 'specialBackgroundName'), description: t(lang, 'specialBackgroundDesc'), price: 1, multiplier: '×1.5', image: '/images/shop/day.png', descriptionKey: 'specialBackgroundDesc' },
+    { id: 'vip_badge', nameKey: 'vipBadgeName', label: t(lang, 'vipBadgeName'), description: t(lang, 'vipBadgeDesc'), price: 5, multiplier: '×5', image: '/images/shop/vip.png', descriptionKey: 'vipBadgeDesc' },
     { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: t(lang, 'wheelExpansionDesc'), price: 1, multiplier: '×2', image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
   ];
 
@@ -499,11 +499,11 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
 
               <div className="rounded-2xl border border-amber-400/20 bg-white/[0.05] p-4 mb-3 text-right">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-amber-200/80 text-xs font-bold">الدفع عبر محفظة TON</span>
+                  <span className="text-amber-200/80 text-xs font-bold">{t(lang, 'partPaymentMethod')}</span>
                   <span className="text-[10px] rounded-full bg-emerald-400/10 text-emerald-300 px-2 py-1">TON Mainnet</span>
                 </div>
                 <div className="text-emerald-300 font-black text-2xl">{selectedPart.price} TON</div>
-                <p className="mt-2 text-[10px] leading-5 text-amber-100/60">اضغط شراء الآن لفتح محفظتك المتصلة. سيتم تفعيل القطعة بعد التحقق من المعاملة على البلوك تشين.</p>
+                <p className="mt-2 text-[10px] leading-5 text-amber-100/60">{t(lang, 'partPurchaseInstruction')}</p>
               </div>
 
               <AnimatePresence mode="wait">
@@ -520,7 +520,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                       <motion.span aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                         animate={{ x: ['-120%', '120%'] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }} />
                       <span className="relative flex items-center justify-center gap-2">
-                        {partFailed ? t(lang, 'paymentFailedNoActivation') : <><Zap className="w-5 h-5" /> شراء الآن عبر TON</>}
+                        {partFailed ? t(lang, 'paymentFailedNoActivation') : <><Zap className="w-5 h-5" /> {t(lang, 'buyPartNow')}</>}
                       </span>
                     </Button>
                   </motion.div>
@@ -668,7 +668,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                       ) : (
                         <>
                           <Check className="w-4 h-4 mr-2" />
-                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : 'شراء الآن عبر TON'}
+                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : '{t(lang, 'buyPartNow')}'}
                         </>
                       )}
                     </Button>
