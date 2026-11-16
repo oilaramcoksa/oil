@@ -162,7 +162,7 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
           {address ? t(lang, 'miningFeeConnected') : savedAddress ? t(lang, 'miningFeeReconnect') : t(lang, 'miningFeeConnect')}
         </button>
         <button onClick={payAndActivate} disabled={!address || busy || !status.destination} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f7c34d] to-[#ed8b22] py-3 font-black text-[#4c2908] shadow-lg disabled:opacity-50">
-          {busy ? <Loader2 className="animate-spin" size={18}/> : <Wallet size={18}/>} ادفع 0.1 TON وابدأ التعدين
+          {busy ? <Loader2 className="animate-spin" size={18}/> : <Wallet size={18}/>} {t(lang, 'miningFeePay')}
         </button>
         {error && <p className="mt-3 rounded-xl border border-red-300 bg-red-50 p-3 text-center text-xs font-bold text-red-700">{error}</p>}
         {!status.destination && <p className="mt-3 text-center text-xs font-bold text-red-700">{t(lang, 'miningFeeReceiverMissing')}</p>}
