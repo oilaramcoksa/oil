@@ -15,7 +15,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
   const [wallet, setWallet] = useState<WalletData>({ coins: 0, usdMicros: 0 });
   const [history, setHistory] = useState<Withdrawal[]>([]);
   const [coinsInput, setCoinsInput] = useState('');
-  const [usdInput, setUsdInput] = useState('1');
+  const [usdInput, setUsdInput] = useState('100');
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [walletLoading, setWalletLoading] = useState(true);
@@ -46,7 +46,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
   const usdAmount = Math.round(Number(usdInput) * 1_000_000);
   const canSwap = coinsAmount > 0 && coinsAmount <= wallet.coins && Number.isSafeInteger(convertedMicros) && !busy;
   const tronValid = /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address.trim());
-  const canWithdraw = Number.isSafeInteger(usdAmount) && usdAmount >= 1_000_000 && usdAmount <= wallet.usdMicros && tronValid && !loading;
+  const canWithdraw = Number.isSafeInteger(usdAmount) && usdAmount >= 100_000_000 && usdAmount <= wallet.usdMicros && tronValid && !loading;
 
   async function swap() {
     if (!canSwap || actionGateRef.current) return;
@@ -77,11 +77,11 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
       const res = await fetch('/api/usdt-withdrawals', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ amountUsd: usdAmount / 1_000_000, tronAddress: address.trim(), idempotencyKey: crypto.randomUUID() }) });
       const data = await res.json();
       if (!res.ok) {
-        const key = data.error === 'insufficient_usd_balance' ? 'swapInsufficientUsd' : data.error === 'invalid_tron_address' ? 'swapInvalidAddress' : data.error === 'minimum_one_usd' ? 'swapMinWithdrawError' : 'swapWithdrawError';
+        const key = data.error === 'insufficient_usd_balance' ? 'swapInsufficientUsd' : data.error === 'invalid_tron_address' ? 'swapInvalidAddress' : data.error === 'minimum_100_usd' ? 'swapMinWithdrawError' : 'swapWithdrawError';
         throw new Error(key);
       }
       setWallet((old) => ({ ...old, ...data.wallet }));
-      setUsdInput('1');
+      setUsdInput('100');
       toast.success(t(lang, 'swapWithdrawQueued'));
       await refresh();
     } catch (e) { toast.error(t(lang, e instanceof Error && e.message.startsWith('swap') ? e.message : 'swapWithdrawError')); }
@@ -112,7 +112,7 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
         <section className="aram-card rounded-2xl p-3">
           <div className="mb-3 flex items-center gap-2"><div className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><Wallet size={18}/></div><div><h3 className="font-black text-[#633715]">{t(lang, 'swapWithdraw')}</h3><p className="text-[10px] font-bold text-amber-900/60">{t(lang, 'swapUsdtNetwork')}</p></div></div>
           <label className="mb-1 block text-xs font-bold text-amber-900/70">{t(lang, 'swapAmountUsd')}</label>
-          <input type="number" inputMode="decimal" min="1" step="0.000001" value={usdInput} onChange={(e) => setUsdInput(e.target.value)} className="mb-3 w-full rounded-xl border border-amber-200 bg-white px-3 py-3 font-bold text-[#542b12] outline-none focus:border-amber-500"/>
+          <input type="number" inputMode="decimal" min="100" step="0.000001" value={usdInput} onChange={(e) => setUsdInput(e.target.value)} className="mb-3 w-full rounded-xl border border-amber-200 bg-white px-3 py-3 font-bold text-[#542b12] outline-none focus:border-amber-500"/>
           <label className="mb-1 block text-xs font-bold text-amber-900/70">{t(lang, 'swapTronAddress')}</label>
           <div className="flex gap-2" dir="ltr">
             <input type="text" dir="ltr" autoCapitalize="off" autoCorrect="off" spellCheck={false} value={address} onChange={(e) => setAddress(e.target.value.trim())} placeholder="T..." className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-3 font-mono text-sm text-[#542b12] outline-none focus:border-amber-500"/>
