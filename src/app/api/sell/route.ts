@@ -269,7 +269,7 @@ export async function POST(req: NextRequest) {
       throw error;
     }
   } catch (error) {
-    console.error('oil_sale_failed', error);
+    console.error('oil_sale_failed', error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error);
     return fail('oil_sale_failed', 503);
   }
 }
