@@ -12,6 +12,18 @@ export const LANGS: { code: Lang; label: string; flag: string; dir: 'rtl' | 'ltr
 type Dict = Record<string, string>;
 
 const ar: Dict = {
+  viewPackageDetails: "تفاصيل الباقة",
+  packageDetails: "تفاصيل الباقة",
+  packageFastOil: "FAST OIL",
+  packageKingOil: "KING OIL",
+  packageSuperOil: "SUPER OIL",
+  packagePrice: "سعر الباقة",
+  packageDuration: "مدة الصلاحية",
+  packagePaymentNetwork: "شبكة الدفع",
+  packageBuyNow: "شراء هذه الباقة الآن",
+  packagePaymentHint: "اضغط على زر الشراء لفتح محفظة TON عبر TON Connect. أكّد المعاملة من داخل محفظتك، وسيتم تفعيل الباقة تلقائيًا بعد التحقق من الشبكة.",
+  packagePaymentProcessing: "جارٍ إرسال الدفع والتحقق من المعاملة وتفعيل الباقة...",
+  packageDisclaimer: "هذه الباقة محتوى رقمي داخل اللعبة، وتُفعّل لمدة 30 يومًا بعد تأكيد الدفع.",
 
   navSwap: 'تبديل',
   swapTitle: 'تبديل العملات',
@@ -551,6 +563,18 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
 };
 
 const en: Dict = {
+  viewPackageDetails: "Package details",
+  packageDetails: "Package details",
+  packageFastOil: "FAST OIL",
+  packageKingOil: "KING OIL",
+  packageSuperOil: "SUPER OIL",
+  packagePrice: "Package price",
+  packageDuration: "Validity period",
+  packagePaymentNetwork: "Payment network",
+  packageBuyNow: "Buy this package now",
+  packagePaymentHint: "Tap the purchase button to open your TON wallet through TON Connect. Approve the transaction in your wallet; the package will activate automatically after network verification.",
+  packagePaymentProcessing: "Sending payment, verifying the transaction, and activating your package...",
+  packageDisclaimer: "This package is in-game digital content and remains active for 30 days after payment confirmation.",
   appName: 'Aramco Oil',
   appTagline: 'Pump oil · Collect coins',
 
@@ -1078,6 +1102,18 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
 };
 
 const ru: Dict = {
+  viewPackageDetails: "Подробнее о пакете",
+  packageDetails: "Информация о пакете",
+  packageFastOil: "FAST OIL",
+  packageKingOil: "KING OIL",
+  packageSuperOil: "SUPER OIL",
+  packagePrice: "Стоимость пакета",
+  packageDuration: "Срок действия",
+  packagePaymentNetwork: "Платёжная сеть",
+  packageBuyNow: "Купить этот пакет",
+  packagePaymentHint: "Нажмите кнопку покупки, чтобы открыть TON-кошелёк через TON Connect. Подтвердите транзакцию в кошельке; пакет активируется автоматически после проверки в сети.",
+  packagePaymentProcessing: "Отправка платежа, проверка транзакции и активация пакета...",
+  packageDisclaimer: "Этот пакет является цифровым контентом игры и действует 30 дней после подтверждения оплаты.",
   appName: 'Aramco Oil',
   appTagline: 'Качай нефть · Собирай монеты',
 
