@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/telegram-membership",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/telegram-oil-reminder",
+      "schedule": "0 7,8 * * *"
     }
   ]
 }
