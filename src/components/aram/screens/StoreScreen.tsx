@@ -128,6 +128,30 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'payment_request_failed');
       const payment = data.payment;
       if (!tonConnector.connected) throw new Error(lang === 'ar' ? 'انقطع اتصال المحفظة. أعد توصيلها وحاول مجددًا.' : 'Wallet disconnected. Reconnect and try again.');
+      // Check the connected TON Mainnet wallet balance before opening its
+      // confirmation screen. Keep a small reserve for network fees.
+      const accountAddress = tonConnector.account?.address;
+      if (!accountAddress) throw new Error('wallet_not_connected');
+      const balanceUrl = new URL('https://toncenter.com/api/v2/getAddressBalance');
+      balanceUrl.searchParams.set('address', accountAddress);
+      const balanceHeaders: Record<string, string> = {};
+      if (process.env.NEXT_PUBLIC_TONCENTER_API_KEY) {
+        balanceHeaders['X-API-Key'] = process.env.NEXT_PUBLIC_TONCENTER_API_KEY;
+      }
+      const balanceResponse = await fetch(balanceUrl.toString(), {
+        headers: balanceHeaders,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!balanceResponse.ok) throw new Error('wallet_balance_unavailable');
+      const balanceData = await balanceResponse.json().catch(() => ({})) as { ok?: boolean; result?: string };
+      if (balanceData.ok !== true || !/^\\d+$/.test(String(balanceData.result ?? ''))) {
+        throw new Error('wallet_balance_unavailable');
+      }
+      const requiredNanoton = BigInt(String(payment.amountNanoton)) + 50_000_000n;
+      if (BigInt(balanceData.result) < requiredNanoton) {
+        throw new Error('insufficient_ton_balance');
+      }
       const payload = beginCell().storeUint(0, 32).storeStringTail(String(payment.comment)).endCell().toBoc().toString('base64');
       await tonConnector.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
@@ -158,7 +182,32 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
       void poll();
     } catch (error) {
       setBusy(false);
-      toast.error(error instanceof Error ? error.message : 'تعذر فتح محفظة TON');
+      const raw = error as { code?: number | string; message?: string };
+      const errorText = String(raw?.message ?? '');
+      const isInsufficient = errorText === 'insufficient_ton_balance' ||
+        /insufficient funds|not enough ton|not enough balance|insufficient balance/i.test(errorText);
+      const isUserRejected = Number(raw?.code) === 300 ||
+        /UserRejectsError|User declined the transaction|user rejected|user declined/i.test(errorText);
+      if (isInsufficient) {
+        toast.error(lang === 'ar'
+          ? 'للأسف، محفظتك لا تحتوي على رصيد TON كافٍ لإتمام عملية الشراء. أضف رصيدًا يشمل رسوم الشبكة ثم حاول مجددًا.'
+          : 'Unfortunately, your wallet does not have enough TON to complete this purchase. Add enough TON to cover network fees and try again.');
+      } else if (isUserRejected) {
+        toast.info(lang === 'ar'
+          ? 'لم تتم الموافقة على التحويل من المحفظة. إذا كان رصيدك غير كافٍ، أضف TON ثم حاول مرة أخرى.'
+          : 'The transaction was not approved in your wallet. If your balance is low, add TON and try again.');
+      } else if (errorText === 'wallet_balance_unavailable') {
+        toast.error(lang === 'ar'
+          ? 'تعذر التحقق من رصيد محفظتك حاليًا. حاول مرة أخرى بعد قليل.'
+          : 'Could not check your wallet balance right now. Please try again shortly.');
+      } else if (errorText === 'wallet_not_connected') {
+        toast.error(lang === 'ar' ? 'يرجى ربط محفظة TON أولًا.' : 'Please connect your TON wallet first.');
+      } else {
+        console.error('ton_purchase_failed', error);
+        toast.error(lang === 'ar'
+          ? 'تعذر إتمام عملية الشراء. تحقق من اتصال المحفظة وحاول مرة أخرى.'
+          : 'The purchase could not be completed. Check your wallet connection and try again.');
+      }
     }
   };
 
