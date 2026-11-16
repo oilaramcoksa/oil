@@ -210,6 +210,7 @@ export async function GET(req: NextRequest) {
       throw error;
     }
   } catch (error) {
+    if (error instanceof Error && error.message.includes('daily_coin_limit_reached')) return reply(false, 429, { error: 'daily_reward_limit_reached' });
     console.error('adsgram_task_webhook_failed', error);
     return reply(false, 503, { error: 'reward_processing_failed' });
   }
