@@ -87,6 +87,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                   headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
                   body: JSON.stringify({ idempotencyKey }),
                   cache: 'no-store',
+                  signal: AbortSignal.timeout(15000),
                 });
                 data = await response.json() as SaleResponse;
                 if (response.ok) break;
@@ -136,7 +137,16 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
             } catch (syncError) {
               console.warn('oil_sale_wallet_reconcile_failed', syncError);
             }
-            toast.error(t(lang, 'sellError'));
+            const saleError = error instanceof Error ? error.message : 'oil_sale_failed';
+            if (saleError === 'daily_coin_limit_reached') {
+              toast.error(lang === 'ar'
+                ? 'وصلت إلى الحد اليومي للعملات؛ حاول بيع المتبقي غدًا.'
+                : lang === 'ru'
+                  ? 'Достигнут дневной лимит монет. Попробуйте продать остаток завтра.'
+                  : 'Daily coin limit reached. Try selling the remaining oil tomorrow.');
+            } else {
+              toast.error(t(lang, 'sellError'));
+            }
             timers.push(setTimeout(() => setPhase('retracting'), 900));
             timers.push(setTimeout(() => setPhase('departing'), 1700));
             timers.push(setTimeout(() => setPhase('done'), 3200));
