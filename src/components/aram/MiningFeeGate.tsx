@@ -137,7 +137,9 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
     }
   }
 
-  if (!status) return <div dir={dirOf(lang)} className="fixed inset-0 z-[100] flex items-center justify-center bg-[#2b1809]/55 p-4 backdrop-blur-sm"><div className="w-full max-w-sm rounded-2xl border border-[#e8c879] bg-[#fff8e8] p-5 text-center text-sm font-bold text-[#6b3b12] shadow-xl">{error || t(lang, 'miningFeeLoading')}{error && <button type="button" onClick={onClose} className="mt-4 block w-full rounded-xl bg-gradient-to-r from-[#f7c34d] to-[#ed8b22] py-2 font-black text-[#4c2908]">{t(lang, 'miningFeeClose')}</button>}</div></div>;
+  // Keep the status lookup invisible; the fee dialog appears only after the
+  // server has confirmed that this player still needs to pay.
+  if (!status) return null;
   if (!status.required) return null;
 
   return (
