@@ -77,7 +77,8 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
             // already-committed wallet instead of attempting another sale.
             const idempotencyKey = crypto.randomUUID();
             let response: Response | null = null;
-            let data: { sold?: number; coinsEarned?: number; wallet?: { oil: number; coins: number }; error?: string } | null = null;
+            type SaleResponse = { sold?: number; coinsEarned?: number; wallet?: { oil: number; coins: number }; error?: string };
+            let data: SaleResponse | null = null;
             let lastError: unknown = null;
             for (let attempt = 0; attempt < 2; attempt++) {
               try {
@@ -87,7 +88,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                   body: JSON.stringify({ idempotencyKey }),
                   cache: 'no-store',
                 });
-                data = await response.json() as typeof data;
+                data = await response.json() as SaleResponse;
                 if (response.ok) break;
                 if (response.status < 500 || attempt === 1) throw new Error(data?.error || 'oil_sale_failed');
               } catch (error) {
