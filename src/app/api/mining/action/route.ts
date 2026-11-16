@@ -48,11 +48,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ok:true,duplicate:true,oil:Number(w.rows[0]?.oil_balance??0),coins:Number(w.rows[0]?.coins_balance??0),cycleEndsAt:Number(c.rows[0]?.cycle_ends_at??0)||null},{headers:{'Cache-Control':'no-store'}});
       }
 
-      const [game,wallet,parts,upgrades] = await Promise.all([
+      const [game,wallet,parts,upgrades,controls] = await Promise.all([
         tx.execute({sql:'SELECT base_oil_per_tap,base_capacity,cycle_started_at,cycle_ends_at,last_tick_at FROM player_game_state WHERE telegram_id=?',args:[id]}),
         tx.execute({sql:'SELECT oil_balance,coins_balance FROM player_wallets WHERE telegram_id=?',args:[id]}),
         tx.execute({sql:'SELECT part_id,quantity FROM player_parts WHERE telegram_id=?',args:[id]}),
         tx.execute({sql:"SELECT package_id FROM player_upgrades WHERE telegram_id=? AND status='active' AND expires_at>CURRENT_TIMESTAMP",args:[id]})
+        tx.execute({sql:'SELECT product_id,product_type,status,speed_multiplier FROM player_product_controls WHERE telegram_id=?',args:[id]})
       ]);
       if (!game.rows.length || !wallet.rows.length) { await tx.rollback(); return fail('mining_state_missing',409); }
       const g=game.rows[0], w=wallet.rows[0];
@@ -62,11 +63,24 @@ export async function POST(req: NextRequest) {
       const lastTick=Number(g.last_tick_at??0);
       const quantities:Record<string,number>={oil_pump:0,fuel_station:0,oil_truck:0};
       for(const p of parts.rows) quantities[String(p.part_id)]=Math.max(0,Number(p.quantity??0));
-      const activePackages=upgrades.rows.map(r=>PACKAGES.find(p=>p.id===String(r.package_id))).filter(Boolean);
-      const capacity=Number(g.base_capacity??500)+activePackages.length*250+quantities.fuel_station*250;
-      const upgradeTap=activePackages.reduce((n,p)=>n+Number(p!.oilPerTap??0),0);
-      const perTap=Math.max(1,Math.floor((Number(g.base_oil_per_tap??2)+upgradeTap)*(1+quantities.oil_pump*0.5)));
-      const rateCoinsHour=60+activePackages.reduce((n,p)=>n+Number(p!.perHour??0),0)+quantities.oil_truck*30;
+      const controlMap = new Map(controls.rows.map(r => [String(r.product_type)+':'+String(r.product_id), r]));
+      const activePackages=upgrades.rows.map(r=>PACKAGES.find(p=>p.id===String(r.package_id))).filter(p=>{
+        const control=controlMap.get('package:'+String(p?.id));
+        return !!p && String(control?.status ?? 'active') === 'active';
+      });
+      const packageMultiplier=activePackages.reduce((n,p)=>{
+        const control=controlMap.get('package:'+String(p!.id));
+        return n * Math.max(0,Math.min(100,Number(control?.speed_multiplier ?? 1)));
+      },1);
+      const partMultiplier=(partId:string)=> {
+        const control=controlMap.get('part:'+partId);
+        return String(control?.status ?? 'active') === 'active'
+          ? Math.max(0,Math.min(100,Number(control?.speed_multiplier ?? 1))) : 0;
+      };
+      const capacity=Number(g.base_capacity??500)+activePackages.length*250+quantities.fuel_station*250*partMultiplier('fuel_station');
+      const upgradeTap=activePackages.reduce((n,p)=>n+Number(p!.oilPerTap??0),0)*packageMultiplier;
+      const perTap=Math.max(1,Math.floor((Number(g.base_oil_per_tap??2)+upgradeTap)*(1+quantities.oil_pump*0.5*partMultiplier('oil_pump'))));
+      const rateCoinsHour=60+activePackages.reduce((n,p)=>n+Number(p!.perHour??0),0)*packageMultiplier+quantities.oil_truck*30*partMultiplier('oil_truck');
       let oil=Number(w.oil_balance??0);
       let coins=Number(w.coins_balance??0);
       let currentCycleEnd=cycleEnd;
