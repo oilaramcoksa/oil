@@ -67,14 +67,14 @@ export function WithdrawSection() {
 
   const max = maxUnits(coins);
   const unlocked = max >= MIN_UNITS;
-  const hasPending = withdrawals.some((w) => w.status === 'pending');
   const lastWithdrawalAt = withdrawals.reduce((latest, item) => Math.max(latest, Number(item.createdAt) || 0), 0);
   const cooldownRemainingMs = Math.max(0, lastWithdrawalAt + 48 * 60 * 60 * 1000 - Date.now());
   const safeUnits = Math.min(Math.max(units, MIN_UNITS), Math.max(max, MIN_UNITS));
   const addressOk = useMemo(() => isValidTonAddress(address), [address]);
-  const progress = Math.min(100, (coins / COINS_PER_USD) * 100);
-  const missing = Math.max(0, COINS_PER_USD - coins);
-  const canSubmit = unlocked && addressOk && !hasPending && cooldownRemainingMs <= 0 && !busy;
+  const minimumCoins = MIN_UNITS * COINS_PER_USD;
+  const progress = Math.min(100, (coins / minimumCoins) * 100);
+  const missing = Math.max(0, minimumCoins - coins);
+  const canSubmit = unlocked && addressOk && cooldownRemainingMs <= 0 && !busy;
 
   async function submit() {
     if (actionGateRef.current || busy) return;
@@ -118,7 +118,7 @@ export function WithdrawSection() {
         <div>
           <div className="flex items-center justify-between text-[10px] font-bold text-amber-900/70 mb-1">
             <span>{t(lang, 'wdProgress')}</span>
-            <span className="tabular-nums">{coins.toLocaleString()} / {COINS_PER_USD.toLocaleString()}</span>
+            <span className="tabular-nums">{coins.toLocaleString()} / {minimumCoins.toLocaleString()}</span>
           </div>
           <div className="h-2 rounded-full bg-amber-100 overflow-hidden">
             <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all" style={{ width: `${progress}%` }} />
@@ -127,10 +127,6 @@ export function WithdrawSection() {
             {t(lang, 'wdNeedMore').replace('{n}', missing.toLocaleString())}
           </p>
         </div>
-      ) : hasPending ? (
-        <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-          {t(lang, 'wdPendingBlock')}
-        </p>
       ) : cooldownRemainingMs > 0 ? (
         <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-center">
           <div className="text-[11px] font-black text-sky-800">{t(lang, 'withdrawCooldown')}</div>

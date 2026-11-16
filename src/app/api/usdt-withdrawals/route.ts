@@ -5,7 +5,7 @@ import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const MIN_WITHDRAWAL_MICROS = 1_000_000;
+const MIN_WITHDRAWAL_MICROS = 100_000_000; // $100 minimum
 const WITHDRAWAL_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 function timestamp(value: unknown): number {
   const raw = String(value ?? '');
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   const micros = Math.round(amount * 1_000_000);
   const address = typeof body.tronAddress === 'string' ? body.tronAddress.trim() : '';
   const key = typeof body.idempotencyKey === 'string' ? body.idempotencyKey : '';
-  if (!Number.isFinite(amount) || !Number.isSafeInteger(micros) || micros < MIN_WITHDRAWAL_MICROS || Math.abs(amount - micros / 1_000_000) > 0.0000001) return errorJson('minimum_one_usd');
+  if (!Number.isFinite(amount) || !Number.isSafeInteger(micros) || micros < MIN_WITHDRAWAL_MICROS || Math.abs(amount - micros / 1_000_000) > 0.0000001) return errorJson('minimum_100_usd');
   if (!TRON_ADDRESS.test(address)) return errorJson('invalid_tron_address');
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) return errorJson('invalid_idempotency_key');
   const id = String(user.id);

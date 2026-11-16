@@ -1,5 +1,5 @@
 // aramcooil game state — Zustand store with localStorage persistence.
-// Coins can be withdrawn in TON at 100,000 coins = 1 USD (see lib/withdraw.ts).
+// Coins convert at 1,000 coins = 1 USD; minimum withdrawal is $100 (see lib/withdraw.ts).
 // Withdrawal requests live on the server (/api/withdrawals); the store keeps
 // a local mirror and locks the coins while a request is pending.
 // Upgrades are purchases of in-game content and promise no financial return.
