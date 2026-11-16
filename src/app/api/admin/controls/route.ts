@@ -64,6 +64,28 @@ export async function GET(req: NextRequest) {
     const status = req.nextUrl.searchParams.get('status') ?? 'pending';
     const query = (req.nextUrl.searchParams.get('q') ?? '').trim().slice(0, 80);
 
+    if (section === 'notificationCounts') {
+      await db.execute(`CREATE TABLE IF NOT EXISTS admin_notification_reads (
+        section TEXT PRIMARY KEY,
+        last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`);
+      const [players, referrals, payments, withdrawals, stories, shorts] = await Promise.all([
+        db.execute(`SELECT COUNT(*) AS total FROM players
+          WHERE created_at > COALESCE((SELECT last_seen_at FROM admin_notification_reads WHERE section='players'),'1970-01-01 00:00:00')`),
+        db.execute(`SELECT COUNT(*) AS total FROM referrals
+          WHERE created_at > COALESCE((SELECT last_seen_at FROM admin_notification_reads WHERE section='referrals'),'1970-01-01 00:00:00')`),
+        db.execute("SELECT COUNT(*) AS total FROM payment_transactions WHERE status='pending'"),
+        db.execute("SELECT (SELECT COUNT(*) FROM withdrawal_requests WHERE status='pending') + (SELECT COUNT(*) FROM usdt_withdrawal_requests WHERE status='pending') AS total"),
+        db.execute("SELECT COUNT(*) AS total FROM telegram_story_submissions WHERE status='pending'"),
+        db.execute("SELECT COUNT(*) AS total FROM shorts_entries WHERE status='pending'"),
+      ]);
+      const count = (result: typeof players) => Number((result.rows[0] as Record<string, unknown> | undefined)?.total ?? 0);
+      return NextResponse.json({ notifications: {
+        players: count(players), referrals: count(referrals), payments: count(payments),
+        withdrawals: count(withdrawals), storyTasks: count(stories), shorts: count(shorts),
+      } }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
     if (section === 'overview') {
       const monthKey = new Date().toISOString().slice(0, 7);
       const [players, active, wallet, ton, usdt, payments, upgrades, ledger, monthly] = await Promise.all([
@@ -260,6 +282,20 @@ export async function POST(req: NextRequest) {
     const db = getTurso();
     const tx = await db.transaction('write');
     try {
+      if (action === 'mark_notifications_read') {
+        const section = String(body.section ?? '');
+        if (!['players','referrals'].includes(section)) { await tx.rollback(); return fail('invalid_notification_section'); }
+        await tx.execute(`CREATE TABLE IF NOT EXISTS admin_notification_reads (
+          section TEXT PRIMARY KEY,
+          last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`);
+        await tx.execute({
+          sql: 'INSERT INTO admin_notification_reads(section,last_seen_at) VALUES(?,CURRENT_TIMESTAMP) ON CONFLICT(section) DO UPDATE SET last_seen_at=CURRENT_TIMESTAMP',
+          args: [section],
+        });
+        await tx.commit();
+        return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+      }
       if (action === 'product_control') {
         const productId = String(body.productId ?? '').trim();
         const productType = String(body.productType ?? '');
