@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle, Camera, ExternalLink, CheckCircle, XOctagon, MoreHorizontal, ChevronDown } from 'lucide-react';
+import { Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle, Camera, ExternalLink, CheckCircle, XOctagon, MoreHorizontal, Download } from 'lucide-react';
 
 type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'audit';
 type Player = {telegram_id:string;username?:string|null;first_name?:string|null;last_name?:string|null;status:string;coins:number;oil:number;base_oil_per_tap:number;fee_exempt:number;mining_fee_paid_at?:string|null};
 type Row = Record<string, unknown>;
+type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
 
 const money = (v: unknown) => Number(v ?? 0).toLocaleString('en-US');
 const displayName = (p: Player) => p.first_name || p.username || p.telegram_id;
@@ -42,11 +43,23 @@ export default function AdminPage() {
   const [decisionReason,setDecisionReason] = useState('');
   const [actionDialog,setActionDialog] = useState<{action:string;id?:string;currency?:string;status?:string}|null>(null);
   const [mobileMenuOpen,setMobileMenuOpen] = useState(false);
+  const [installPrompt,setInstallPrompt] = useState<BeforeInstallPromptEvent|null>(null);
 
   useEffect(()=>{
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
     void navigator.serviceWorker.register('/admin-sw.js', { scope: '/admin' }).catch((e)=>console.info('admin_pwa_registration_unavailable',e));
   },[]);
+  useEffect(()=>{
+    const onInstall=(event:Event)=>{event.preventDefault();setInstallPrompt(event as BeforeInstallPromptEvent);};
+    window.addEventListener('beforeinstallprompt',onInstall);
+    return ()=>window.removeEventListener('beforeinstallprompt',onInstall);
+  },[]);
+  async function installAdmin(){
+    if(!installPrompt){window.alert('من قائمة المتصفح اختر «إضافة إلى الشاشة الرئيسية» أو «تثبيت التطبيق».');return;}
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  }
 
   const headers = useMemo(()=>({'Content-Type':'application/json'}),[]);
 
@@ -80,6 +93,7 @@ export default function AdminPage() {
     } catch(e) { setError(e instanceof Error?e.message:'تعذر تحميل المشتريات'); }
   }
   useEffect(()=>{if(token) void load(section);},[token,section,status]);
+  useEffect(()=>{if(!token||section!=='overview')return;const timer=window.setInterval(()=>void load('overview'),30000);return()=>window.clearInterval(timer);},[token,section]);
   async function login(e:React.FormEvent){
     e.preventDefault(); if(!input.trim()) return; setBusy(true); setError('');
     try{
@@ -116,8 +130,8 @@ export default function AdminPage() {
   const statCards: Array<[string, unknown, string]> = [
     ['إجمالي اللاعبين',overview.players,'users'],['نشطون آخر 7 أيام',overview.activePlayers,'active'],['العملات المتداولة',overview.coins,'coins'],['النفط المخزن',overview.oil,'oil'],['سحب TON معلّق',overview.tonPending,'ton'],['سحب USDT معلّق',overview.usdtPending,'usdt'],['مشتريات قيد المراجعة',overview.paymentPending,'payments'],['ترقيات مفعّلة',overview.activeUpgrades,'upgrades'],['عملات محجوزة',overview.lockedCoins,'locked'],['إجمالي قيود السجل',overview.ledgerEntries,'ledger'],['لاعبون هذا الشهر',overview.monthPlayers,'monthPlayers'],['عملات مكتسبة هذا الشهر',overview.monthCoinsEarned,'monthCoins'],['ضغطات التعدين هذا الشهر',overview.monthTaps,'monthTaps'],['عمليات البيع هذا الشهر',overview.monthSales,'monthSales']
   ];
-  return <div dir="rtl" className="min-h-[100dvh] bg-[#090d16] pb-[calc(5.5rem+env(safe-area-inset-bottom))] text-slate-100 md:pb-0">
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0d1422]/95 backdrop-blur"><div className="mx-auto flex max-w-[1500px] items-center justify-between px-4 py-3"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400 text-slate-950"><ShieldCheck/></div><div><h1 className="font-black">ARAMCO OIL <span className="text-amber-300">ADMIN</span></h1><p className="text-[11px] text-slate-400">مركز التحكم وإدارة اللعبة</p></div></div><div className="flex gap-2"><button onClick={()=>load()} className="rounded-xl border border-white/10 p-2 text-slate-300 hover:bg-white/5"><RefreshCw size={18}/></button><button onClick={logout} className="flex items-center gap-2 rounded-xl border border-red-400/20 px-3 py-2 text-sm text-red-300"><LogOut size={16}/> خروج</button></div></div></header>
+  return <div dir="rtl" className="min-h-[100dvh] overflow-x-hidden bg-[#090d16] pb-[calc(5.5rem+env(safe-area-inset-bottom))] text-slate-100 md:pb-0">
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0d1422]/95 backdrop-blur"><div className="mx-auto flex max-w-[1500px] items-center justify-between px-4 py-3"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400 text-slate-950"><ShieldCheck/></div><div><h1 className="font-black">ARAMCO OIL <span className="text-amber-300">ADMIN</span></h1><p className="text-[11px] text-slate-400">مركز التحكم وإدارة اللعبة</p></div></div><div className="flex shrink-0 gap-2"><button onClick={()=>void installAdmin()} className="flex items-center gap-1 rounded-xl border border-amber-400/30 px-2.5 py-2 text-xs font-bold text-amber-200"><Download size={16}/><span className="hidden sm:inline">تثبيت</span></button><button onClick={()=>load()} className="rounded-xl border border-white/10 p-2 text-slate-300 hover:bg-white/5"><RefreshCw size={18}/></button><button onClick={logout} className="flex items-center gap-2 rounded-xl border border-red-400/20 px-3 py-2 text-sm text-red-300"><LogOut size={16}/> خروج</button></div></div></header>
     <div className="mx-auto grid max-w-[1500px] gap-4 p-3 pb-6 sm:p-4 lg:grid-cols-[230px_1fr]">
       <aside className="hidden h-fit rounded-2xl border border-white/10 bg-[#111827] p-3 lg:sticky lg:top-24 lg:block"><p className="mb-3 px-3 text-[10px] font-bold text-slate-500">القائمة الرئيسية</p>{nav.map(n=><button key={n.id} onClick={()=>setSection(n.id)} className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold ${section===n.id?'bg-amber-400 text-slate-950':'text-slate-300 hover:bg-white/5'}`}><n.icon size={18}/>{n.label}</button>)}</aside>
       <main className="min-w-0 space-y-4">
