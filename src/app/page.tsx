@@ -24,15 +24,23 @@ import { ArenaInviteNotice } from '@/components/aram/ArenaInviteNotice';
 
 
 
-// Keep lazy-loaded screens visually silent while their chunks resolve.
-const silentLoading = () => null;
-const WalletScreen = dynamic(() => import('@/components/aram/screens/WalletScreen').then((m) => m.WalletScreen), { loading: silentLoading });
-const TasksScreen = dynamic(() => import('@/components/aram/screens/TasksScreen').then((m) => m.TasksScreen), { loading: silentLoading });
-const FriendsScreen = dynamic(() => import('@/components/aram/screens/FriendsScreen').then((m) => m.FriendsScreen), { loading: silentLoading });
-const StoreScreen = dynamic(() => import('@/components/aram/screens/StoreScreen').then((m) => m.StoreScreen), { loading: silentLoading });
-const ArenaScreen = dynamic(() => import('@/components/aram/screens/ArenaScreen').then((m) => m.ArenaScreen), { loading: silentLoading });
-const SwapScreen = dynamic(() => import('@/components/aram/screens/SwapScreen').then((m) => m.SwapScreen), { loading: silentLoading });
-const ShortsContest = dynamic(() => import('@/components/aram/ShortsContest').then((m) => m.ShortsContest), { loading: silentLoading });
+// Show a lightweight visual placeholder instead of an empty screen while a
+// section's code is being downloaded. The actual section is prefetched below.
+const ScreenLoading = () => (
+  <div className="h-full w-full max-w-md mx-auto px-3 pt-4 space-y-3 animate-pulse" aria-hidden="true">
+    <div className="h-7 w-2/5 rounded-lg bg-amber-900/10" />
+    <div className="h-24 rounded-2xl bg-amber-900/10" />
+    <div className="h-24 rounded-2xl bg-amber-900/10" />
+    <div className="h-32 rounded-2xl bg-amber-900/10" />
+  </div>
+);
+const WalletScreen = dynamic(() => import('@/components/aram/screens/WalletScreen').then((m) => m.WalletScreen), { loading: ScreenLoading });
+const TasksScreen = dynamic(() => import('@/components/aram/screens/TasksScreen').then((m) => m.TasksScreen), { loading: ScreenLoading });
+const FriendsScreen = dynamic(() => import('@/components/aram/screens/FriendsScreen').then((m) => m.FriendsScreen), { loading: ScreenLoading });
+const StoreScreen = dynamic(() => import('@/components/aram/screens/StoreScreen').then((m) => m.StoreScreen), { loading: ScreenLoading });
+const ArenaScreen = dynamic(() => import('@/components/aram/screens/ArenaScreen').then((m) => m.ArenaScreen), { loading: ScreenLoading });
+const SwapScreen = dynamic(() => import('@/components/aram/screens/SwapScreen').then((m) => m.SwapScreen), { loading: ScreenLoading });
+const ShortsContest = dynamic(() => import('@/components/aram/ShortsContest').then((m) => m.ShortsContest), { loading: ScreenLoading });
 
 export default function Home() {
   const lang = useGame((s) => s.lang);
@@ -48,6 +56,41 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tournamentsOpen, setTournamentsOpen] = useState(false);
   const [shortsOpen, setShortsOpen] = useState(false);
+
+  // Warm the remaining section chunks after the first screen is interactive.
+  // This prevents the blank delay on the first tap of Friends, Wallet, Tasks, etc.
+  useEffect(() => {
+    let cancelled = false;
+    const preload = () => {
+      if (cancelled) return;
+      void Promise.all([
+        import('@/components/aram/screens/WalletScreen'),
+        import('@/components/aram/screens/TasksScreen'),
+        import('@/components/aram/screens/FriendsScreen'),
+        import('@/components/aram/screens/StoreScreen'),
+        import('@/components/aram/screens/ArenaScreen'),
+        import('@/components/aram/screens/SwapScreen'),
+      ]).catch(() => {
+        // The selected screen can still load normally; do not block gameplay.
+      });
+    };
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    let idleHandle: number | undefined;
+    let timeoutHandle: number | undefined;
+    if (idleWindow.requestIdleCallback) {
+      idleHandle = idleWindow.requestIdleCallback(preload, { timeout: 1800 });
+    } else {
+      timeoutHandle = window.setTimeout(preload, 900);
+    }
+    return () => {
+      cancelled = true;
+      if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
+      if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
+    };
+  }, []);
 
   // Daily/weekly/monthly reset on mount
   useEffect(() => {
