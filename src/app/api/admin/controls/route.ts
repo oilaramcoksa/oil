@@ -258,13 +258,18 @@ export async function POST(req: NextRequest) {
           await tx.rollback(); return fail('invalid_product_control');
         }
         const status = operation === 'pause' ? 'paused' : operation === 'revoke' ? 'revoked' : 'active';
-        await tx.execute(`INSERT INTO player_product_controls(id,telegram_id,product_id,product_type,status,speed_multiplier)
-          VALUES(?,?,?,?,?,?) ON CONFLICT(telegram_id,product_id,product_type) DO UPDATE SET
-          status=excluded.status,speed_multiplier=CASE WHEN ?='speed' THEN excluded.speed_multiplier ELSE player_product_controls.speed_multiplier END,
-          updated_at=CURRENT_TIMESTAMP`,
-          [randomUUID(),target,productId,productType,status,multiplier,operation]);
+        await tx.execute({
+          sql: `INSERT INTO player_product_controls(id,telegram_id,product_id,product_type,status,speed_multiplier)
+            VALUES(?,?,?,?,?,?) ON CONFLICT(telegram_id,product_id,product_type) DO UPDATE SET
+            status=excluded.status,speed_multiplier=CASE WHEN ?='speed' THEN excluded.speed_multiplier ELSE player_product_controls.speed_multiplier END,
+            updated_at=CURRENT_TIMESTAMP`,
+          args: [randomUUID(),target,productId,productType,status,multiplier,operation],
+        });
         if (productType === 'package' && operation === 'revoke') {
-          await tx.execute("UPDATE player_upgrades SET status='revoked' WHERE telegram_id=? AND package_id=? AND status='active'",[target,productId]);
+          await tx.execute({
+            sql: "UPDATE player_upgrades SET status='revoked' WHERE telegram_id=? AND package_id=? AND status='active'",
+            args: [target,productId],
+          });
         }
         await notify(tx,target,'تحديث على منتجك في ARMCO OIL',
           operation==='pause'?'تم إيقاف المنتج مؤقتًا بواسطة الإدارة.':operation==='revoke'?'تم إلغاء تفعيل المنتج بواسطة الإدارة.':operation==='speed'? 'تم تعديل سرعة المنتج بواسطة الإدارة.':'تمت إعادة تفعيل المنتج.',
