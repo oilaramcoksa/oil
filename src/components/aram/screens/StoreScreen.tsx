@@ -257,7 +257,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                       {t(lang, 'speedPackage')} {p.id.replace('_', ' ').toUpperCase()}
                     </div>
                     <div className="text-[11px] text-amber-900/60 font-bold">
-                      ${p.priceUSD} · {p.bonusPct > 0 ? `+${p.bonusPct}% ${t(lang, 'bonus')}` : t(lang, 'basePower')}
+                      {({ fast_oil: 2.5, king_oil: 8, super_oil: 21 } as Record<string, number>)[p.id]} TON · {p.bonusPct > 0 ? `+${p.bonusPct}% ${t(lang, 'bonus')}` : t(lang, 'basePower')}
                     </div>
                   </div>
                 </div>
@@ -356,7 +356,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                     <Zap className="w-3 h-3" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-[#2a1c0a]">{pkg.id.replace('_', ' ').toUpperCase()} · ${pkg.priceUSD}</div>
+                    <div className="text-xs font-bold text-[#2a1c0a]">{pkg.id.replace('_', ' ').toUpperCase()} · {({ fast_oil: 2.5, king_oil: 8, super_oil: 21 } as Record<string, number>)[pkg.id]} TON</div>
                     <div className="flex items-center gap-1 text-[10px] text-amber-900/50 truncate">
                       {w && <CryptoIcon code={w.code} className="w-3 h-3 flex-shrink-0" />}
                       <span className="truncate">{w?.label} · {u.txHash.slice(0, 10)}...</span>
@@ -578,8 +578,8 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
 
                     {/* Amount */}
                     <div className="flex items-center justify-between mb-2 px-1">
-                      <span className="text-[10px] text-amber-200/60 font-bold uppercase">USD</span>
-                      <span className="text-amber-300 font-black tabular-nums">${selected.priceUSD}</span>
+                      <span className="text-[10px] text-amber-200/60 font-bold uppercase">TON Mainnet</span>
+                      <span className="text-amber-300 font-black tabular-nums">{({ fast_oil: 2.5, king_oil: 8, super_oil: 21 } as Record<string, number>)[selected.id]} TON</span>
                     </div>
 
                     {/* Note */}
@@ -603,7 +603,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                       ) : (
                         <>
                           <Check className="w-4 h-4 mr-2" />
-                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : `${t(lang, 'iPaid')} ${selected.priceUSD}`}
+                          {paymentFailed ? t(lang, 'paymentFailedNoActivation') : 'شراء الآن عبر TON'}
                         </>
                       )}
                     </Button>
