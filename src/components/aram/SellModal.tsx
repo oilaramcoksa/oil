@@ -72,14 +72,33 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
         void (async () => {
           try {
             if (!isVerified || !initData) throw new Error('telegram_auth_required');
-            const response = await fetch('/api/sell', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
-              body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }),
-              cache: 'no-store',
-            });
-            const data = await response.json() as { sold?: number; coinsEarned?: number; wallet?: { oil: number; coins: number }; error?: string };
-            if (!response.ok || !data.wallet || !Number.isSafeInteger(data.sold) || !Number.isSafeInteger(data.coinsEarned)) throw new Error(data.error || 'oil_sale_failed');
+            // Reuse one idempotency key on retry: if the server committed the
+            // sale but the response was interrupted, the retry returns the
+            // already-committed wallet instead of attempting another sale.
+            const idempotencyKey = crypto.randomUUID();
+            let response: Response | null = null;
+            let data: { sold?: number; coinsEarned?: number; wallet?: { oil: number; coins: number }; error?: string } | null = null;
+            let lastError: unknown = null;
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                response = await fetch('/api/sell', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+                  body: JSON.stringify({ idempotencyKey }),
+                  cache: 'no-store',
+                });
+                data = await response.json() as typeof data;
+                if (response.ok) break;
+                if (response.status < 500 || attempt === 1) throw new Error(data?.error || 'oil_sale_failed');
+              } catch (error) {
+                lastError = error;
+                if (attempt === 1) throw error;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 700));
+            }
+            if (!response?.ok || !data?.wallet || !Number.isSafeInteger(data.sold) || !Number.isSafeInteger(data.coinsEarned)) {
+              throw lastError instanceof Error ? lastError : new Error(data?.error || 'oil_sale_failed');
+            }
             const sale = { sold: Number(data.sold), coinsEarned: Number(data.coinsEarned) };
             soldRef.current = sale.sold;
             applyServerSale(sale.sold, sale.coinsEarned, data.wallet.coins);
@@ -100,6 +119,22 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
             requestAnimationFrame(animate);
           } catch (error) {
             console.error('oil_sale_ui_failed', error);
+            // Reconcile against Turso after any ambiguous failure. The sale may
+            // have committed even if the browser lost its response.
+            try {
+              const syncResponse = await fetch('/api/game/state', {
+                headers: { 'X-Telegram-Init-Data': initData },
+                cache: 'no-store',
+              });
+              if (syncResponse.ok) {
+                const syncData = await syncResponse.json() as { wallet?: { oil?: number; coins?: number } | null };
+                if (Number.isSafeInteger(syncData.wallet?.oil) && Number.isSafeInteger(syncData.wallet?.coins)) {
+                  useGame.setState({ oil: Number(syncData.wallet?.oil), coins: Number(syncData.wallet?.coins) });
+                }
+              }
+            } catch (syncError) {
+              console.warn('oil_sale_wallet_reconcile_failed', syncError);
+            }
             toast.error(t(lang, 'sellError'));
             timers.push(setTimeout(() => setPhase('retracting'), 900));
             timers.push(setTimeout(() => setPhase('departing'), 1700));
