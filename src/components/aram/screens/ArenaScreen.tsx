@@ -28,7 +28,7 @@ type LastResult = {
   entries: Entry[];
 };
 type HistoryEntry = { telegramId: string; username: string; stake: number; outcome: 'win' | 'loss' | 'refund'; amount: number; multiplier: number };
-type HistoryRound = { id: string; status: string; occurredAt: string; total: number; winnerTelegramId: string | null; winnerType: string | null; entries: HistoryEntry[] };
+type HistoryRound = { id: string; status: string; occurredAt: string; total: number; winnerTelegramId: string | null; winnerType: string | null; fee: number; netWinnings: number; entries: HistoryEntry[] };
 type ArenaState = {
   round: Round | null;
   balance: number;
@@ -440,6 +440,10 @@ export function ArenaScreen({
                 <span>{t(lang, 'arenaHistoryPot')}: <b className="text-amber-800">{item.total.toLocaleString()}</b></span>
                 <span>{item.entries.length} {t(lang, 'arenaPlayers')}</span>
               </div>
+              <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-50 px-2.5 py-2 text-[9px] text-[#987354]">
+                <span>{t(lang, 'arenaHistoryFee')}: <b className="text-red-700">{item.fee.toLocaleString()}</b></span>
+                <span>{t(lang, 'arenaHistoryNetWin')}: <b className="text-emerald-700">{item.netWinnings.toLocaleString()}</b></span>
+              </div>
               <div className="space-y-2">
                 {item.entries.map((entry) => (
                   <div key={entry.telegramId} className="flex items-center justify-between gap-2 rounded-lg border border-amber-900/5 bg-[#fffaf1] px-2.5 py-2">
@@ -452,6 +456,7 @@ export function ArenaScreen({
                         <>
                           <div className="text-xs font-black text-emerald-700">+{entry.amount.toLocaleString()}</div>
                           <div className="text-[9px] font-bold text-emerald-700">{t(lang, 'arenaHistoryWon')} · {entry.multiplier.toFixed(2)}X</div>
+                          <div className="text-[9px] text-emerald-800/75">{t(lang, 'arenaHistoryStakeReturned')}: {entry.stake.toLocaleString()}</div>
                         </>
                       ) : entry.outcome === 'refund' ? (
                         <>
