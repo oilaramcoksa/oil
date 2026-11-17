@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle, Camera, ExternalLink, CheckCircle, XOctagon, MoreHorizontal, Download } from 'lucide-react';
+import { Plane, Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle, Camera, ExternalLink, CheckCircle, XOctagon, MoreHorizontal, Download } from 'lucide-react';
 
 type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'crash' | 'audit';
 type Player = {telegram_id:string;username?:string|null;first_name?:string|null;last_name?:string|null;status:string;coins:number;oil:number;base_oil_per_tap:number;fee_exempt:number;mining_fee_paid_at?:string|null};
