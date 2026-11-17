@@ -123,7 +123,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
   };
 
   useEffect(() => {
-    if (round?.status === 'crashed') playTone(110, 0.35);
+    if (recentCrash || round?.status === 'crashed') playTone(110, 0.35);
   // Play once per round, rather than on every polling response.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round?.id, round?.status, state?.previousRound?.id, state?.previousRound?.crashedAt]);
