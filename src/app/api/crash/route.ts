@@ -49,6 +49,16 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
       const status = String(round.status);
       if (status === 'countdown' && Number(round.betting_ends_at) <= now) {
         await tx.execute({ sql: "UPDATE crash_rounds SET status='running',started_at=? WHERE id=? AND status='countdown'", args: [now, String(round.id)] });
+        if (Number(round.crash_multiplier) <= 1) {
+          await tx.execute({ sql: "UPDATE crash_rounds SET status='crashed',crashed_at=? WHERE id=? AND status='running'", args: [now, String(round.id)] });
+          await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
+          const nextId = randomUUID();
+          const nextSeed = randomBytes(32).toString('hex');
+          await tx.execute({
+            sql: "INSERT INTO crash_rounds(id,status,betting_ends_at,crash_multiplier,server_seed,seed_hash) VALUES(?,'countdown',?,?,?,?)",
+            args: [nextId, now + BETTING_MS, makeCrashPoint(nextSeed, nextId), nextSeed, hash(nextSeed)],
+          });
+        }
       } else if (status === 'running') {
         const start = Number(round.started_at ?? now);
         if (multiplierAt(start, now) >= Number(round.crash_multiplier)) {
