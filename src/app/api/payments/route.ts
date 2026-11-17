@@ -7,7 +7,7 @@ import { PACKAGES, WALLETS, UPGRADE_DURATION_MS } from '@/lib/wallets';
 import { publishPaymentNotice } from '@/lib/telegram-payment-notice';
 
 const SHOP_PARTS = [
-  { id: 'oil_pump', priceTon: 2 }, { id: 'fuel_station', priceTon: 1.5 },
+  { id: 'plane_tips', priceTon: 5 }, { id: 'oil_pump', priceTon: 2 }, { id: 'fuel_station', priceTon: 1.5 },
   { id: 'oil_truck', priceTon: 1 }, { id: 'new_background', priceTon: 1 },
   { id: 'vip_badge', priceTon: 5 }, { id: 'wheel_expansion', priceTon: 1 }, { id: 'arena_tokens_10000', priceTon: 1 },
 ] as const;
@@ -147,6 +147,7 @@ export async function GET(req: NextRequest) {
               vip_badge: 'شارة VIP',
               wheel_expansion: 'توسعة العجلة',
               arena_tokens_10000: '10,000 عملة رهان مخصصة للساحة',
+              plane_tips: 'قطعة توصيات الطائرة · 3 توصيات',
             };
             await publishPaymentNotice({
               username: user.username,
