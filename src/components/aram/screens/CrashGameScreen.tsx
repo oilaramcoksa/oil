@@ -347,7 +347,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           </div>
           <button type="button" onClick={onBuyTokens} disabled={buyingTokens || !isVerified} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-teal-600 px-4 py-3 text-xs font-black text-white shadow-md disabled:opacity-50">
             {buyingTokens ? <Loader2 size={15} className="animate-spin"/> : <span aria-hidden="true">🛒</span>}
-            {buyingTokens ? (lang === 'ar' ? 'جارٍ التجهيز…' : lang === 'ru' ? 'Подготовка…' : 'Preparing…') : (lang === 'ar' ? 'شراء القطعة عبر TON' : lang === 'ru' ? 'Купить за TON' : 'Buy with TON')}
+            {buyingTokens ? (lang === 'ar' ? 'جارٍ التجهيز…' : lang === 'ru' ? 'Подготовка…' : 'Preparing…') : t(lang, 'arenaBuyTokensButton')}
           </button>
         </div>
         <p className="mt-2 text-[9px] text-emerald-800/75">{t(lang, 'arenaBuyTokensFootnote')}</p>
