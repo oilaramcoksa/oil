@@ -36,6 +36,12 @@ test('invalid Crash payouts are rejected', () => {
 test('player rounds are capped at 10x while empty rounds can reach 1000x', () => {
   const playerRound = makeCrashPoint('seed-for-player-round', 'round-player', 10);
   const emptyRound = makeCrashPoint('seed-for-empty-round', 'round-empty', 1000);
-  assert.ok(playerRound >= 1 && playerRound <= 10);
+  assert.ok(Number.isInteger(playerRound) && playerRound >= 1 && playerRound <= 10);
   assert.ok(emptyRound >= 1 && emptyRound <= 1000);
+});
+
+test('empty rounds are not constrained to the player 1x–10x range', () => {
+  const values = Array.from({ length: 40 }, (_, i) => makeCrashPoint('empty-seed-' + i, 'empty-round-' + i, 1000));
+  assert.ok(values.some((value) => value > 10));
+  assert.ok(values.every((value) => value >= 1 && value <= 1000));
 });
