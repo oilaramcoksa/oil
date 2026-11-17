@@ -18,14 +18,6 @@ function fail(error: string, status = 400) {
 function hash(value: string) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
-async function createRound(db: ReturnType<typeof getTurso>, now: number) {
-  const id = randomUUID();
-  const seed = randomBytes(32).toString('hex');
-  await db.execute({
-    sql: "INSERT INTO crash_rounds(id,status,betting_ends_at,crash_multiplier,server_seed,seed_hash) VALUES(?,'countdown',?,?,?,?)",
-    args: [id, now + BETTING_MS, makeCrashPoint(seed, id), seed, hash(seed)],
-  });
-}
 async function advanceRound(db: ReturnType<typeof getTurso>) {
   const now = Date.now();
   const tx = await db.transaction('write');
