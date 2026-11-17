@@ -33,11 +33,10 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
       const round = latest.rows[0];
       const status = String(round.status);
       if (status === 'countdown' && Number(round.betting_ends_at) <= now) {
-        // Lock the participant set before choosing the outcome. Player rounds cap at 10x;
-        // empty demo rounds can fly much further. No bets are accepted after this transaction.
-        const participants = await tx.execute({ sql: "SELECT COUNT(*) AS total FROM crash_bets WHERE round_id=? AND status='active'", args: [String(round.id)] });
-        const maxMultiplier = Number(participants.rows[0]?.total ?? 0) > 0 ? 10 : 1000;
-        const finalCrashPoint = makeCrashPoint(String(round.server_seed), String(round.id), maxMultiplier);
+        // The crash point is committed before takeoff and never changes after bets are locked.
+        // This lets the aircraft keep climbing after every player has cashed out, without
+        // manipulating the outcome in response to player actions.
+        const finalCrashPoint = makeCrashPoint(String(round.server_seed), String(round.id), 1000);
         await tx.execute({ sql: "UPDATE crash_rounds SET crash_multiplier=? WHERE id=? AND status='countdown'", args: [finalCrashPoint, String(round.id)] });
         await tx.execute({ sql: "UPDATE crash_rounds SET status='running',started_at=? WHERE id=? AND status='countdown'", args: [now, String(round.id)] });
         if (finalCrashPoint <= 1) {
@@ -46,12 +45,8 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
           if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
-          const nextId = randomUUID();
-          const nextSeed = randomBytes(32).toString('hex');
-          await tx.execute({
-            sql: "INSERT INTO crash_rounds(id,status,betting_ends_at,crash_multiplier,server_seed,seed_hash) VALUES(?,'countdown',?,?,?,?)",
-            args: [nextId, now + BETTING_MS, makeCrashPoint(nextSeed, nextId), nextSeed, hash(nextSeed)],
-          });
+          // Keep the instant-crash result visible during the normal 50-second break.
+          // The next round is created by the crashed-state transition below.
         }
       } else if (status === 'running') {
         const start = Number(round.started_at ?? now);
