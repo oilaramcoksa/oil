@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
         LIMIT 40`,
     });
 
-    const rounds: Array<{ id: string; status: string; occurredAt: string; total: number; winnerTelegramId: string | null; winnerType: string | null; entries: Array<{ telegramId: string; username: string; stake: number; outcome: string; amount: number; multiplier: number }> }> = [];
+    const rounds: Array<{ id: string; status: string; occurredAt: string; total: number; winnerTelegramId: string | null; winnerType: string | null; fee: number; netWinnings: number; entries: Array<{ telegramId: string; username: string; stake: number; outcome: string; amount: number; multiplier: number }> }> = [];
     for (const row of roundsResult.rows) {
       const roundId = String(row.id);
       const entriesResult = await db.execute({
@@ -34,21 +34,21 @@ export async function GET(req: NextRequest) {
         args: [roundId],
       });
       const winnerId = row.winner_telegram_id == null ? null : String(row.winner_telegram_id);
-      const total = Number(row.total_entries ?? 0);
+      const total = Number(row.total_entries ?? 0);\n      const winnerEntry = entriesResult.rows.find((entry) => String(entry.telegram_id) === winnerId);\n      const winnerStake = winnerEntry ? Number(winnerEntry.amount) : 0;\n      const opponentPool = winnerId ? Math.max(0, total - winnerStake) : 0;\n      const fee = winnerId ? Math.floor(opponentPool * 0.10) : 0;\n      const netWinnings = opponentPool - fee;
       const cancelled = String(row.status) === 'cancelled';
       const entries = entriesResult.rows.map((entry) => {
         const telegramId = String(entry.telegram_id);
         const stake = Number(entry.amount);
         const won = !cancelled && String(row.winner_type) === 'player' && winnerId === telegramId;
         const refunded = cancelled;
-        const payout = won ? total : refunded ? stake : 0;
+        const payout = won ? (stake + netWinnings) : refunded ? stake : 0;
         return {
           telegramId,
           username: String(entry.username || entry.first_name || 'Player'),
           stake,
           outcome: won ? 'win' : refunded ? 'refund' : 'loss',
           amount: won ? payout : stake,
-          multiplier: won && stake > 0 ? payout / stake : 1,
+          multiplier: won && stake > 0 ? (payout / stake) : 1,
         };
       });
       rounds.push({
