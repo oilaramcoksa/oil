@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
         if (purchasedAmount) {
           const debit = await tx.execute({ sql: 'UPDATE bet_token_balances SET balance=balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND balance>=? RETURNING balance', args: [amount, playerId, amount] });
           if (!debit.rows.length) throw new Error('insufficient_balance');
-          await tx.execute({ sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'crash_bet',?,?, 'crash_round',?,?,?)", args: [randomUUID(), playerId, -amount, Number(debit.rows[0].balance), roundId, `crash_bet:${roundId}:${playerId}`, JSON.stringify({ roundId })] });
+          await tx.execute({ sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'stake',?,?, 'crash_round',?,?,?)", args: [randomUUID(), playerId, -amount, Number(debit.rows[0].balance), roundId, `crash_bet:${roundId}:${playerId}`, JSON.stringify({ roundId })] });
         } else {
           const debit = await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=coins_balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance>=? RETURNING coins_balance', args: [amount, playerId, amount] });
           if (!debit.rows.length) throw new Error('insufficient_balance');
@@ -196,7 +196,8 @@ export async function POST(req: NextRequest) {
       if (multiplier >= Number(activeRound.crash_multiplier)) {
         await tx.execute({ sql: "UPDATE crash_rounds SET status='crashed',crashed_at=? WHERE id=? AND status='running'", args: [now, roundId] });
         await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [roundId] });
-        throw new Error('round_crashed');
+        await tx.commit();
+        return fail('round_crashed');
       }
       const acceptedMultiplier = Math.max(1, Math.floor(multiplier * 100) / 100);
       const payout = Math.floor(Number(wager.amount) * acceptedMultiplier);
