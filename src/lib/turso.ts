@@ -632,7 +632,8 @@ export async function ensureDatabaseSchema(): Promise<void> {
           AND NOT EXISTS (
             SELECT 1 FROM ledger_entries
             WHERE telegram_id=NEW.telegram_id AND asset='coins'
-              AND entry_type='admin_grant' AND reference_type='admin'
+              AND entry_type IN ('admin_grant','oil_sale')
+              AND reference_type IN ('admin','oil_sale')
               AND amount=(NEW.coins_balance-OLD.coins_balance)
               AND balance_after=NEW.coins_balance
           )
@@ -640,7 +641,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
           SELECT CASE WHEN
             COALESCE((SELECT SUM(amount) FROM ledger_entries
               WHERE telegram_id=NEW.telegram_id AND asset='coins' AND amount>0
-                AND entry_type NOT IN ('opening_balance','withdrawal_refund','admin_grant')
+                AND entry_type NOT IN ('opening_balance','withdrawal_refund','admin_grant','oil_sale')
                 AND datetime(created_at)>=datetime('now','-24 hours')),0)
             + (NEW.coins_balance-OLD.coins_balance) > ${dailyTierSql}
           THEN RAISE(ABORT,'daily_coin_limit_reached') END;
