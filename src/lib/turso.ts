@@ -388,6 +388,17 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
     ],
   },
   {
+    version: 14,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS daily_login_rewards (
+        telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+        streak_day INTEGER NOT NULL DEFAULT 0 CHECK(streak_day BETWEEN 0 AND 7),
+        last_claimed_at INTEGER,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+    ],
+  },
+  {
     version: 13,
     statements: [
       `CREATE TABLE IF NOT EXISTS bet_token_balances (
