@@ -1,49 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeCrashPoint, multiplierAt, crashPayout } from '../src/lib/crash-game.mjs';
-
 test('crash point is deterministic for a committed round seed', () => {
-  const a = makeCrashPoint('sample-seed', 'round-1');
-  const b = makeCrashPoint('sample-seed', 'round-1');
-  assert.equal(a, b);
-  assert.ok(a >= 1 && a <= 1000);
+  assert.equal(makeCrashPoint('sample-seed','round-1'),makeCrashPoint('sample-seed','round-1'));
+  assert.ok(makeCrashPoint('sample-seed','round-1') >= 1 && makeCrashPoint('sample-seed','round-1') <= 20);
 });
-
-test('different round ids produce independently derived crash points', () => {
-  assert.notEqual(makeCrashPoint('sample-seed', 'round-1'), makeCrashPoint('sample-seed', 'round-2'));
+test('different round ids derive different outcomes', () => assert.notEqual(makeCrashPoint('sample-seed','round-1'),makeCrashPoint('sample-seed','round-2')));
+test('multiplier increases by 0.10x per second', () => {
+  assert.equal(multiplierAt(10_000,10_000),1); assert.equal(multiplierAt(10_000,11_000),1.1);
+  assert.equal(multiplierAt(10_000,12_000),1.2); assert.equal(multiplierAt(10_000,22_000),2.2);
 });
-
-test('multiplier starts at 1.00x and increases by 0.10x per second', () => {
-  assert.equal(multiplierAt(10_000, 10_000), 1);
-  assert.equal(multiplierAt(10_000, 11_000), 1.1);
-  assert.equal(multiplierAt(10_000, 12_000), 1.2);
-  assert.equal(multiplierAt(10_000, 22_000), 2.2);
+test('multiplier is capped at 20x', () => assert.equal(multiplierAt(0,10_000_000),20));
+test('cashout returns stake multiplied by accepted multiplier', () => {
+  assert.equal(crashPayout(1000,2.5),2500); assert.equal(crashPayout(999,1.37),1368);
 });
-
-test('multiplier is capped at the published game maximum', () => {
-  assert.equal(multiplierAt(0, 10_000_000), 1000);
+test('invalid payouts are rejected', () => {
+  assert.throws(() => crashPayout(99,2),/invalid_crash_payout/); assert.throws(() => crashPayout(100,.9),/invalid_crash_payout/);
 });
-
-test('cashout returns the stake multiplied by the accepted multiplier', () => {
-  assert.equal(crashPayout(1000, 2.5), 2500);
-  assert.equal(crashPayout(999, 1.37), 1368);
-});
-
-test('invalid Crash payouts are rejected', () => {
-  assert.throws(() => crashPayout(99, 2), /invalid_crash_payout/);
-  assert.throws(() => crashPayout(100, 0.9), /invalid_crash_payout/);
-});
-
-test('player rounds are capped at 10x while empty rounds can reach 1000x', () => {
-  const playerRound = makeCrashPoint('seed-for-player-round', 'round-player', 10);
-  const emptyRound = makeCrashPoint('seed-for-empty-round', 'round-empty', 1000);
-  assert.ok(playerRound >= 1 && playerRound <= 10);
-  assert.equal(Math.round(playerRound * 10), playerRound * 10);
-  assert.ok(emptyRound >= 1 && emptyRound <= 1000);
-});
-
-test('empty rounds are not constrained to the player 1x–10x range', () => {
-  const values = Array.from({ length: 40 }, (_, i) => makeCrashPoint('empty-seed-' + i, 'empty-round-' + i, 1000));
-  assert.ok(values.some((value) => value > 10));
-  assert.ok(values.every((value) => value >= 1 && value <= 1000));
+test('10,000 deterministic outcomes follow the configured bands', () => {
+  const counts={early:0,middle:0,rare:0,veryRare:0,instant:0};
+  for(let i=0;i<10000;i++){
+    const point=makeCrashPoint('distribution-seed-'+i,'round-'+i); assert.ok(point>=1&&point<=20);
+    if(point===1) counts.instant++; else if(point<=2.9) counts.early++; else if(point<=9) counts.middle++; else if(point<=12) counts.rare++; else counts.veryRare++;
+  }
+  assert.ok(counts.early>7500&&counts.early<8200); assert.ok(counts.middle>1600&&counts.middle<2000);
+  assert.ok(counts.rare>120&&counts.rare<250); assert.ok(counts.veryRare>5&&counts.veryRare<40); assert.ok(counts.instant>50&&counts.instant<150);
 });
