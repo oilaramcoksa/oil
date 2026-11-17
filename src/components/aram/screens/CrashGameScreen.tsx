@@ -156,7 +156,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
           >✈️</motion.div>
           <div className="absolute inset-x-0 bottom-3 text-center">
             <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400' : 'text-white'}`}>
-              {round?.status === 'crashed' ? 'انفجار!' : liveMultiplier.toFixed(2) + 'x'}
+              {round?.status === 'crashed' ? (lang === 'ar' ? 'انفجار!' : 'CRASHED!') : liveMultiplier.toFixed(2) + 'x'}
             </div>
             <div className="mt-1 text-[10px] font-bold text-amber-100/65">
               {round?.status === 'countdown' ? (lang === 'ar' ? 'تبدأ الجولة خلال' : 'Next flight in') + ' ' + secondsLeft + 's' : round?.status === 'running' ? (lang === 'ar' ? 'الطائرة في الجو' : 'Plane is flying') : (lang === 'ar' ? 'انفجرت عند ' : 'Crashed at ') + (round?.crashMultiplier?.toFixed(2) ?? '—') + 'x'}
@@ -199,7 +199,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
       </section>
 
       {state?.previousRound && <section className="rounded-2xl border border-white/10 bg-[#17213f] p-3 text-xs">
-        <div className="mb-2 flex items-center gap-2 font-black"><Trophy size={15} className="text-amber-300"/> {lang === 'ar' ? 'نتائج الجولة السابقة' : 'Previous round results'} · {state.previousRound.crashMultiplier.toFixed(2)}x</div>
+        <div className="mb-2 flex items-center gap-2 font-black"><Trophy size={15} className="text-amber-300"/> {lang === 'ar' ? 'نتائج الجولة السابقة' : 'Previous round results'} · {state.previousRound.crashMultiplier.toFixed(2)}x {state.previousRound.crashMultiplier <= 1 ? (lang === 'ar' ? '· انفجار قبل الإقلاع' : '· Instant crash') : ''}</div>
         <div className="space-y-2">{state.previousRound.bets.map((bet) => <div key={bet.telegramId} className="flex justify-between gap-2"><span className="truncate">{bet.username} · {fmt(bet.amount)}</span><b className={bet.status === 'cashed_out' ? 'text-emerald-300' : 'text-rose-300'}>{bet.status === 'cashed_out' ? '+' + fmt(bet.payout - bet.amount) + ' ' + (lang === 'ar' ? 'ربح صافٍ' : 'net profit') + ' · ' + bet.cashoutMultiplier?.toFixed(2) + 'x' : '−' + fmt(bet.amount)}</b></div>)}</div>
         <div className="mt-3 flex items-center gap-1 break-all text-[9px] text-white/40"><ShieldCheck size={12} className="shrink-0"/> SHA-256: {state.previousRound.seedHash}</div>
       </section>}
