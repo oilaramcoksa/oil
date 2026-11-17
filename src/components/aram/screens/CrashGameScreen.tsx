@@ -205,7 +205,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
       </section>}
 
       <div className="rounded-xl border border-amber-300/20 bg-amber-100/10 px-3 py-2 text-center text-[10px] leading-relaxed text-amber-100/65">
-        {lang === 'ar' ? 'تنبيه: هذه لعبة ترفيهية برصيد عملات ARMCO OIL داخل التطبيق، وليست رهانًا نقديًا مباشرًا داخل اللعبة. تخضع العملات لقواعد المحفظة والتبديل العامة للتطبيق.' : 'Notice: This is a virtual in-game coin entertainment game only. No real money, cash value or guaranteed return is involved.'}
+        {lang === 'ar' ? 'تنبيه: هذه لعبة ترفيهية برصيد عملات ARMCO OIL داخل التطبيق، وليست رهانًا نقديًا مباشرًا داخل اللعبة. تخضع العملات لقواعد المحفظة والتبديل العامة للتطبيق.' : 'Notice: This is an in-app game using ARMCO OIL coins, not a direct cash wager. Coins remain subject to the app's wallet and conversion rules.'}
       </div>
     </div>
   );
