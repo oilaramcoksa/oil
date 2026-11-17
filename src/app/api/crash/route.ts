@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
-import { makeCrashPoint, multiplierAt, crashPayout } from '@/lib/crash-game.mjs';
+import { makeCrashPoint, makeEmptyRoundPoint, multiplierAt, crashPayout } from '@/lib/crash-game.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,7 +36,9 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
         // The crash point is committed before takeoff and never changes after bets are locked.
         // This lets the aircraft keep climbing after every player has cashed out, without
         // manipulating the outcome in response to player actions.
-        const finalCrashPoint = makeCrashPoint(String(round.server_seed), String(round.id), 1000);
+        const finalCrashPoint = Number(participants.rows[0]?.total ?? 0) > 0
+          ? makeCrashPoint(String(round.server_seed), String(round.id), 10)
+          : makeEmptyRoundPoint(String(round.server_seed), String(round.id));
         await tx.execute({ sql: "UPDATE crash_rounds SET crash_multiplier=? WHERE id=? AND status='countdown'", args: [finalCrashPoint, String(round.id)] });
         await tx.execute({ sql: "UPDATE crash_rounds SET status='running',started_at=? WHERE id=? AND status='countdown'", args: [now, String(round.id)] });
         if (finalCrashPoint <= 1) {
