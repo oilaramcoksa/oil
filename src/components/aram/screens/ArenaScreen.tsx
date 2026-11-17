@@ -267,7 +267,7 @@ export function ArenaScreen({
           <span>✈️</span>{lang === 'ar' ? 'ARMCOFLY' : 'ARMCOFLY'}
         </button>
       </div>
-      {gameMode === 'crash' ? <CrashGameScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} /> : <div className="mx-auto w-full max-w-md">
+      {gameMode === 'crash' ? <CrashGameScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} onBuyTokens={() => void buyArenaTokens()} buyingTokens={buyingTokens} /> : <div className="mx-auto w-full max-w-md">
         <header className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-black tracking-tight">{t(lang, 'arenaTitle')}</h2>
