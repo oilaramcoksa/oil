@@ -24,7 +24,7 @@ type CrashState = {
 const EMPTY: CrashState | null = null;
 const fmt = (n: number) => Math.max(0, Math.floor(n)).toLocaleString('en-US');
 
-export function CrashGameScreen({ initData, isVerified, telegramUserId }: { initData: string; isVerified: boolean; telegramUserId: string }) {
+export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTokens, buyingTokens }: { initData: string; isVerified: boolean; telegramUserId: string; onBuyTokens: () => void; buyingTokens: boolean }) {
   const lang = useGame((s) => s.lang);
   const soundEnabled = useGame((s) => s.sound);
   const [state, setState] = useState<CrashState | null>(EMPTY);
@@ -50,7 +50,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
     let alive = true;
     const poll = async () => { try { if (alive) await refresh(); } catch (e) { console.error('crash_refresh_failed', e); } };
     void poll();
-    const timer = window.setInterval(() => void poll(), 500);
+    const timer = window.setInterval(() => void poll(), 300);
     return () => { alive = false; window.clearInterval(timer); };
   }, [isVerified, refresh]);
 
@@ -67,8 +67,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
   const flightCeiling = (state?.bets.length ?? 0) > 0 ? 10 : 1000;
   const flightProgress = round?.status === 'running' ? Math.max(0, Math.min(1, Math.log(Math.max(1, liveMultiplier)) / Math.log(flightCeiling))) : 0;
-  const planeLeft = 7 + flightProgress * 75;
-  const planeTop = 78 - flightProgress * 66;
+  const planeTop = 70 - flightProgress * 58;
   const recentCrash = Boolean(state?.previousRound?.crashedAt && serverNow - state.previousRound.crashedAt < 3_500);
   const ownBet = state?.bets.find((bet) => bet.telegramId === telegramUserId);
   const previousOwnBet = state?.previousRound?.bets.find((bet) => bet.telegramId === telegramUserId);
@@ -133,15 +132,6 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round?.id, round?.status, state?.previousRound?.id, state?.previousRound?.crashedAt]);
 
-  const curve = useMemo(() => {
-    const points = Array.from({ length: 30 }, (_, i) => {
-      const x = (i / 29) * 100;
-      const y = 92 - (Math.exp((i / 29) * 2.7) - 1) * 10;
-      return `${x},${Math.max(8, y)}`;
-    });
-    return points.join(' ');
-  }, []);
-
   return (
     <div className="mx-auto w-full max-w-md space-y-3 pb-8 text-[#f8e7c6]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <section className="rounded-2xl border border-amber-300/20 bg-[#111a35] p-3 shadow-xl">
@@ -149,17 +139,21 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
           <div><div className="text-lg font-black">{lang === 'ar' ? 'ARMCOFLY · لعبة الطائرة' : 'ARMCOFLY · CRASH'}</div><div className="text-[10px] text-amber-100/60">{lang === 'ar' ? 'اسحب أرباحك قبل الانفجار' : 'Cash out before the crash'}</div></div>
           <button onClick={() => setSound((v) => !v)} className="rounded-xl border border-white/15 bg-white/5 p-2" aria-label="Toggle sound">{sound ? <Volume2 size={18}/> : <VolumeX size={18}/>}</button>
         </div>
-        <div className="relative h-64 overflow-hidden rounded-xl border border-white/10 bg-[radial-gradient(ellipse_at_75%_12%,rgba(251,191,36,.22),transparent_40%),linear-gradient(160deg,#1c2547,#11182f_65%,#241a37)]">
-          <div className="absolute inset-0 opacity-20" style={{backgroundImage:'linear-gradient(rgba(255,255,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.12) 1px,transparent 1px)',backgroundSize:'42px 42px'}} />
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
-            <polyline points={curve} fill="none" stroke="#f59e0b" strokeWidth="1.1" strokeDasharray="2 2" opacity=".28"/>
-            {round?.status === 'running' && <polyline points={`0,94 18,89 35,82 50,69 66,48 82,27 100,7`} fill="none" stroke="#fb923c" strokeWidth="1.8" opacity=".9"/>}
-          </svg>
+        <div className="relative h-64 overflow-hidden rounded-xl border border-white/10 bg-[radial-gradient(ellipse_at_50%_100%,rgba(251,146,60,.22),transparent_42%),radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,.18),transparent_55%),linear-gradient(180deg,#11182f,#182344_60%,#11182f)]">
+          <div className="absolute inset-0 opacity-[0.12]" style={{backgroundImage:'linear-gradient(rgba(255,255,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.12) 1px,transparent 1px)',backgroundSize:'42px 42px'}} />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-orange-400/10 to-transparent" />
           <motion.div
-            className="absolute z-10 text-5xl drop-shadow-[0_0_18px_rgba(251,191,36,.65)]"
-            animate={recentCrash ? { left: '82%', top: '10%', rotate: 90, scale: [1,1.4,0.7], opacity: [1,1,0] } : round?.status === 'running' ? { left: planeLeft + '%', top: planeTop + '%', rotate: -8 + flightProgress * 8 } : round?.status === 'crashed' ? { left: '82%', top: '10%', rotate: 90, opacity: [1,0.2,0] } : { left: '7%', top: '78%', rotate: -8, opacity: 1 }}
-            transition={recentCrash ? { duration: 0.8, ease: 'easeOut' } : { duration: 0.12, ease: 'linear' }}
-          >✈️</motion.div>
+            className="absolute z-10 left-1/2 -translate-x-1/2"
+            animate={recentCrash ? { top: '10%', rotate: 90, scale: [1,1.25,0.75], opacity: [1,1,0] } : round?.status === 'running' ? { top: planeTop + '%', rotate: [0,-2,0] } : round?.status === 'crashed' ? { top: '10%', rotate: 90, opacity: [1,0.2,0] } : { top: '70%', rotate: 0, opacity: 1 }}
+            transition={recentCrash ? { duration: 0.65, ease: 'easeOut' } : { duration: 0.16, ease: 'linear' }}
+          >
+            <svg viewBox="0 0 120 120" className="h-20 w-20 drop-shadow-[0_8px_18px_rgba(251,146,60,.45)]" role="img" aria-label="ARMCOFLY aircraft">
+              <path d="M58 8 Q63 4 67 12 L76 55 105 72 Q111 77 106 82 L76 76 70 103 81 111 78 116 60 108 42 116 39 111 50 103 44 76 14 82 Q9 77 15 72 L44 55Z" fill="#e5edf7" stroke="#8da4c1" strokeWidth="3" strokeLinejoin="round"/>
+              <path d="M60 18 L60 101" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round"/>
+              <path d="M48 63 L22 77 M72 63 L98 77" stroke="#f59e0b" strokeWidth="5" strokeLinecap="round"/>
+              <path d="M54 25 Q60 15 66 25 L64 43 56 43Z" fill="#38bdf8"/>
+            </svg>
+          </motion.div>
           <div className="absolute inset-x-0 bottom-3 text-center">
             <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400' : 'text-white'}`}>
               {recentCrash || round?.status === 'crashed' ? (lang === 'ar' ? 'انفجار!' : 'CRASHED!') : liveMultiplier.toFixed(2) + 'x'}
@@ -192,6 +186,10 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
               {previousOwnBet.status === 'cashed_out' ? '+' + fmt(previousOwnBet.payout - previousOwnBet.amount) + ' ' + (lang === 'ar' ? 'ربح صافٍ' : 'net profit') + ' · ' + previousOwnBet.cashoutMultiplier?.toFixed(2) + 'x' : (lang === 'ar' ? 'خسرت ' : 'Lost ') + fmt(previousOwnBet.amount)}
             </div>}
             <div className="mb-2 flex justify-between text-[10px] text-[#8e6a4b]"><span>{lang === 'ar' ? 'المحفظة العادية' : 'Wallet'}: {fmt(state?.balance ?? 0)}</span><span>{lang === 'ar' ? 'عملات الرهان' : 'Bet tokens'}: {fmt(state?.betBalance ?? 0)}</span></div>
+            <button type="button" onClick={onBuyTokens} disabled={buyingTokens || !isVerified} className="mb-3 flex w-full items-center justify-between rounded-xl border border-amber-300/40 bg-gradient-to-r from-amber-100 to-orange-100 px-3 py-3 text-start text-xs font-black text-[#633715] shadow-sm disabled:opacity-50">
+              <span>{buyingTokens ? (lang === 'ar' ? 'جارٍ تجهيز عملية الشراء…' : 'Preparing purchase…') : (lang === 'ar' ? 'شراء عملات رهان للطائرة' : 'Buy flight betting tokens')}</span>
+              <span className="rounded-lg bg-amber-400 px-3 py-2 text-[#42230c]">10,000 · 1 TON</span>
+            </button>
             <input type="number" inputMode="numeric" min="100" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={!canBet} className="w-full rounded-xl border border-amber-900/15 bg-white p-3 font-black outline-none focus:border-amber-500 disabled:opacity-50"/>
             <div className="mt-2 grid grid-cols-4 gap-2">{[100,500,1000,5000].map((v) => <button key={v} onClick={() => setAmount(String(v))} disabled={!canBet} className="rounded-lg bg-amber-100 py-2 text-xs font-black disabled:opacity-40">{fmt(v)}</button>)}</div>
             <button onClick={() => void act('bet')} disabled={!canBet || !Number.isSafeInteger(Number(amount)) || Number(amount) < 100 || (Number(amount) > (state?.balance ?? 0) && Number(amount) > (state?.betBalance ?? 0))} className="mt-3 w-full rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 py-3 font-black text-[#44240d] shadow-md disabled:opacity-40">{loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? 'تأكيد الرهان' : 'PLACE BET')}</button>
@@ -214,7 +212,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
         </div>
       </section>}
 
-      <div className="rounded-xl border border-amber-300/20 bg-amber-100/10 px-3 py-2 text-center text-[10px] leading-relaxed text-amber-100/65">
+      <div className="rounded-xl border border-amber-200 bg-[#fff3d9] px-3 py-3 text-center text-[11px] font-medium leading-6 text-[#68431f] shadow-sm">
         {lang === 'ar' ? 'تنبيه: هذه لعبة ترفيهية برصيد عملات ARMCO OIL داخل التطبيق، وليست رهانًا نقديًا مباشرًا داخل اللعبة. تخضع العملات لقواعد المحفظة والتبديل العامة للتطبيق.' : 'Notice: This is an in-app game using ARMCO OIL coins, not a direct cash wager. Coins remain subject to the app's wallet and conversion rules.'}
       </div>
     </div>
