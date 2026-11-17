@@ -386,6 +386,31 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
     statements: [
       'ALTER TABLE players ADD COLUMN ton_wallet_address TEXT',
     ],
+  },
+  {
+    version: 13,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS bet_token_balances (
+        telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+        balance INTEGER NOT NULL DEFAULT 0 CHECK(balance >= 0),
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS bet_token_transactions (
+        id TEXT PRIMARY KEY,
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+        transaction_type TEXT NOT NULL CHECK(transaction_type IN ('purchase','stake','refund')),
+        amount INTEGER NOT NULL CHECK(amount <> 0),
+        balance_after INTEGER NOT NULL CHECK(balance_after >= 0),
+        reference_type TEXT,
+        reference_id TEXT,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        metadata_json TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      'ALTER TABLE arena_entries ADD COLUMN purchased_amount INTEGER NOT NULL DEFAULT 0 CHECK(purchased_amount >= 0)',
+      'ALTER TABLE arena_entries ADD COLUMN wallet_amount INTEGER NOT NULL DEFAULT 0 CHECK(wallet_amount >= 0)',
+      'CREATE INDEX IF NOT EXISTS idx_bet_token_transactions_player ON bet_token_transactions(telegram_id, created_at)',
+    ],
   }
 ];
 
