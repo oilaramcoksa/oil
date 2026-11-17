@@ -18,7 +18,7 @@ type CrashRound = {
 };
 type CrashState = {
   round: CrashRound; bets: CrashBet[]; balance: number; betBalance: number;
-  previousRound: { id: string; crashMultiplier: number; seedHash: string; revealedSeed: string; bets: Omit<CrashBet,'photoUrl'>[] } | null;
+  previousRound: { id: string; crashMultiplier: number; crashedAt: number; seedHash: string; revealedSeed: string; bets: Omit<CrashBet,'photoUrl'>[] } | null;
   serverTime: number;
 };
 const EMPTY: CrashState | null = null;
@@ -64,6 +64,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
   const liveMultiplier = round?.status === 'running' && round.startedAt
     ? Math.max(1, Math.floor(Math.exp(Math.max(0, serverNow - round.startedAt) / 12_000) * 100) / 100)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
+  const recentCrash = Boolean(state?.previousRound?.crashedAt && serverNow - state.previousRound.crashedAt < 3_500);
   const ownBet = state?.bets.find((bet) => bet.telegramId === telegramUserId);
   const previousOwnBet = state?.previousRound?.bets.find((bet) => bet.telegramId === telegramUserId);
   const maxSingleWallet = Math.max(state?.balance ?? 0, state?.betBalance ?? 0);
@@ -125,7 +126,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
     if (round?.status === 'crashed') playTone(110, 0.35);
   // Play once per round, rather than on every polling response.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [round?.id, round?.status]);
+  }, [round?.id, round?.status, state?.previousRound?.id, state?.previousRound?.crashedAt]);
 
   const curve = useMemo(() => {
     const points = Array.from({ length: 30 }, (_, i) => {
@@ -151,12 +152,12 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
           </svg>
           <motion.div
             className="absolute z-10 text-5xl drop-shadow-[0_0_18px_rgba(251,191,36,.65)]"
-            animate={round?.status === 'running' ? { left: [ '7%', '80%' ], top: [ '78%', '12%' ], rotate: [ -8, 4, -4, 0 ] } : round?.status === 'crashed' ? { left: '82%', top: '10%', rotate: 90, opacity: [1,0.2,0] } : { left: '7%', top: '78%', rotate: -8, opacity: 1 }}
-            transition={round?.status === 'running' ? { duration: 2.2, repeat: Infinity, ease: 'linear' } : { duration: 0.5 }}
+            animate={recentCrash ? { left: '82%', top: '10%', rotate: 90, scale: [1,1.4,0.7], opacity: [1,1,0] } : round?.status === 'running' ? { left: [ '7%', '80%' ], top: [ '78%', '12%' ], rotate: [ -8, 4, -4, 0 ] } : round?.status === 'crashed' ? { left: '82%', top: '10%', rotate: 90, opacity: [1,0.2,0] } : { left: '7%', top: '78%', rotate: -8, opacity: 1 }}
+            transition={recentCrash ? { duration: 0.8, ease: 'easeOut' } : round?.status === 'running' ? { duration: 2.2, repeat: Infinity, ease: 'linear' } : { duration: 0.5 }}
           >✈️</motion.div>
           <div className="absolute inset-x-0 bottom-3 text-center">
             <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400' : 'text-white'}`}>
-              {round?.status === 'crashed' ? (lang === 'ar' ? 'انفجار!' : 'CRASHED!') : liveMultiplier.toFixed(2) + 'x'}
+              {recentCrash || round?.status === 'crashed' ? (lang === 'ar' ? 'انفجار!' : 'CRASHED!') : liveMultiplier.toFixed(2) + 'x'}
             </div>
             <div className="mt-1 text-[10px] font-bold text-amber-100/65">
               {round?.status === 'countdown' ? (lang === 'ar' ? 'تبدأ الجولة خلال' : 'Next flight in') + ' ' + secondsLeft + 's' : round?.status === 'running' ? (lang === 'ar' ? 'الطائرة في الجو' : 'Plane is flying') : (lang === 'ar' ? 'انفجرت عند ' : 'Crashed at ') + (round?.crashMultiplier?.toFixed(2) ?? '—') + 'x'}
