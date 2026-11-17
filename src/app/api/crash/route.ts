@@ -10,7 +10,6 @@ export const dynamic = 'force-dynamic';
 const BETTING_MS = 50_000;
 const CRASH_WAIT_MS = 50_000;
 const MIN_BET = 100;
-const MAX_MULTIPLIER = 1_000;
 
 function fail(error: string, status = 400) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
