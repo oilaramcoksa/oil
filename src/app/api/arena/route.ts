@@ -242,17 +242,19 @@ export async function GET(req: NextRequest) {
       sql: 'UPDATE players SET username=COALESCE(?, username), first_name=COALESCE(?, first_name), last_name=COALESCE(?, last_name), photo_url=COALESCE(?, photo_url) WHERE telegram_id=?',
       args: [identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, identity.photo_url ?? null, playerId],
     });
-    const [walletResult, activeResult] = await Promise.all([
+    const [walletResult, betWalletResult, activeResult] = await Promise.all([
       db.execute({
         sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',
+        args: [playerId],
+      }),
+      db.execute({
+        sql: 'SELECT balance FROM bet_token_balances WHERE telegram_id=?',
         args: [playerId],
       }),
       db.execute({
         sql: "SELECT * FROM arena_rounds WHERE status IN ('open','countdown','spinning') ORDER BY created_at DESC LIMIT 1",
       }),
     ]);
-
-    const betWalletResult = await db.execute({sql:'SELECT balance FROM bet_token_balances WHERE telegram_id=?',args:[playerId]});
     const balance = Number(walletResult.rows[0]?.coins_balance ?? 0);
     const betBalance = Number(betWalletResult.rows[0]?.balance ?? 0);
     const activeRound = activeResult.rows[0];
