@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
-import { postLedgerEntry } from '@/lib/ledger';
 import { calculateArenaSettlement } from '@/lib/arena-settlement.mjs';
 
 export const runtime = 'nodejs';
@@ -228,9 +227,9 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
           if (!restoredWallet.rows.length) throw new Error('player_wallet_not_found');
           await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_winner_stake_return',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.walletAmount,Number(restoredWallet.rows[0].coins_balance),roundId,`arena_winner_stake_return:${roundId}:${winnerId}`,JSON.stringify({roundId})]});
         }
-        const opponentPool = total - winner.amount;
-        const fee = Math.floor(opponentPool * 0.10);
-        const netWinnings = opponentPool - fee;
+        const opponentPool = settlement.opponentPool;
+        const fee = settlement.fee;
+        const netWinnings = settlement.netWinnings;
         if (netWinnings > 0) {
           const credited = await tx.execute({sql:"UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance",args:[netWinnings,netWinnings,winnerId]});
           if (!credited.rows.length) throw new Error('player_wallet_not_found');
@@ -333,6 +332,7 @@ export async function GET(req: NextRequest) {
           algorithmVersion: Number(activeRound.algorithm_version ?? 0),
         },
         balance,
+        betBalance,
         entries: entries.map(toPublicEntry),
         lastResult: personalLastResult,
         source: 'turso',
@@ -342,6 +342,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       round: null,
       balance,
+      betBalance,
       entries: [],
       lastResult: personalLastResult,
       source: 'turso',
