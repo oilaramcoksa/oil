@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
+import { CrashGameScreen } from '@/components/aram/screens/CrashGameScreen';
 
 type Entry = { telegramId: string; username: string; amount: number; photoUrl?: string | null };
 type Round = {
@@ -51,6 +52,7 @@ export function ArenaScreen({
   telegramUserId: string;
 }) {
   const lang = useGame((s) => s.lang);
+  const [gameMode, setGameMode] = useState<'wheel' | 'crash'>('wheel');
   const [state, setState] = useState<ArenaState>(EMPTY_STATE);
   const [amount, setAmount] = useState('100');
   const [loading, setLoading] = useState(false);
@@ -257,7 +259,15 @@ export function ArenaScreen({
 
   return (
     <div className="h-full overflow-y-auto bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      <div className="mx-auto w-full max-w-md">
+      <div className="mx-auto mb-3 grid w-full max-w-md grid-cols-2 gap-2 rounded-2xl border border-amber-900/10 bg-white/70 p-1.5 shadow-sm">
+        <button type="button" onClick={() => setGameMode('wheel')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'wheel' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
+          <span>🎡</span>{lang === 'ar' ? 'العجلة' : 'Wheel'}
+        </button>
+        <button type="button" onClick={() => setGameMode('crash')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'crash' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
+          <span>✈️</span>{lang === 'ar' ? 'الطائرة' : 'Crash'}
+        </button>
+      </div>
+      {gameMode === 'crash' ? <CrashGameScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} /> : <div className="mx-auto w-full max-w-md">
         <header className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-black tracking-tight">{t(lang, 'arenaTitle')}</h2>
@@ -579,7 +589,7 @@ export function ArenaScreen({
             <div className="mt-1 text-[10px] font-semibold text-amber-900/65">{state.lastResult.totalEntries.toLocaleString()}</div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
