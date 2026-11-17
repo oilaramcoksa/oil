@@ -8,7 +8,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MIN_ENTRY = 100;
-const MAX_ENTRY = 1_000_000_000;
 const COUNTDOWN_MS = 30_000;
 const SPIN_MS = 7_000;
 const HOUSE_SLICE = 0.25;
@@ -30,7 +29,7 @@ function jsonError(error: string, status = 400) {
 
 function validAmount(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) &&
-    value >= MIN_ENTRY && value <= MAX_ENTRY;
+    value >= MIN_ENTRY;
 }
 
 async function readEntries(db: ReturnType<typeof getTurso>, roundId: string): Promise<ArenaEntryRow[]> {
@@ -231,17 +230,22 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
           await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.purchasedAmount,Number(restored.rows[0].balance),roundId,`bet_token_winner_return:${roundId}:${winnerId}`,JSON.stringify({reason:'winner_original_stake_return'})]});
         }
         if (winner.walletAmount > 0) {
-          const restoredWallet = await tx.execute({sql:"UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance",args:[winner.walletAmount,winnerId]});
-          if (!restoredWallet.rows.length) throw new Error('player_wallet_not_found');
-          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_winner_stake_return',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.walletAmount,Number(restoredWallet.rows[0].coins_balance),roundId,`arena_winner_stake_return:${roundId}:${winnerId}`,JSON.stringify({roundId})]});
+          const before = await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[winnerId]});
+          if (!before.rows.length) throw new Error('player_wallet_not_found');
+          const afterBalance = Number(before.rows[0].coins_balance) + winner.walletAmount;
+          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_winner_stake_return',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.walletAmount,afterBalance,roundId,`arena_winner_stake_return:${roundId}:${winnerId}`,JSON.stringify({roundId})]});
+          await tx.execute({sql:"UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?",args:[winner.walletAmount,winnerId]});
         }
         const opponentPool = settlement.opponentPool;
         const fee = settlement.fee;
         const netWinnings = settlement.netWinnings;
         if (netWinnings > 0) {
+          const before = await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[winnerId]});
+          if (!before.rows.length) throw new Error('player_wallet_not_found');
+          const afterBalance = Number(before.rows[0].coins_balance) + netWinnings;
+          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_prize',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,netWinnings,afterBalance,roundId,`arena_prize:${roundId}`,JSON.stringify({roundId,total,winnerStake:winner.amount,opponentPool,feeRate:0.1,fee,netWinnings})]});
           const credited = await tx.execute({sql:"UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance",args:[netWinnings,netWinnings,winnerId]});
           if (!credited.rows.length) throw new Error('player_wallet_not_found');
-          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_prize',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,netWinnings,Number(credited.rows[0].coins_balance),roundId,`arena_prize:${roundId}`,JSON.stringify({roundId,total,winnerStake:winner.amount,opponentPool,feeRate:0.1,fee,netWinnings})]});
           await tx.execute({sql:"INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'arena_prize',?,?,?)",args:[randomUUID(),winnerId,netWinnings,JSON.stringify({roundId,opponentPool,fee,netWinnings}),`event:arena_prize:${roundId}`]});
         }
         await tx.execute({sql:"UPDATE player_monthly_stats SET coins_earned=coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND month_key=?",args:[netWinnings,winnerId,new Date().toISOString().slice(0,7)]});
@@ -422,8 +426,11 @@ export async function POST(req: NextRequest) {
       const purchasedAvailable = Number(betWallet.rows[0]?.balance ?? 0);
       const walletAvailable = Number(walletSnapshot.rows[0]?.coins_balance ?? 0);
       if (purchasedAvailable + walletAvailable < body.amount) throw new Error('insufficient_balance');
-      const purchasedAmount = Math.min(purchasedAvailable, body.amount);
-      const walletAmount = body.amount - purchasedAmount;
+      // A stake must be funded entirely by one wallet; never combine purchased
+      // betting tokens with the regular wallet for a single entry.
+      const purchasedAmount = purchasedAvailable >= body.amount ? body.amount : 0;
+      const walletAmount = purchasedAmount === 0 && walletAvailable >= body.amount ? body.amount : 0;
+      if (purchasedAmount === 0 && walletAmount === 0) throw new Error('insufficient_balance');
       if (walletAmount > 0) {
         const debit = await tx.execute({sql:`UPDATE player_wallets SET coins_balance=coins_balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance>=? RETURNING coins_balance`,args:[walletAmount,playerId,walletAmount]});
         if(!debit.rows.length) throw new Error('insufficient_balance');
