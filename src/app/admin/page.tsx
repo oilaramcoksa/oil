@@ -37,6 +37,7 @@ export default function AdminPage() {
   const [notice,setNotice] = useState('');
   const [selected,setSelected] = useState<Player|null>(null);
   const [reason,setReason] = useState('');
+  const [amount,setAmount] = useState(''); // Bulk broadcast coin distribution amount.
   const [coinAmount,setCoinAmount] = useState('');
   const [oilAmount,setOilAmount] = useState('');
   const [referralPickerOpen,setReferralPickerOpen] = useState(false);
@@ -143,7 +144,7 @@ export default function AdminPage() {
     try{
       const res=await fetch('/api/admin/controls',{method:'POST',headers,credentials:'same-origin',body:JSON.stringify(payload)});
       const data=await res.json();if(!res.ok)throw new Error(data.error||'فشلت العملية');
-      setNotice(data.delivered !== undefined ? `تم إرسال الرسالة بنجاح إلى ${Number(data.delivered).toLocaleString('ar-EG')} لاعب نشط` : 'تم تنفيذ العملية بنجاح');setReason('');setCoinAmount('');setOilAmount('');setDecisionReason('');setTxHash('');setReferralPickerOpen(false);setActionDialog(null);
+      setNotice(data.delivered !== undefined ? `تم إرسال الرسالة بنجاح إلى ${Number(data.delivered).toLocaleString('ar-EG')} لاعب نشط` : 'تم تنفيذ العملية بنجاح');setReason('');setAmount('');setCoinAmount('');setOilAmount('');setDecisionReason('');setTxHash('');setReferralPickerOpen(false);setActionDialog(null);
       await load(section);
     }catch(e){setError(e instanceof Error?e.message:'حدث خطأ');}
     finally{setBusy(false);}
