@@ -33,7 +33,7 @@ function validAmount(value: unknown): value is number {
 
 async function readEntries(db: ReturnType<typeof getTurso>, roundId: string): Promise<ArenaEntryRow[]> {
   const result = await db.execute({
-    sql: `SELECT e.telegram_id, e.amount, p.username, p.first_name, p.photo_url
+    sql: `SELECT e.telegram_id, e.amount, e.purchased_amount, e.wallet_amount, p.username, p.first_name, p.photo_url
           FROM arena_entries e
           JOIN players p ON p.telegram_id = e.telegram_id
           WHERE e.round_id = ?
@@ -177,38 +177,41 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
     const roundId = String(spin.id);
     const winnerType = String(spin.winner_type);
     const winnerId = spin.winner_telegram_id == null ? null : String(spin.winner_telegram_id);
-    const total = Number(spin.total_entries);
-
-    if (winnerType === 'player' && winnerId) {
-      await postLedgerEntry({
-        telegramId: winnerId,
-        asset: 'coins',
-        entryType: 'arena_prize',
-        amount: total,
-        idempotencyKey: `arena_prize:${roundId}`,
-        referenceType: 'arena_round',
-        referenceId: roundId,
-        metadata: { roundId, entries: (await readEntries(db, roundId)).length },
-      });
-    }
-
-    const completed = await db.execute({
-      sql: "UPDATE arena_rounds SET status='completed', completed_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=? AND status='spinning'",
-      args: [roundId],
-    });
-
-    if (Number(completed.rowsAffected) === 1) {
-      await db.execute({
-        sql: `INSERT INTO admin_audit_logs
-              (id, admin_id, action, target_type, target_id, details_json)
-              VALUES (?, 'system', 'arena_round_settled', 'arena_round', ?, ?)`,
-        args: [
-          randomUUID(),
-          roundId,
-          JSON.stringify({ winnerType, winnerId, totalEntries: total }),
-        ],
-      });
-    }
+    const entries = await readEntries(db, roundId);
+    const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+    const tx = await db.transaction('write');
+    try {
+      const current = await tx.execute({sql:"SELECT status FROM arena_rounds WHERE id=?",args:[roundId]});
+      if (!current.rows.length || String(current.rows[0].status) !== 'spinning') { await tx.rollback(); continue; }
+      if (winnerType === 'player' && winnerId) {
+        const winner = entries.find((entry) => entry.telegram_id === winnerId);
+        if (!winner) throw new Error('arena_winner_entry_missing');
+        if (winner.purchased_amount > 0) {
+          const restored = await tx.execute({sql:"UPDATE bet_token_balances SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING balance",args:[winner.purchased_amount,winnerId]});
+          if (!restored.rows.length) throw new Error('bet_token_wallet_missing');
+          await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.purchased_amount,Number(restored.rows[0].balance),roundId,`bet_token_winner_return:${roundId}:${winnerId}`,JSON.stringify({reason:'winner_original_stake_return'})]});
+        }
+        if (winner.wallet_amount > 0) {
+          const restoredWallet = await tx.execute({sql:"UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance",args:[winner.wallet_amount,winnerId]});
+          if (!restoredWallet.rows.length) throw new Error('player_wallet_not_found');
+          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_winner_stake_return',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.wallet_amount,Number(restoredWallet.rows[0].coins_balance),roundId,`arena_winner_stake_return:${roundId}:${winnerId}`,JSON.stringify({roundId})]});
+        }
+        const opponentPool = total - winner.amount;
+        const fee = Math.floor(opponentPool * 0.10);
+        const netWinnings = opponentPool - fee;
+        if (netWinnings > 0) {
+          const credited = await tx.execute({sql:"UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance",args:[netWinnings,netWinnings,winnerId]});
+          if (!credited.rows.length) throw new Error('player_wallet_not_found');
+          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_prize',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,netWinnings,Number(credited.rows[0].coins_balance),roundId,`arena_prize:${roundId}`,JSON.stringify({roundId,total,winnerStake:winner.amount,opponentPool,feeRate:0.1,fee,netWinnings})]});
+          await tx.execute({sql:"INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'arena_prize',?,?,?)",args:[randomUUID(),winnerId,netWinnings,JSON.stringify({roundId,opponentPool,fee,netWinnings}),`event:arena_prize:${roundId}`]});
+        }
+        await tx.execute({sql:"UPDATE player_monthly_stats SET coins_earned=coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND month_key=?",args:[netWinnings,winnerId,new Date().toISOString().slice(0,7)]});
+        await tx.execute({sql:"INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,'system','arena_round_fee_collected','arena_round',?,?)",args:[randomUUID(),roundId,JSON.stringify({winnerId,total,opponentPool,fee,netWinnings,feeRate:0.1})]});
+      }
+      const completed = await tx.execute({sql:"UPDATE arena_rounds SET status='completed',completed_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=? AND status='spinning'",args:[roundId]});
+      if(Number(completed.rowsAffected)===1) await tx.execute({sql:"INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,'system','arena_round_settled','arena_round',?,?)",args:[randomUUID(),roundId,JSON.stringify({winnerType,winnerId,totalEntries:total})]});
+      await tx.commit();
+    } catch(error) { await tx.rollback(); throw error; }
   }
 }
 
@@ -245,7 +248,9 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
+    const betWalletResult = await db.execute({sql:'SELECT balance FROM bet_token_balances WHERE telegram_id=?',args:[playerId]});
     const balance = Number(walletResult.rows[0]?.coins_balance ?? 0);
+    const betBalance = Number(betWalletResult.rows[0]?.balance ?? 0);
     const activeRound = activeResult.rows[0];
 
     // Return only this player's most recent completed round, never another
@@ -369,15 +374,23 @@ export async function POST(req: NextRequest) {
       });
       if (alreadyJoined.rows.length) throw new Error('already_joined');
 
-      const debit = await tx.execute({
-        sql: `UPDATE player_wallets
-              SET coins_balance=coins_balance-?, updated_at=CURRENT_TIMESTAMP
-              WHERE telegram_id=? AND coins_balance>=?
-              RETURNING coins_balance`,
-        args: [body.amount, playerId, body.amount],
-      });
-      if (!debit.rows.length) throw new Error('insufficient_balance');
-      newBalance = Number(debit.rows[0].coins_balance);
+      const betWallet = await tx.execute({sql:'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,0) ON CONFLICT(telegram_id) DO UPDATE SET updated_at=CURRENT_TIMESTAMP RETURNING balance',args:[playerId]});
+      const purchasedAmount = Math.min(Number(betWallet.rows[0]?.balance ?? 0), body.amount);
+      const walletAmount = body.amount - purchasedAmount;
+      if (walletAmount > 0) {
+        const debit = await tx.execute({sql:`UPDATE player_wallets SET coins_balance=coins_balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance>=? RETURNING coins_balance`,args:[walletAmount,playerId,walletAmount]});
+        if(!debit.rows.length) throw new Error('insufficient_balance');
+        newBalance=Number(debit.rows[0].coins_balance);
+        await tx.execute({sql:`INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_entry',?,?,'arena_round',?,?,?)`,args:[randomUUID(),playerId,-walletAmount,newBalance,roundId,`arena_entry:${roundId}:${playerId}:wallet`,JSON.stringify({roundId,purchasedAmount,walletAmount})]});
+      } else {
+        const currentWallet=await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[playerId]});
+        newBalance=Number(currentWallet.rows[0]?.coins_balance??0);
+      }
+      if(purchasedAmount>0) {
+        const debited=await tx.execute({sql:'UPDATE bet_token_balances SET balance=balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND balance>=? RETURNING balance',args:[purchasedAmount,playerId,purchasedAmount]});
+        if(!debited.rows.length) throw new Error('insufficient_bet_balance');
+        await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'stake',?,?, 'arena_round',?,?,?)",args:[randomUUID(),playerId,-purchasedAmount,Number(debited.rows[0].balance),roundId,`bet_token_stake:${roundId}:${playerId}`,JSON.stringify({roundId})]});
+      }
 
       await tx.execute({
         sql: `INSERT INTO ledger_entries
@@ -419,8 +432,8 @@ export async function POST(req: NextRequest) {
       });
 
       await tx.execute({
-        sql: 'INSERT INTO arena_entries(id, round_id, telegram_id, amount) VALUES (?, ?, ?, ?)',
-        args: [randomUUID(), roundId, playerId, body.amount],
+        sql: 'INSERT INTO arena_entries(id, round_id, telegram_id, amount, purchased_amount, wallet_amount) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [randomUUID(), roundId, playerId, body.amount, purchasedAmount, walletAmount],
       });
       // A wheel expansion lasts for 72 hours or five arena bets, whichever
       // happens first. Consume one use only after the player's bet is recorded.
