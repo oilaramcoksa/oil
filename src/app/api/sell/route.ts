@@ -157,25 +157,28 @@ export async function POST(req: NextRequest) {
       if (!Number.isSafeInteger(coinsEarned) || !Number.isSafeInteger(newCoins)) { await tx.rollback(); return fail('invalid_sale_amount', 400); }
 
       const remainingOil = oilAvailable - sold;
-      await tx.execute({
-        sql: 'UPDATE player_wallets SET oil_balance=?, coins_balance=?, lifetime_coins_earned=lifetime_coins_earned+?, lifetime_oil_sold=lifetime_oil_sold+?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
-        args: [remainingOil, newCoins, coinsEarned, sold, id],
-      });
       const saleId = randomUUID();
       const metadata = JSON.stringify({ saleId, sold, coinsEarned });
-      // Close the oil side of the same atomic sale in the immutable ledger.
-      // The wallet update and both asset entries commit or roll back together.
-      await tx.execute({
-        sql: `INSERT INTO ledger_entries
-          (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
-          VALUES (?, ?, 'oil', 'oil_sale', ?, 0, 'oil_sale', ?, ?, ?)`,
-        args: [randomUUID(), id, -sold, saleId, oilCycleKey, metadata],
-      });
+
+      // Insert the matching immutable coin ledger marker before updating the
+      // wallet. The database daily-cap trigger can then recognize this as a
+      // legitimate oil sale (not a capped task/ad reward).
       await tx.execute({
         sql: `INSERT INTO ledger_entries
           (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
           VALUES (?, ?, 'coins', 'oil_sale', ?, ?, 'oil_sale', ?, ?, ?)`,
         args: [randomUUID(), id, coinsEarned, newCoins, saleId, cycleKey, metadata],
+      });
+      await tx.execute({
+        sql: 'UPDATE player_wallets SET oil_balance=?, coins_balance=?, lifetime_coins_earned=lifetime_coins_earned+?, lifetime_oil_sold=lifetime_oil_sold+?, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+        args: [remainingOil, newCoins, coinsEarned, sold, id],
+      });
+      // The oil debit is committed with the coin credit and wallet update.
+      await tx.execute({
+        sql: `INSERT INTO ledger_entries
+          (id, telegram_id, asset, entry_type, amount, balance_after, reference_type, reference_id, idempotency_key, metadata_json)
+          VALUES (?, ?, 'oil', 'oil_sale', ?, 0, 'oil_sale', ?, ?, ?)`,
+        args: [randomUUID(), id, -sold, saleId, oilCycleKey, metadata],
       });
 
       // Lifetime inviter commission is funded by the platform and applies only
