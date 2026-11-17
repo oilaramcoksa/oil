@@ -442,7 +442,7 @@ export function ArenaScreen({
             <button type="button" onClick={() => void buyArenaTokens()} disabled={buyingTokens || !isVerified}
               className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-teal-600 px-4 py-3 text-xs font-black text-white shadow-md disabled:opacity-50">
               {buyingTokens ? <Loader2 size={15} className="animate-spin" /> : <ShoppingCart size={15} />}
-              {buyingTokens ? t(lang, 'paymentSentVerifying') : t(lang, 'buyPartNow')}
+              {buyingTokens ? t(lang, 'paymentSentVerifying') : t(lang, 'arenaBuyTokensButton')}
             </button>
           </div>
           <p className="mt-2 text-[9px] text-emerald-800/75">{t(lang, 'arenaBuyTokensFootnote')}</p>
