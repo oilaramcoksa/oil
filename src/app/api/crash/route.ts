@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
-import { makeCrashPoint, makeEmptyRoundPoint, multiplierAt, crashPayout } from '@/lib/crash-game.mjs';
+import { makeCrashPoint, multiplierAt, crashPayout } from '@/lib/crash-game.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,18 +33,8 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
       const round = latest.rows[0];
       const status = String(round.status);
       if (status === 'countdown' && Number(round.betting_ends_at) <= now) {
-        // Count locked-in bets inside the same write transaction before choosing
-        // the committed crash point. This prevents late entries changing the outcome.
-        const participants = await tx.execute({
-          sql: "SELECT COUNT(*) AS total FROM crash_bets WHERE round_id=? AND status='active'",
-          args: [String(round.id)],
-        });
-        // The crash point is committed before takeoff and never changes after bets are locked.
-        // This lets the aircraft keep climbing after every player has cashed out, without
-        // manipulating the outcome in response to player actions.
-        const finalCrashPoint = Number(participants.rows[0]?.total ?? 0) > 0
-          ? makeCrashPoint(String(round.server_seed), String(round.id), 10)
-          : makeEmptyRoundPoint(String(round.server_seed), String(round.id));
+        // The result is independent of player count, stakes, and cashout activity.
+        const finalCrashPoint = makeCrashPoint(String(round.server_seed), String(round.id));
         await tx.execute({ sql: "UPDATE crash_rounds SET crash_multiplier=? WHERE id=? AND status='countdown'", args: [finalCrashPoint, String(round.id)] });
         await tx.execute({ sql: "UPDATE crash_rounds SET status='running',started_at=? WHERE id=? AND status='countdown'", args: [now, String(round.id)] });
         if (finalCrashPoint <= 1) {
