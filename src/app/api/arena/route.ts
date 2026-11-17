@@ -392,21 +392,7 @@ export async function POST(req: NextRequest) {
         await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'stake',?,?, 'arena_round',?,?,?)",args:[randomUUID(),playerId,-purchasedAmount,Number(debited.rows[0].balance),roundId,`bet_token_stake:${roundId}:${playerId}`,JSON.stringify({roundId})]});
       }
 
-      await tx.execute({
-        sql: `INSERT INTO ledger_entries
-              (id, telegram_id, asset, entry_type, amount, balance_after,
-               reference_type, reference_id, idempotency_key, metadata_json)
-              VALUES (?, ?, 'coins', 'arena_entry', ?, ?, 'arena_round', ?, ?, ?)`,
-        args: [
-          randomUUID(),
-          playerId,
-          -body.amount,
-          newBalance,
-          roundId,
-          `arena_entry:${roundId}:${playerId}`,
-          JSON.stringify({ roundId, amount: body.amount }),
-        ],
-      });
+
 
       await tx.execute({
         sql: `INSERT INTO player_events
@@ -428,7 +414,7 @@ export async function POST(req: NextRequest) {
               ON CONFLICT(telegram_id, month_key) DO UPDATE SET
                 coins_spent=coins_spent+excluded.coins_spent,
                 updated_at=CURRENT_TIMESTAMP`,
-        args: [playerId, monthKey, body.amount],
+        args: [playerId, monthKey, walletAmount],
       });
 
       await tx.execute({
