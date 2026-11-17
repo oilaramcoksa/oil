@@ -181,37 +181,46 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             </svg>
           </motion.div>
           <div className="absolute inset-0 opacity-20" style={{backgroundImage:'radial-gradient(#fff 0.7px,transparent 0.7px)',backgroundSize:'34px 34px'}} />
+          {round?.status === 'running' && (
+            <div className="pointer-events-none absolute left-[8%] top-[53%] z-10 h-24 w-[48%] -translate-y-1/2">
+              <motion.div
+                className="absolute left-0 top-1/2 h-10 w-full -translate-y-1/2 rounded-full blur-xl"
+                style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,75,0,.12) 18%, rgba(255,119,0,.82) 58%, rgba(255,220,90,.95) 88%, transparent 100%)', transformOrigin: 'right center' }}
+                animate={{ scaleX: [0.72, 1.08, 0.86], scaleY: [0.7, 1.15, 0.82], opacity: [.55, 1, .68] }}
+                transition={{ duration: .42, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <motion.div
+                className="absolute left-[8%] top-1/2 h-5 w-[88%] -translate-y-1/2 rounded-full blur-md"
+                style={{ background: 'linear-gradient(90deg, transparent, #f97316 35%, #facc15 78%, #fff2a8)' }}
+                animate={{ scaleX: [.75, 1, .82], skewX: [-8, 5, -4], opacity: [.65, 1, .72] }}
+                transition={{ duration: .28, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              {Array.from({ length: 7 }, (_, i) => (
+                <motion.i
+                  key={i}
+                  className="absolute top-1/2 h-2 w-3 rounded-full bg-orange-300 shadow-[0_0_14px_5px_rgba(249,115,22,.8)]"
+                  style={{ left: `${8 + i * 12}%`, filter: 'blur(2px)' }}
+                  animate={{ x: [-8, -34 - (i % 3) * 10], y: [0, (i % 2 ? -1 : 1) * (8 + i * 2)], opacity: [1, .15, 0], scale: [1, .7, .1] }}
+                  transition={{ duration: .42 + (i % 3) * .12, repeat: Infinity, delay: i * .055, ease: 'easeOut' }}
+                />
+              ))}
+            </div>
+          )}
           <motion.div
-            className="absolute left-1/2 top-[53%] z-20 -translate-x-1/2 -translate-y-1/2"
+            className="absolute left-1/2 top-[53%] z-20 w-[82%] max-w-[390px] -translate-x-1/2 -translate-y-1/2"
             animate={recentCrash || round?.status === 'crashed'
-              ? { y: [0, -8, 18], rotate: [0, 18, 75], scale: [1, 1.08, .72], opacity: [1, 1, 0] }
+              ? { y: [0, -8, 18], rotate: [0, 8, 22], scale: [1, 1.08, .72], opacity: [1, 1, 0] }
               : round?.status === 'running'
-                ? { y: [0, -3, 0], rotate: [-13, -11, -13], scale: [1, 1.015, 1] }
-                : { y: [0, -2, 0], rotate: -13, scale: 1, opacity: 1 }}
-            transition={round?.status === 'running' ? { duration: .9, repeat: Infinity, ease: 'easeInOut' } : { duration: .75, ease: 'easeOut' }}
+                ? { y: [0, -3, 0], rotate: [-2, -1, -2], scale: [1, 1.012, 1] }
+                : { y: [0, -2, 0], rotate: -2, scale: 1, opacity: 1 }}
+            transition={round?.status === 'running' ? { duration: .8, repeat: Infinity, ease: 'easeInOut' } : { duration: .75, ease: 'easeOut' }}
           >
-            <svg viewBox="0 0 260 150" className="h-28 w-52 drop-shadow-[0_12px_20px_rgba(0,0,0,.45)]" role="img" aria-label="ARMCOFLY aircraft">
-              <defs>
-                <linearGradient id="armcoPlaneBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffffff"/><stop offset=".48" stopColor="#c9d8e8"/><stop offset="1" stopColor="#71869f"/></linearGradient>
-                <linearGradient id="armcoPlaneWing" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#f8fbff"/><stop offset="1" stopColor="#8ea6c0"/></linearGradient>
-              </defs>
-              <path d="M22 79 Q35 68 74 66 L206 61 Q230 62 247 72 Q231 84 205 87 L74 91 Q37 91 22 79Z" fill="url(#armcoPlaneBody)" stroke="#607b98" strokeWidth="2"/>
-              <path d="M106 70 L153 14 Q160 6 169 12 L155 69Z" fill="url(#armcoPlaneWing)" stroke="#7d94ad" strokeWidth="2"/>
-              <path d="M112 87 L164 135 Q171 142 179 136 L158 84Z" fill="#a9bdd2" stroke="#6e849d" strokeWidth="2"/>
-              <path d="M44 75 L20 47 Q15 41 9 45 L23 79Z" fill="#dce8f4" stroke="#7d94ad" strokeWidth="2"/>
-              <path d="M43 85 L19 108 Q15 113 9 109 L24 81Z" fill="#8fa6bf" stroke="#6e849d" strokeWidth="2"/>
-              <path d="M181 65 Q195 45 211 53 L220 66Z" fill="#38bdf8" opacity=".9"/>
-              <path d="M195 78h27" stroke="#f59e0b" strokeWidth="5" strokeLinecap="round"/>
-              <path d="M62 74h92" stroke="#f59e0b" strokeWidth="3" opacity=".9"/>
-              <g fill="#263c55" stroke="#e6f0fa" strokeWidth="2"><ellipse cx="91" cy="93" rx="9" ry="5"/><ellipse cx="91" cy="61" rx="9" ry="5"/></g>
-              <path d="M238 73l13 6-13 6" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <div className="absolute -left-10 top-1/2 h-1 w-12 -translate-y-1/2 rounded-full bg-gradient-to-l from-sky-100/60 to-transparent blur-[2px]" />
+            <img src="/fly.png" alt="ARMCOFLY aircraft" draggable={false} className="block h-auto w-full select-none object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,.55)]" />
           </motion.div>
           {round?.status === 'running' && <motion.div className="absolute left-1/2 top-[53%] z-10 h-36 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/10 blur-2xl" animate={{ scale: [1, 1.15, 1], opacity: [.35, .65, .35] }} transition={{ duration: 1.4, repeat: Infinity }} />}
           {showExplosion && <motion.div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.05, times: [0, .18, 1] }}>
+            <motion.img src="/flydawn.png" alt="" draggable={false} className="absolute left-1/2 top-[53%] w-[112%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_0_28px_rgba(249,115,22,.9)]" initial={{ scale: .45, opacity: .2, rotate: -5 }} animate={{ scale: [ .45, 1.12, 1.28 ], opacity: [ .2, 1, 0 ], rotate: [-5, 2, 8] }} transition={{ duration: .95, ease: 'easeOut' }}/>
             <motion.div className="absolute left-1/2 top-[53%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-200/90 blur-md" initial={{ scale: .15 }} animate={{ scale: [0.15, 3.6, 5.2], opacity: [1, .85, 0] }} transition={{ duration: .85, ease: 'easeOut' }}/>
-            <motion.div className="absolute left-1/2 top-[53%] h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] border-orange-300" initial={{ scale: .3, opacity: 1 }} animate={{ scale: [0.3, 5.5], opacity: [1, 0] }} transition={{ duration: .9, ease: 'easeOut' }}/>
             {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute left-1/2 top-[53%] h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" initial={{ x: 0, y: 0, scale: 1, opacity: 1 }} animate={{ x: Math.cos(i*Math.PI/7)*150, y: Math.sin(i*Math.PI/7)*105, scale: 0, opacity: 0 }} transition={{ duration: .85, ease: 'easeOut' }}/>)}
           </motion.div>}
           <div className="absolute inset-x-0 bottom-3 text-center">
