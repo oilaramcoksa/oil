@@ -26,3 +26,11 @@ export function crashPayout(stake, multiplier) {
   }
   return Math.floor(stake * Math.floor(multiplier * 100) / 100);
 }
+
+// Empty rounds are intentionally capped to a short, engaging 16x–20x flight.
+// The value is deterministic from the server seed committed before the round starts.
+export function makeEmptyRoundPoint(seed, roundId) {
+  const value = Number(BigInt('0x' + sha256(seed + ':' + roundId + ':empty-flight').slice(0, 8))) / 0x1_0000_0000;
+  if (value < 0.07) return 1;
+  return 16 + Math.floor(((value - 0.07) / 0.93) * 41) / 10;
+}
