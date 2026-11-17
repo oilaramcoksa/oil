@@ -139,21 +139,67 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           <div><div className="text-lg font-black">{lang === 'ar' ? 'ARMCOFLY · لعبة الطائرة' : 'ARMCOFLY · CRASH'}</div><div className="text-[10px] text-amber-100/60">{lang === 'ar' ? 'اسحب أرباحك قبل الانفجار' : 'Cash out before the crash'}</div></div>
           <button onClick={() => setSound((v) => !v)} className="rounded-xl border border-white/15 bg-white/5 p-2" aria-label="Toggle sound">{sound ? <Volume2 size={18}/> : <VolumeX size={18}/>}</button>
         </div>
-        <div className="relative h-64 overflow-hidden rounded-xl border border-white/10 bg-[radial-gradient(ellipse_at_50%_100%,rgba(251,146,60,.22),transparent_42%),radial-gradient(ellipse_at_50%_0%,rgba(59,130,246,.18),transparent_55%),linear-gradient(180deg,#11182f,#182344_60%,#11182f)]">
-          <div className="absolute inset-0 opacity-[0.12]" style={{backgroundImage:'linear-gradient(rgba(255,255,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.12) 1px,transparent 1px)',backgroundSize:'42px 42px'}} />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-orange-400/10 to-transparent" />
+        <div className="relative h-72 overflow-hidden rounded-xl border border-sky-200/15 bg-[linear-gradient(180deg,#07152f_0%,#102d52_48%,#f28b4b_100%)] shadow-[inset_0_0_55px_rgba(4,12,32,.55)]">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_22%,rgba(255,220,145,.42),transparent_20%),radial-gradient(ellipse_at_50%_75%,rgba(249,115,22,.3),transparent_48%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#f28b4b]/35 to-transparent" />
           <motion.div
-            className="absolute z-10 left-1/2 -translate-x-1/2"
-            animate={recentCrash ? { top: '10%', rotate: 90, scale: [1,1.25,0.75], opacity: [1,1,0] } : round?.status === 'running' ? { top: planeTop + '%', rotate: [0,-2,0] } : round?.status === 'crashed' ? { top: '10%', rotate: 90, opacity: [1,0.2,0] } : { top: '70%', rotate: 0, opacity: 1 }}
-            transition={recentCrash ? { duration: 0.65, ease: 'easeOut' } : { duration: 0.16, ease: 'linear' }}
+            className="absolute inset-y-0 left-0 w-[200%]"
+            animate={{ x: ['0%', '-50%'] }}
+            transition={{ duration: Math.max(2.2, 18 / Math.max(1, liveMultiplier)), repeat: Infinity, ease: 'linear' }}
           >
-            <svg viewBox="0 0 120 120" className="h-20 w-20 drop-shadow-[0_8px_18px_rgba(251,146,60,.45)]" role="img" aria-label="ARMCOFLY aircraft">
-              <path d="M58 8 Q63 4 67 12 L76 55 105 72 Q111 77 106 82 L76 76 70 103 81 111 78 116 60 108 42 116 39 111 50 103 44 76 14 82 Q9 77 15 72 L44 55Z" fill="#e5edf7" stroke="#8da4c1" strokeWidth="3" strokeLinejoin="round"/>
-              <path d="M60 18 L60 101" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round"/>
-              <path d="M48 63 L22 77 M72 63 L98 77" stroke="#f59e0b" strokeWidth="5" strokeLinecap="round"/>
-              <path d="M54 25 Q60 15 66 25 L64 43 56 43Z" fill="#38bdf8"/>
+            <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="h-full w-full">
+              <g fill="#e8f4ff" opacity=".13">
+                <path d="M35 92c8-22 40-25 53-7 19-14 48-2 49 21H24c-9-5-3-14 11-14zm410 70c10-25 43-29 59-8 18-16 49-4 51 20H423c-10-4-3-12 22-12zm490-92c11-27 47-30 63-7 20-17 53-4 54 22H912c-12-4-5-15 23-15z"/>
+                <path d="M190 220c8-18 31-22 45-7 15-12 37-2 39 15H181c-7-3-3-8 9-8zm690-12c9-20 36-23 49-6 16-13 42-3 43 18H866c-8-4-3-12 14-12z"/>
+              </g>
+              <g fill="#fff" opacity=".24">
+                <path d="M130 132c10-28 48-34 67-10 22-18 57-4 59 24H108c-11-5-5-14 22-14zm550 30c11-26 47-31 65-8 21-17 54-4 56 22H526c-10-5-4-14 22-14zm390-82c8-20 35-24 49-7 16-13 42-3 43 18h-103c-8-4-3-11 11-11z"/>
+              </g>
+              <g stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity=".18">
+                <path d="M60 42h75M310 108h54M760 52h82M1040 190h64M210 270h42"/>
+              </g>
             </svg>
           </motion.div>
+          <motion.div
+            className="absolute inset-y-0 left-0 w-[200%]"
+            animate={{ x: ['0%', '-50%'] }}
+            transition={{ duration: Math.max(1.1, 9 / Math.max(1, liveMultiplier)), repeat: Infinity, ease: 'linear' }}
+          >
+            <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="h-full w-full">
+              <g fill="#fff" opacity=".42">
+                <path d="M90 190c8-19 34-24 49-8 16-13 42-3 44 17H79c-8-3-4-9 11-9zm360-96c9-22 39-26 54-8 18-15 46-4 48 19H438c-9-4-4-11 12-11zm420 145c8-18 32-22 46-7 15-12 38-2 40 16H860c-7-3-3-9 10-9z"/>
+              </g>
+            </svg>
+          </motion.div>
+          <div className="absolute inset-0 opacity-20" style={{backgroundImage:'radial-gradient(#fff 0.7px,transparent 0.7px)',backgroundSize:'34px 34px'}} />
+          <motion.div
+            className="absolute left-1/2 top-[53%] z-20 -translate-x-1/2 -translate-y-1/2"
+            animate={recentCrash || round?.status === 'crashed'
+              ? { y: [0, -8, 18], rotate: [0, 18, 75], scale: [1, 1.08, .72], opacity: [1, 1, 0] }
+              : round?.status === 'running'
+                ? { y: [0, -3, 0], rotate: [-13, -11, -13], scale: [1, 1.015, 1] }
+                : { y: [0, -2, 0], rotate: -13, scale: 1, opacity: 1 }}
+            transition={round?.status === 'running' ? { duration: .9, repeat: Infinity, ease: 'easeInOut' } : { duration: .75, ease: 'easeOut' }}
+          >
+            <svg viewBox="0 0 260 150" className="h-28 w-52 drop-shadow-[0_12px_20px_rgba(0,0,0,.45)]" role="img" aria-label="ARMCOFLY aircraft">
+              <defs>
+                <linearGradient id="armcoPlaneBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffffff"/><stop offset=".48" stopColor="#c9d8e8"/><stop offset="1" stopColor="#71869f"/></linearGradient>
+                <linearGradient id="armcoPlaneWing" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#f8fbff"/><stop offset="1" stopColor="#8ea6c0"/></linearGradient>
+              </defs>
+              <path d="M22 79 Q35 68 74 66 L206 61 Q230 62 247 72 Q231 84 205 87 L74 91 Q37 91 22 79Z" fill="url(#armcoPlaneBody)" stroke="#607b98" strokeWidth="2"/>
+              <path d="M106 70 L153 14 Q160 6 169 12 L155 69Z" fill="url(#armcoPlaneWing)" stroke="#7d94ad" strokeWidth="2"/>
+              <path d="M112 87 L164 135 Q171 142 179 136 L158 84Z" fill="#a9bdd2" stroke="#6e849d" strokeWidth="2"/>
+              <path d="M44 75 L20 47 Q15 41 9 45 L23 79Z" fill="#dce8f4" stroke="#7d94ad" strokeWidth="2"/>
+              <path d="M43 85 L19 108 Q15 113 9 109 L24 81Z" fill="#8fa6bf" stroke="#6e849d" strokeWidth="2"/>
+              <path d="M181 65 Q195 45 211 53 L220 66Z" fill="#38bdf8" opacity=".9"/>
+              <path d="M195 78h27" stroke="#f59e0b" strokeWidth="5" strokeLinecap="round"/>
+              <path d="M62 74h92" stroke="#f59e0b" strokeWidth="3" opacity=".9"/>
+              <g fill="#263c55" stroke="#e6f0fa" strokeWidth="2"><ellipse cx="91" cy="93" rx="9" ry="5"/><ellipse cx="91" cy="61" rx="9" ry="5"/></g>
+              <path d="M238 73l13 6-13 6" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <div className="absolute -left-10 top-1/2 h-1 w-12 -translate-y-1/2 rounded-full bg-gradient-to-l from-sky-100/60 to-transparent blur-[2px]" />
+          </motion.div>
+          {round?.status === 'running' && <motion.div className="absolute left-1/2 top-[53%] z-10 h-36 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/10 blur-2xl" animate={{ scale: [1, 1.15, 1], opacity: [.35, .65, .35] }} transition={{ duration: 1.4, repeat: Infinity }} />}
           <div className="absolute inset-x-0 bottom-3 text-center">
             <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400' : 'text-white'}`}>
               {recentCrash || round?.status === 'crashed' ? (lang === 'ar' ? 'انفجار!' : 'CRASHED!') : liveMultiplier.toFixed(2) + 'x'}
