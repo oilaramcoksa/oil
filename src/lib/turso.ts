@@ -649,6 +649,12 @@ export async function ensureDatabaseSchema(): Promise<void> {
         CHECK(purchased_amount + wallet_amount = amount)
       )`);
       await db.execute(`CREATE INDEX IF NOT EXISTS idx_crash_bets_round ON crash_bets(round_id, created_at)`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS crash_house_pool (
+        id INTEGER PRIMARY KEY CHECK(id=1),
+        balance INTEGER NOT NULL DEFAULT 0 CHECK(balance >= 0),
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`);
+      await db.execute('INSERT OR IGNORE INTO crash_house_pool(id,balance) VALUES(1,0)');
 
       // Central rolling 24-hour cap for every positive coin credit.
       const ownedPartsSql = `SELECT part_id FROM player_parts
