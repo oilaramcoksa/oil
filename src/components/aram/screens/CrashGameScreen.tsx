@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Volume2, VolumeX, Loader2, Users, Clock3, Trophy, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -33,6 +33,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const [now, setNow] = useState(Date.now());
   const [serverOffset, setServerOffset] = useState(0);
   const [sound, setSound] = useState(soundEnabled);
+  const [showExplosion, setShowExplosion] = useState(false);
+  const playedExplosionFor = useRef<string | null>(null);
   const headers = useMemo(() => ({ 'X-Telegram-Init-Data': initData }), [initData]);
 
   const refresh = useCallback(async () => {
@@ -50,7 +52,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     let alive = true;
     const poll = async () => { try { if (alive) await refresh(); } catch (e) { console.error('crash_refresh_failed', e); } };
     void poll();
-    const timer = window.setInterval(() => void poll(), 300);
+    const timer = window.setInterval(() => void poll(), 750);
     return () => { alive = false; window.clearInterval(timer); };
   }, [isVerified, refresh]);
 
@@ -63,11 +65,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const serverNow = now + serverOffset;
   const secondsLeft = round?.status === 'countdown' ? Math.max(0, Math.ceil((round.bettingEndsAt - serverNow) / 1000)) : 0;
   const liveMultiplier = round?.status === 'running' && round.startedAt
-    ? Math.max(1, Math.floor(Math.exp(Math.max(0, serverNow - round.startedAt) / 12_000) * 100) / 100)
+    ? Math.min(1000, Math.floor((1 + Math.max(0, serverNow - round.startedAt) / 10_000) * 10) / 10)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
-  const flightCeiling = (state?.bets.length ?? 0) > 0 ? 10 : 1000;
-  const flightProgress = round?.status === 'running' ? Math.max(0, Math.min(1, Math.log(Math.max(1, liveMultiplier)) / Math.log(flightCeiling))) : 0;
-  const planeTop = 70 - flightProgress * 58;
   const recentCrash = Boolean(state?.previousRound?.crashedAt && serverNow - state.previousRound.crashedAt < 3_500);
   const ownBet = state?.bets.find((bet) => bet.telegramId === telegramUserId);
   const previousOwnBet = state?.previousRound?.bets.find((bet) => bet.telegramId === telegramUserId);
@@ -126,11 +125,21 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     } finally { setLoading(false); }
   };
 
+  const explosionKey = round?.status === 'crashed' ? round.id : state?.previousRound?.id ?? null;
   useEffect(() => {
-    if (recentCrash || round?.status === 'crashed') playTone(110, 0.35);
-  // Play once per round, rather than on every polling response.
+    if (!explosionKey || playedExplosionFor.current === explosionKey) return;
+    const hasCrashed = round?.status === 'crashed' || Boolean(state?.previousRound?.crashedAt);
+    if (!hasCrashed) return;
+    playedExplosionFor.current = explosionKey;
+    setShowExplosion(false);
+    const timer = window.setTimeout(() => {
+      setShowExplosion(true);
+      playTone(72, 0.62);
+      window.setTimeout(() => setShowExplosion(false), 1_150);
+    }, 240);
+    return () => window.clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [round?.id, round?.status, state?.previousRound?.id, state?.previousRound?.crashedAt]);
+  }, [explosionKey, round?.status, state?.previousRound?.crashedAt]);
 
   return (
     <div className="mx-auto w-full max-w-md space-y-3 pb-8 text-[#f8e7c6]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -200,6 +209,11 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             <div className="absolute -left-10 top-1/2 h-1 w-12 -translate-y-1/2 rounded-full bg-gradient-to-l from-sky-100/60 to-transparent blur-[2px]" />
           </motion.div>
           {round?.status === 'running' && <motion.div className="absolute left-1/2 top-[53%] z-10 h-36 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/10 blur-2xl" animate={{ scale: [1, 1.15, 1], opacity: [.35, .65, .35] }} transition={{ duration: 1.4, repeat: Infinity }} />}
+          {showExplosion && <motion.div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.05, times: [0, .18, 1] }}>
+            <motion.div className="absolute left-1/2 top-[53%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-200/90 blur-md" initial={{ scale: .15 }} animate={{ scale: [0.15, 3.6, 5.2], opacity: [1, .85, 0] }} transition={{ duration: .85, ease: 'easeOut' }}/>
+            <motion.div className="absolute left-1/2 top-[53%] h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] border-orange-300" initial={{ scale: .3, opacity: 1 }} animate={{ scale: [0.3, 5.5], opacity: [1, 0] }} transition={{ duration: .9, ease: 'easeOut' }}/>
+            {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute left-1/2 top-[53%] h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" initial={{ x: 0, y: 0, scale: 1, opacity: 1 }} animate={{ x: Math.cos(i*Math.PI/7)*150, y: Math.sin(i*Math.PI/7)*105, scale: 0, opacity: 0 }} transition={{ duration: .85, ease: 'easeOut' }}/>)}
+          </motion.div>}
           <div className="absolute inset-x-0 bottom-3 text-center">
             <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400' : 'text-white'}`}>
               {recentCrash || round?.status === 'crashed' ? (lang === 'ar' ? 'انفجار!' : 'CRASHED!') : liveMultiplier.toFixed(2) + 'x'}
@@ -213,7 +227,6 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           <span className="flex items-center gap-1"><Clock3 size={13}/> {round?.status === 'countdown' ? (lang === 'ar' ? 'إغلاق الرهان بعد' : 'Betting closes in') : round?.status === 'running' ? (lang === 'ar' ? 'جولة مباشرة' : 'Live round') : (lang === 'ar' ? 'استراحة الجولة' : 'Round break')}</span>
           <b className="text-amber-300">{round?.status === 'countdown' ? secondsLeft + 's' : round?.status === 'running' ? liveMultiplier.toFixed(2) + 'x' : '50s'}</b>
         </div>
-        <div className="mt-2 break-all rounded-lg bg-black/20 px-3 py-2 text-[9px] text-white/45">SHA-256 commitment: {round?.seedHash}</div>
       </section>
 
       <section className="rounded-2xl border border-amber-300/20 bg-[#fff5df] p-3 text-[#633715] shadow-lg">
@@ -251,11 +264,11 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
 
       {state?.previousRound && <section className="rounded-2xl border border-white/10 bg-[#17213f] p-3 text-xs">
         <div className="mb-2 flex items-center gap-2 font-black"><Trophy size={15} className="text-amber-300"/> {lang === 'ar' ? 'نتائج الجولة السابقة' : 'Previous round results'} · {state.previousRound.crashMultiplier.toFixed(2)}x {state.previousRound.crashMultiplier <= 1 ? (lang === 'ar' ? '· انفجار قبل الإقلاع' : '· Instant crash') : ''}</div>
-        <div className="space-y-2">{state.previousRound.bets.map((bet) => <div key={bet.telegramId} className="flex justify-between gap-2"><span className="truncate">{bet.username} · {fmt(bet.amount)}</span><b className={bet.status === 'cashed_out' ? 'text-emerald-300' : 'text-rose-300'}>{bet.status === 'cashed_out' ? '+' + fmt(bet.payout - bet.amount) + ' ' + (lang === 'ar' ? 'ربح صافٍ' : 'net profit') + ' · ' + bet.cashoutMultiplier?.toFixed(2) + 'x' : '−' + fmt(bet.amount)}</b></div>)}</div>
-        <div className="mt-3 space-y-1 break-all text-[9px] text-white/40">
-          <div className="flex items-center gap-1"><ShieldCheck size={12} className="shrink-0"/> SHA-256: {state.previousRound.seedHash}</div>
-          <div>{lang === 'ar' ? 'البذرة بعد الانفجار:' : 'Revealed seed:'} {state.previousRound.revealedSeed}</div>
-        </div>
+        <div className="mb-2 rounded-lg bg-white/5 px-3 py-2 text-[10px] text-white/65">{lang === 'ar' ? 'المشاركون ونتيجة كل لاعب في الجولة الماضية' : 'Previous round participants and results'} · {state.previousRound.bets.length}</div>
+        <div className="space-y-2">{state.previousRound.bets.map((bet) => <div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl bg-white/5 px-3 py-2">
+          <div className="min-w-0"><div className="truncate text-xs font-bold">{bet.username}</div><div className="mt-1 text-[10px] text-white/50">{lang === 'ar' ? 'الرهان:' : 'Stake:'} {fmt(bet.amount)}</div></div>
+          <div className="shrink-0 text-end"><b className={bet.status === 'cashed_out' ? 'text-emerald-300' : 'text-rose-300'}>{bet.status === 'cashed_out' ? (lang === 'ar' ? 'فاز' : 'WON') : (lang === 'ar' ? 'خسر' : 'LOST')}</b><div className="mt-1 text-[10px]">{bet.status === 'cashed_out' ? '+' + fmt(bet.payout - bet.amount) + ' · ' + bet.cashoutMultiplier?.toFixed(2) + 'x' : '−' + fmt(bet.amount)}</div></div>
+        </div>)}</div>
       </section>}
 
       <div className="rounded-xl border border-amber-200 bg-[#fff3d9] px-3 py-3 text-center text-[11px] font-medium leading-6 text-[#68431f] shadow-sm">
