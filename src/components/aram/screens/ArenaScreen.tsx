@@ -356,7 +356,7 @@ export function ArenaScreen({
             {wheelEntries.map((entry, index) => {
               const playerIndex = index - 1;
               const beforePlayer = displayedEntries.slice(0, playerIndex).reduce((sum, item) => sum + item.amount, 0);
-              const angle = entry.house ? 135 : ((beforePlayer + (displayedEntries[playerIndex]?.amount ?? 0) / 2) / Math.max(total, 1)) * 270;
+              const angle = entry.house ? 55 : ((beforePlayer + (displayedEntries[playerIndex]?.amount ?? 0) / 2) / Math.max(total, 1)) * 270;
               return (
                 <div
                   key={entry.id}
