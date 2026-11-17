@@ -42,6 +42,8 @@ export async function POST(req: NextRequest) {
     if (!round.rows.length || String(round.rows[0].status)!=='countdown' || Number(round.rows[0].betting_ends_at)<=now) return fail('round_not_open',409);
     const tx = await db.transaction('write');
     try {
+      const stillOpen = await tx.execute({sql:"SELECT id FROM crash_rounds WHERE id=? AND status='countdown' AND betting_ends_at>?",args:[String(round.rows[0].id),now]});
+      if (!stillOpen.rows.length) { await tx.rollback(); return fail('round_not_open',409); }
       const owned = await tx.execute({sql:"SELECT payment_id,usage_count FROM player_special_parts WHERE telegram_id=? AND part_id='plane_tips' AND usage_count<3 ORDER BY purchased_at,payment_id LIMIT 1",args:[String(player.id)]});
       if (!owned.rows.length) { await tx.rollback(); return fail('no_recommendations',403); }
       const purchaseId=String(owned.rows[0].payment_id);
