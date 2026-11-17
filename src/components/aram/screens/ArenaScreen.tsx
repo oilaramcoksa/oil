@@ -264,7 +264,7 @@ export function ArenaScreen({
           <span>🎡</span>{lang === 'ar' ? 'العجلة' : 'Wheel'}
         </button>
         <button type="button" onClick={() => setGameMode('crash')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'crash' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
-          <span>✈️</span>{lang === 'ar' ? 'الطائرة' : 'Crash'}
+          <span>✈️</span>{lang === 'ar' ? 'ARMCOFLY' : 'ARMCOFLY'}
         </button>
       </div>
       {gameMode === 'crash' ? <CrashGameScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} /> : <div className="mx-auto w-full max-w-md">
