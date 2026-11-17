@@ -341,8 +341,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
       <section className="mb-1 rounded-xl border border-emerald-700/20 bg-gradient-to-r from-emerald-50/95 to-teal-50/95 p-3 text-[#245b45] shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-sm font-black">{lang === 'ar' ? '10,000 عملة رهان' : lang === 'ru' ? '10 000 монет для ставок' : '10,000 Betting Coins'}</div>
-            <p className="mt-1 text-[10px] leading-relaxed text-emerald-800">{lang === 'ar' ? 'رصيد منفصل مخصص للرهان فقط، لا يمكن سحبه أو تحويله إلى المحفظة العادية. عند الفوز يعود رهانك الأصلي إلى هذا الرصيد وتضاف أرباحك الصافية إلى المحفظة العادية.' : lang === 'ru' ? 'Отдельный баланс только для ставок. Его нельзя вывести или перевести на обычный кошелёк. При победе исходная ставка возвращается на этот баланс, а чистый выигрыш поступает на обычный кошелёк.' : 'Separate betting-only balance. Cannot be withdrawn or transferred to the regular wallet.'}</p>
+            <div className="text-sm font-black">{t(lang, 'arenaBuyTokensStore')}</div>
+            <p className="mt-1 text-[10px] leading-relaxed text-emerald-800">{t(lang, 'arenaBuyTokenDescription')}</p>
             <div className="mt-1 text-xs font-black text-emerald-900">10,000 · 1 TON</div>
           </div>
           <button type="button" onClick={onBuyTokens} disabled={buyingTokens || !isVerified} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-teal-600 px-4 py-3 text-xs font-black text-white shadow-md disabled:opacity-50">
@@ -350,7 +350,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             {buyingTokens ? (lang === 'ar' ? 'جارٍ التجهيز…' : lang === 'ru' ? 'Подготовка…' : 'Preparing…') : (lang === 'ar' ? 'شراء القطعة عبر TON' : lang === 'ru' ? 'Купить за TON' : 'Buy with TON')}
           </button>
         </div>
-        <p className="mt-2 text-[9px] text-emerald-800/75">{lang === 'ar' ? 'يمكن شراء المنتج مرات غير محدودة؛ تُضاف العملات بعد تأكيد الدفع على TON Mainnet.' : lang === 'ru' ? 'Количество покупок не ограничено; монеты будут зачислены после подтверждения платежа в TON Mainnet.' : 'Unlimited purchases; coins are credited after TON Mainnet payment confirmation.'}</p>
+        <p className="mt-2 text-[9px] text-emerald-800/75">{t(lang, 'arenaBuyTokensFootnote')}</p>
       </section>
       <section className="rounded-2xl border border-amber-300/20 bg-[#fff5df] p-3 text-[#633715] shadow-lg">
         <div className="mb-2 flex items-center justify-between text-xs"><b>{lang === 'ar' ? 'رهانك' : lang === 'ru' ? 'Ваша ставка' : 'Your bet'}</b><span>{lang === 'ar' ? 'الحد الأدنى 100' : lang === 'ru' ? 'Минимум 100' : 'Min 100'}</span></div>
