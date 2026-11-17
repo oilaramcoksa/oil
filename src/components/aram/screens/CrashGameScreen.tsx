@@ -16,6 +16,7 @@ type CrashRound = {
   startedAt: number | null; crashedAt: number | null; currentMultiplier: number;
   crashMultiplier: number | null; seedHash: string; revealedSeed: string | null;
 };
+type PlaneRecommendation = { advice: 'no_entry' | 'high_risk' | 'potential_entry'; remaining: number; sampleSize: number; instantCount: number; earlyCount: number; roundId: string };
 type CrashState = {
   round: CrashRound; bets: CrashBet[]; balance: number; betBalance: number;
   previousRound: { id: string; crashMultiplier: number; crashedAt: number; seedHash: string; revealedSeed: string; bets: Omit<CrashBet,'photoUrl'>[] } | null;
@@ -30,6 +31,9 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const [state, setState] = useState<CrashState | null>(EMPTY);
   const [amount, setAmount] = useState('100');
   const [loading, setLoading] = useState(false);
+  const [tipLoading, setTipLoading] = useState(false);
+  const [tipRemaining, setTipRemaining] = useState(0);
+  const [tipResult, setTipResult] = useState<PlaneRecommendation | null>(null);
   const [now, setNow] = useState(Date.now());
   const [serverOffset, setServerOffset] = useState(0);
   const [sound, setSound] = useState(soundEnabled);
@@ -48,6 +52,15 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     setState(data);
     setServerOffset(data.serverTime - (requestStartedAt + Date.now()) / 2);
   }, [headers, initData, isVerified]);
+
+  useEffect(() => {
+    if (!isVerified || !initData) return;
+    let alive = true;
+    void fetch('/api/crash/recommendation', { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' })
+      .then(async (response) => { if (!response.ok) return; const data = await response.json(); if (alive) setTipRemaining(Number(data.remaining ?? 0)); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [initData, isVerified]);
 
   useEffect(() => {
     if (!isVerified) return;
@@ -142,6 +155,26 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
       if (action === 'cashout') playTone(180, 0.25);
       await refresh().catch(() => undefined);
     } finally { setLoading(false); }
+  };
+
+  const usePlaneTip = async () => {
+    if (tipLoading || tipRemaining < 1 || round?.status !== 'countdown') return;
+    setTipLoading(true);
+    setTipResult(null);
+    try {
+      const response = await fetch('/api/crash/recommendation', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (data.error === 'round_not_open') throw new Error(t(lang, 'planeTipsRoundClosed'));
+        if (data.error === 'no_recommendations') throw new Error(t(lang, 'planeTipsNotOwned'));
+        throw new Error(t(lang, 'planeTipsError'));
+      }
+      setTipResult(data as PlaneRecommendation);
+      setTipRemaining(Number(data.remaining ?? 0));
+      playTone(720, 0.12);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t(lang, 'planeTipsError'));
+    } finally { setTipLoading(false); }
   };
 
   const explosionKey = round?.status === 'crashed' ? round.id : state?.previousRound?.id ?? null;
@@ -269,6 +302,26 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           <span className="flex items-center gap-1"><Clock3 size={13}/> {round?.status === 'countdown' ? (lang === 'ar' ? 'إغلاق الرهان بعد' : lang === 'ru' ? 'Приём ставок завершится через' : 'Betting closes in') : round?.status === 'running' ? (lang === 'ar' ? 'جولة مباشرة' : lang === 'ru' ? 'Раунд идёт' : 'Live round') : (lang === 'ar' ? 'استراحة الجولة' : lang === 'ru' ? 'Перерыв между раундами' : 'Round break')}</span>
           <b className="text-amber-300">{round?.status === 'countdown' ? secondsLeft + 's' : round?.status === 'running' ? liveMultiplier.toFixed(2) + 'x' : (lang === 'ar' ? 'استراحة 50 ثانية' : lang === 'ru' ? 'Перерыв 50 сек.' : '50s break')}</b>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-fuchsia-300/40 bg-gradient-to-br from-[#24133d] via-[#17213f] to-[#102c4a] p-3 text-white shadow-lg">
+        <div className="flex items-center gap-3">
+          <img src="/brain.png" alt={t(lang, 'planeTipsPart')} className="h-14 w-14 shrink-0 object-contain" />
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-black">{t(lang, 'planeTipsPart')}</div>
+            <div className="mt-1 text-[10px] text-white/70">{t(lang, 'planeTipsRemaining')}: {tipRemaining}</div>
+          </div>
+          <button type="button" onClick={() => void usePlaneTip()} disabled={tipLoading || tipRemaining < 1 || round?.status !== 'countdown'} className="min-h-11 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-3 py-2 text-xs font-black shadow-md disabled:opacity-40">
+            {tipLoading ? <Loader2 className="mx-auto h-4 w-4 animate-spin"/> : t(lang, 'planeTipsUse')}
+          </button>
+        </div>
+        {tipResult && (
+          <div className={`mt-3 rounded-xl border p-3 text-sm font-black ${tipResult.advice === 'no_entry' ? 'border-rose-300/40 bg-rose-500/15 text-rose-100' : tipResult.advice === 'high_risk' ? 'border-amber-300/40 bg-amber-500/15 text-amber-100' : 'border-emerald-300/40 bg-emerald-500/15 text-emerald-100'}`}>
+            {t(lang, tipResult.advice === 'no_entry' ? 'planeTipsRiskNoEntry' : tipResult.advice === 'high_risk' ? 'planeTipsRiskHigh' : 'planeTipsRiskBetter')}
+            <p className="mt-2 text-[10px] font-medium leading-relaxed text-white/70">{t(lang, 'planeTipsHistory')} · {tipResult.sampleSize}</p>
+          </div>
+        )}
+        <p className="mt-2 text-[9px] leading-relaxed text-white/50">{t(lang, 'planeTipsHistory')}</p>
       </section>
 
       {ownBet?.status === 'active' && (
