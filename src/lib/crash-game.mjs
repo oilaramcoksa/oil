@@ -9,13 +9,13 @@ function sha256(value) {
 export function makeCrashPoint(seed, roundId, maxMultiplier = MAX_MULTIPLIER) {
   const value = Number(BigInt('0x' + sha256(seed + ':' + roundId).slice(0, 8))) / 0x1_0000_0000;
   // With players, choose one of the ten visible crash marks evenly from 1x to 10x.
-  if (maxMultiplier <= 10) return 1 + Math.floor(value * 10);
+  if (maxMultiplier <= 10) return 1 + Math.floor(value * 91) / 10;
   // Empty rounds use the classic heavy-tail crash distribution and may fly much farther.
   return Math.min(maxMultiplier, Math.max(1, Math.floor((0.97 / (1 - value)) * 100) / 100));
 }
 
 export function multiplierAt(startedAt, now) {
-  return Math.min(MAX_MULTIPLIER, Math.floor(Math.exp(Math.max(0, now - startedAt) / 12_000) * 100) / 100);
+  return Math.min(MAX_MULTIPLIER, Math.floor((1 + Math.max(0, now - startedAt) / 10_000) * 10) / 10);
 }
 
 export function crashPayout(stake, multiplier) {
