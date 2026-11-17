@@ -419,7 +419,9 @@ const ar: Dict = {
   arenaWalletBalance: 'رصيد المحفظة العادية',
   arenaAvailableBalance: 'إجمالي الرصيد المتاح',
   arenaBuyTokensStore: '10,000 عملة رهان',
-  arenaBuyTokenDescription: 'رصيد منفصل مخصص للرهان فقط، لا يمكن سحبه أو تحويله إلى المحفظة العادية. عند الفوز يعود رهانك الأصلي إلى هذا الرصيد وتُضاف أرباحك الصافية إلى المحفظة العادية.',
+  arenaBuyTokenDescription: 'رصيد منفصل مخصص للرهان فقط. الأرباح فقط هي التي تُحوَّل إلى محفظتك لتتمكن من بيعها والاستفادة منها، أما رصيد الرهان فلا يمكن سحبه أو تحويله إلى المحفظة العادية. عند الفوز يعود رهانك الأصلي إلى هذا الرصيد وتُضاف أرباحك الصافية إلى المحفظة العادية.',
+  arenaBuyTokensButton: 'شراء القطعة عبر TON',
+  arenaBuyTokensFootnote: 'يمكن شراء المنتج مرات غير محدودة؛ تُضاف العملات بعد تأكيد الدفع على TON Mainnet.',
   arenaWinFeeNote: 'عند الفوز يُعاد رهانك الأصلي إلى مصدره، وتُضاف 90% من حصة الخصم إلى المحفظة العادية بعد خصم رسوم اللعبة 10%.',
 
   arenaSubtitle: 'شارك بالعملات واربح مجموع الجولة',
@@ -984,7 +986,9 @@ const en: Dict = {
   arenaWalletBalance: 'Regular wallet balance',
   arenaAvailableBalance: 'Total available balance',
   arenaBuyTokensStore: '10,000 betting coins',
-  arenaBuyTokenDescription: 'A separate balance for betting only. It cannot be withdrawn or transferred to your regular wallet. When you win, your original stake returns to this balance and net winnings are credited to your regular wallet.',
+  arenaBuyTokenDescription: 'A separate balance reserved for betting only. Only your winnings are transferred to your regular wallet, where you can sell and use them. The betting balance itself cannot be withdrawn or transferred to your regular wallet. When you win, your original stake returns to this balance and your net winnings are credited to your regular wallet.',
+  arenaBuyTokensButton: 'Buy item via TON',
+  arenaBuyTokensFootnote: 'You can purchase this item unlimited times; coins are credited after payment is confirmed on TON Mainnet.',
   arenaWinFeeNote: 'When you win, your original stake is returned to its original source. 90% of your opponent’s stake is credited to your regular wallet after the 10% game fee.',
 
   arenaSubtitle: 'Join with coins and win the round pot',
@@ -1549,7 +1553,9 @@ const ru: Dict = {
   arenaWalletBalance: 'Обычный баланс кошелька',
   arenaAvailableBalance: 'Общий доступный баланс',
   arenaBuyTokensStore: '10 000 монет для ставок',
-  arenaBuyTokenDescription: 'Отдельный баланс только для ставок. Его нельзя вывести или перевести на обычный кошелёк. При победе исходная ставка возвращается на этот баланс, а чистый выигрыш зачисляется на обычный кошелёк.',
+  arenaBuyTokenDescription: 'Отдельный баланс только для ставок. На обычный кошелёк переводится только выигрыш — его можно продать и использовать. Сам баланс ставок нельзя вывести или перевести на обычный кошелёк. При победе исходная ставка возвращается на этот баланс, а чистый выигрыш зачисляется на обычный кошелёк.',
+  arenaBuyTokensButton: 'Купить за TON',
+  arenaBuyTokensFootnote: 'Покупать товар можно неограниченное количество раз; монеты зачисляются после подтверждения платежа в TON Mainnet.',
   arenaWinFeeNote: 'При победе исходная ставка возвращается в свой источник. 90% ставки соперника зачисляется на обычный кошелёк после комиссии игры 10%.',
 
   arenaSubtitle: 'Внесите монеты и выиграйте общий банк',
