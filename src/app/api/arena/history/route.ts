@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
           stake,
           outcome: won ? 'win' : refunded ? 'refund' : 'loss',
           amount: won ? payout : stake,
-          multiplier: won && stake > 0 ? (payout / stake) : 1,
+          multiplier: won && stake > 0 ? ((stake + payout) / stake) : 1,
         };
       });
       rounds.push({
