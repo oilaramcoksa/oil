@@ -51,6 +51,9 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
         await tx.execute({ sql: "UPDATE crash_rounds SET status='running',started_at=? WHERE id=? AND status='countdown'", args: [now, String(round.id)] });
         if (Number(round.crash_multiplier) <= 1) {
           await tx.execute({ sql: "UPDATE crash_rounds SET status='crashed',crashed_at=? WHERE id=? AND status='running'", args: [now, String(round.id)] });
+          const burned = await tx.execute({ sql: "SELECT COALESCE(SUM(amount),0) AS total FROM crash_bets WHERE round_id=? AND status='active'", args: [String(round.id)] });
+          const burnedAmount = Number(burned.rows[0]?.total ?? 0);
+          if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
           const nextId = randomUUID();
           const nextSeed = randomBytes(32).toString('hex');
@@ -63,6 +66,9 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
         const start = Number(round.started_at ?? now);
         if (multiplierAt(start, now) >= Number(round.crash_multiplier)) {
           await tx.execute({ sql: "UPDATE crash_rounds SET status='crashed',crashed_at=? WHERE id=? AND status='running'", args: [now, String(round.id)] });
+          const burned = await tx.execute({ sql: "SELECT COALESCE(SUM(amount),0) AS total FROM crash_bets WHERE round_id=? AND status='active'", args: [String(round.id)] });
+          const burnedAmount = Number(burned.rows[0]?.total ?? 0);
+          if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
           const nextId = randomUUID();
           const nextSeed = randomBytes(32).toString('hex');
@@ -211,7 +217,10 @@ export async function POST(req: NextRequest) {
       const multiplier = multiplierAt(startedAt, now);
       if (multiplier >= Number(activeRound.crash_multiplier)) {
         await tx.execute({ sql: "UPDATE crash_rounds SET status='crashed',crashed_at=? WHERE id=? AND status='running'", args: [now, roundId] });
-        await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [roundId] });
+        const burned = await tx.execute({ sql: "SELECT COALESCE(SUM(amount),0) AS total FROM crash_bets WHERE round_id=? AND status='active'", args: [roundId] });
+          const burnedAmount = Number(burned.rows[0]?.total ?? 0);
+          if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
+          await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [roundId] });
         const nextId = randomUUID();
         const nextSeed = randomBytes(32).toString('hex');
         await tx.execute({
