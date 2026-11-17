@@ -426,19 +426,6 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         </motion.div>
       </div>
 
-      {/* Storage full warning */}
-      {isFull && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md mx-auto w-full px-3 mt-1"
-        >
-          <div className="aram-shake px-3 py-2 rounded-xl bg-red-500/20 border border-red-500/40 text-red-200 text-xs font-bold text-center">
-            ⚠ {t(lang, 'storageFull')} — {t(lang, 'sell')}!
-          </div>
-        </motion.div>
-      )}
-
       {/* Action buttons */}
       <div className="max-w-md mx-auto w-full px-3 mt-2 pb-4 grid grid-cols-2 gap-2">
         <Button
