@@ -381,7 +381,11 @@ export async function POST(req: NextRequest) {
       if (alreadyJoined.rows.length) throw new Error('already_joined');
 
       const betWallet = await tx.execute({sql:'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,0) ON CONFLICT(telegram_id) DO UPDATE SET updated_at=CURRENT_TIMESTAMP RETURNING balance',args:[playerId]});
-      const purchasedAmount = Math.min(Number(betWallet.rows[0]?.balance ?? 0), body.amount);
+      const walletSnapshot = await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[playerId]});
+      const purchasedAvailable = Number(betWallet.rows[0]?.balance ?? 0);
+      const walletAvailable = Number(walletSnapshot.rows[0]?.coins_balance ?? 0);
+      if (purchasedAvailable + walletAvailable < body.amount) throw new Error('insufficient_balance');
+      const purchasedAmount = Math.min(purchasedAvailable, body.amount);
       const walletAmount = body.amount - purchasedAmount;
       if (walletAmount > 0) {
         const debit = await tx.execute({sql:`UPDATE player_wallets SET coins_balance=coins_balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance>=? RETURNING coins_balance`,args:[walletAmount,playerId,walletAmount]});
