@@ -15,4 +15,4 @@ export type ArenaSettlement = {
   winnerRefund: null | { telegramId: string; purchasedAmount: number; walletAmount: number; amount: number };
   refunds: Array<{ telegramId: string; purchasedAmount: number; walletAmount: number; amount: number }>;
 };
-export function calculateArenaSettlement(entries: ArenaSettlementEntry[], winnerType: string, winnerTelegramId: string | null, cancelled?: boolean): ArenaSettlement;
+export function calculateArenaSettlement(entries: ArenaSettlementEntry[], winnerType: string | null, winnerTelegramId: string | null, cancelled?: boolean): ArenaSettlement;
