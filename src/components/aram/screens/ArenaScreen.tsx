@@ -32,11 +32,12 @@ type HistoryRound = { id: string; status: string; occurredAt: string; total: num
 type ArenaState = {
   round: Round | null;
   balance: number;
+  betBalance: number;
   entries: Entry[];
   lastResult: LastResult | null;
 };
 
-const EMPTY_STATE: ArenaState = { round: null, balance: 0, entries: [], lastResult: null };
+const EMPTY_STATE: ArenaState = { round: null, balance: 0, betBalance: 0, entries: [], lastResult: null };
 
 export function ArenaScreen({
   initData,
@@ -116,6 +117,8 @@ export function ArenaScreen({
     : round ? activeEntries : (state.lastResult?.entries ?? []);
   const total = displayedEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const balance = state.balance;
+  const betBalance = state.betBalance;
+  const availableBalance = balance + betBalance;
   const ownEntry = activeEntries.some((entry) => entry.telegramId === telegramUserId);
   const countdown = round?.startsAt
     ? Math.max(0, Math.ceil((round.startsAt - now) / 1000))
@@ -234,9 +237,10 @@ export function ArenaScreen({
             </div>
             <span className="rounded-full border border-emerald-700/15 bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-800">{replaying ? t(lang, 'arenaReplayPlaying') : round?.status === 'countdown' ? t(lang, 'arenaCountdown') : isSpinning ? t(lang, 'arenaSpinning') : t(lang, 'arenaReady')}</span>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-xl border border-amber-900/5 bg-[#fff7e9]/85 p-2.5"><div className="text-[10px] text-[#987354]">{t(lang, 'arenaPot')}</div><div className="mt-1 text-lg font-black tabular-nums text-amber-800">{total.toLocaleString()}</div></div>
-            <div className="rounded-xl border border-amber-900/5 bg-[#fff7e9]/85 p-2.5"><div className="text-[10px] text-[#987354]">{t(lang, 'arenaBalance')}</div><div className="mt-1 text-lg font-black tabular-nums text-emerald-800">{balance.toLocaleString()}</div></div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-amber-900/5 bg-[#fff7e9]/85 p-2"><div className="text-[9px] leading-tight text-[#987354]">{t(lang, 'arenaPot')}</div><div className="mt-1 text-base font-black tabular-nums text-amber-800">{total.toLocaleString()}</div></div>
+            <div className="rounded-xl border border-emerald-900/10 bg-emerald-50/80 p-2"><div className="text-[9px] leading-tight text-emerald-800">{t(lang, 'arenaPurchasedBalance')}</div><div className="mt-1 text-base font-black tabular-nums text-emerald-800">{betBalance.toLocaleString()}</div></div>
+            <div className="rounded-xl border border-blue-900/10 bg-blue-50/80 p-2"><div className="text-[9px] leading-tight text-blue-800">{t(lang, 'arenaWalletBalance')}</div><div className="mt-1 text-base font-black tabular-nums text-blue-800">{balance.toLocaleString()}</div></div>
           </div>
         </section>
 
@@ -344,14 +348,14 @@ export function ArenaScreen({
 
         <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
           <div className="mb-2 flex justify-between text-xs text-[#8f6b4d]">
-            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaBalance')}: <b className="font-black text-amber-800">{balance.toLocaleString()}</b></span>
+            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaAvailableBalance')}: <b className="font-black text-amber-800">{availableBalance.toLocaleString()}</b></span>
           </div>
           <div className="flex gap-2">
             <input
               type="number"
               inputMode="numeric"
               min="100"
-              max={balance}
+              max={availableBalance}
               step="1"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
@@ -359,8 +363,8 @@ export function ArenaScreen({
               className="min-w-0 flex-1 rounded-lg border border-[#6b3b19] bg-[#25262a] p-3 font-black text-white caret-white outline-none placeholder:text-white/50 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
             />
             <button
-              onClick={() => void join(balance)}
-              disabled={loading || !isVerified || ownEntry || isRoundClosed || balance < 100}
+              onClick={() => void join(availableBalance)}
+              disabled={loading || !isVerified || ownEntry || isRoundClosed || availableBalance < 100}
               className="rounded-xl border border-amber-600 bg-gradient-to-b from-amber-400 to-orange-500 px-4 text-xs font-black text-[#3b210c] shadow-md disabled:opacity-40"
             >
               {t(lang, 'arenaMax')}
@@ -372,7 +376,7 @@ export function ArenaScreen({
                 key={preset}
                 type="button"
                 onClick={() => setAmount(String(preset))}
-                disabled={loading || !isVerified || ownEntry || isRoundClosed || balance < preset}
+                disabled={loading || !isVerified || ownEntry || isRoundClosed || availableBalance < preset}
                 aria-pressed={amount === String(preset)}
                 className={`rounded-lg border px-2 py-2 text-xs font-black tabular-nums transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${amount === String(preset) ? 'border-amber-500 bg-gradient-to-b from-amber-300 to-orange-400 text-[#3b210c] shadow-inner' : 'border-amber-800/15 bg-[#fff7e9] text-[#70431f] hover:border-amber-500/60'}`}
               >
@@ -381,7 +385,7 @@ export function ArenaScreen({
             ))}
           </div>
           <button
-            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < 100 || Number(amount) > balance}
+            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < 100 || Number(amount) > availableBalance}
             onClick={() => void join()}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#ff9f50] py-3 font-black text-[#24180f] disabled:opacity-40"
           >
@@ -389,6 +393,7 @@ export function ArenaScreen({
             {t(lang, 'arenaJoin')} · {Number(amount || 0).toLocaleString()}
           </button>
           <p className="mt-2 text-[10px] text-[#9a7659]">{t(lang, 'arenaMin')} · {t(lang, 'arenaRules')} · {t(lang, 'arenaMaxHint')}</p>
+          <p className="mt-2 rounded-lg border border-emerald-700/15 bg-emerald-50/80 px-3 py-2 text-[10px] leading-relaxed text-emerald-900">{t(lang, 'arenaWinFeeNote')}</p>
           <p className="mt-2 rounded-lg border border-blue-400/15 bg-blue-400/[.06] px-3 py-2 text-[10px] leading-relaxed text-blue-100/75">{t(lang, 'arenaTimeoutRefund')}</p>
         </section>
 
