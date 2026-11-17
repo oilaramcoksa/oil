@@ -255,16 +255,30 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   })();
   const luckyAvailable = luckyBoxLastOpened !== currentWeek;
 
-  const handleOpenLuckyBox = () => {
+  const handleOpenLuckyBox = async () => {
+    if (!isVerified || !initData || !luckyAvailable) return;
     haptic('heavy');
-    const r = openLuckyBox();
-    if (r) {
-      setLuckyReward(r.reward);
+    try {
+      const response = await fetch('/api/lucky-box', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+        body: '{}',
+        cache: 'no-store',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (data.error === 'lucky_box_already_claimed') toast.error(lang === 'ar' ? 'لقد فتحت الصندوق هذا الأسبوع بالفعل.' : 'You already opened this week’s box.');
+        else toast.error(lang === 'ar' ? 'تعذر فتح الصندوق. حاول مرة أخرى.' : 'Could not open the box. Try again.');
+        return;
+      }
+      if (typeof data.walletCoins === 'number') syncServerWalletCoins(data.walletCoins);
+      useGame.setState({ luckyBoxLastOpened: currentWeek });
+      setLuckyReward(Number(data.reward));
       notify('success');
-      toast.success(`${t(lang, 'luckyBoxReward')} +${r.reward} ${t(lang, 'coins')}!`);
+      toast.success(`${t(lang, 'luckyBoxReward')} +${data.reward} ${t(lang, 'coins')}!`);
       setTimeout(() => setLuckyReward(null), 3000);
-    } else {
-      haptic('light');
+    } catch {
+      toast.error(lang === 'ar' ? 'تعذر الاتصال بالخادم.' : 'Server connection failed.');
     }
   };
 
