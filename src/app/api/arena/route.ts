@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 import { postLedgerEntry } from '@/lib/ledger';
+import { calculateArenaSettlement } from '@/lib/arena-settlement.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,7 @@ async function readEntries(db: ReturnType<typeof getTurso>, roundId: string): Pr
     telegram_id: String(row.telegram_id),
     amount: Number(row.amount),
     purchased_amount: Number(row.purchased_amount ?? 0),
-    wallet_amount: Number(row.wallet_amount ?? 0),
+    wallet_amount: Number(row.wallet_amount ?? 0) || (Number(row.purchased_amount ?? 0) === 0 ? Number(row.amount) : 0),
     username: row.username == null ? null : String(row.username),
     first_name: row.first_name == null ? null : String(row.first_name),
     photo_url: row.photo_url == null ? null : String(row.photo_url),
@@ -84,6 +85,60 @@ function resultProofHash(roundId: string, seed: string, winnerType: string, winn
  * A retry therefore cannot reroll a round. The prize is credited idempotently
  * before the round is marked complete, so a transient failure cannot lose a win.
  */
+async function cancelAndRefundRound(
+  db: ReturnType<typeof getTurso>,
+  roundId: string,
+  expectedStatus: 'open' | 'countdown',
+  entries: ArenaEntryRow[],
+  reason: string,
+) {
+  const settlement = calculateArenaSettlement(entries.map((entry) => ({
+    telegramId: entry.telegram_id,
+    amount: entry.amount,
+    purchasedAmount: entry.purchased_amount,
+    walletAmount: entry.wallet_amount,
+  })), null, null, true);
+  const tx = await db.transaction('write');
+  try {
+    const cancelled = await tx.execute({
+      sql: "UPDATE arena_rounds SET status='cancelled',completed_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=? AND status=? RETURNING id",
+      args: [roundId, expectedStatus],
+    });
+    if (!cancelled.rows.length) {
+      await tx.rollback();
+      return false;
+    }
+    for (const refund of settlement.refunds) {
+      if (refund.purchasedAmount > 0) {
+        const balance = await tx.execute({
+          sql: "INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,?) ON CONFLICT(telegram_id) DO UPDATE SET balance=balance+excluded.balance,updated_at=CURRENT_TIMESTAMP RETURNING balance",
+          args: [refund.telegramId, refund.purchasedAmount],
+        });
+        await tx.execute({
+          sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'arena_round',?,?,?)",
+          args: [randomUUID(), refund.telegramId, refund.purchasedAmount, Number(balance.rows[0].balance), roundId, `arena_cancel_purchased_refund:${roundId}:${refund.telegramId}`, JSON.stringify({ reason })],
+        });
+      }
+      if (refund.walletAmount > 0) {
+        const balance = await tx.execute({
+          sql: "UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance",
+          args: [refund.walletAmount, refund.telegramId],
+        });
+        if (!balance.rows.length) throw new Error('player_wallet_not_found_for_arena_refund');
+        await tx.execute({
+          sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_refund',?,?, 'arena_round',?,?,?)",
+          args: [randomUUID(), refund.telegramId, refund.walletAmount, Number(balance.rows[0].coins_balance), roundId, `arena_cancel_wallet_refund:${roundId}:${refund.telegramId}`, JSON.stringify({ reason, purchasedRefund: refund.purchasedAmount })],
+        });
+      }
+    }
+    await tx.commit();
+    return true;
+  } catch (error) {
+    await tx.rollback();
+    throw error;
+  }
+}
+
 async function settleDueRounds(db: ReturnType<typeof getTurso>) {
   const now = Date.now();
 
@@ -94,24 +149,7 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
   for (const candidate of expiredWaiting.rows) {
     const roundId = String(candidate.id);
     const entries = await readEntries(db, roundId);
-    const cancelled = await db.execute({
-      sql: "UPDATE arena_rounds SET status='cancelled', completed_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=? AND status='open' AND created_at <= datetime('now', '-1 hour')",
-      args: [roundId],
-    });
-    if (Number(cancelled.rowsAffected) === 1) {
-      for (const entry of entries) {
-        await postLedgerEntry({
-          telegramId: entry.telegram_id,
-          asset: 'coins',
-          entryType: 'arena_refund',
-          amount: entry.amount,
-          idempotencyKey: `arena_waiting_refund:${roundId}:${entry.telegram_id}`,
-          referenceType: 'arena_round',
-          referenceId: roundId,
-          metadata: { reason: 'waiting_timeout' },
-        });
-      }
-    }
+    await cancelAndRefundRound(db, roundId, 'open', entries, 'waiting_timeout');
   }
 
   const dueCountdowns = await db.execute({
@@ -125,23 +163,7 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
     const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
 
     if (entries.length < 2) {
-      const cancelled = await db.execute({
-        sql: "UPDATE arena_rounds SET status='cancelled', completed_at=CURRENT_TIMESTAMP WHERE id=? AND status='countdown'",
-        args: [roundId],
-      });
-      if (Number(cancelled.rowsAffected) === 1) {
-        for (const entry of entries) {
-          await postLedgerEntry({
-            telegramId: entry.telegram_id,
-            asset: 'coins',
-            entryType: 'arena_refund',
-            amount: entry.amount,
-            idempotencyKey: `arena_refund:${roundId}:${entry.telegram_id}`,
-            referenceType: 'arena_round',
-            referenceId: roundId,
-          });
-        }
-      }
+      await cancelAndRefundRound(db, roundId, 'countdown', entries, 'insufficient_players');
       continue;
     }
 
@@ -187,18 +209,24 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
     try {
       const current = await tx.execute({sql:"SELECT status FROM arena_rounds WHERE id=?",args:[roundId]});
       if (!current.rows.length || String(current.rows[0].status) !== 'spinning') { await tx.rollback(); continue; }
+      const settlement = calculateArenaSettlement(entries.map((entry) => ({
+        telegramId: entry.telegram_id,
+        amount: entry.amount,
+        purchasedAmount: entry.purchased_amount,
+        walletAmount: entry.wallet_amount,
+      })), winnerType, winnerId);
       if (winnerType === 'player' && winnerId) {
-        const winner = entries.find((entry) => entry.telegram_id === winnerId);
+        const winner = settlement.winnerRefund;
         if (!winner) throw new Error('arena_winner_entry_missing');
-        if (winner.purchased_amount > 0) {
-          const restored = await tx.execute({sql:"UPDATE bet_token_balances SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING balance",args:[winner.purchased_amount,winnerId]});
+        if (winner.purchasedAmount > 0) {
+          const restored = await tx.execute({sql:"UPDATE bet_token_balances SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING balance",args:[winner.purchasedAmount,winnerId]});
           if (!restored.rows.length) throw new Error('bet_token_wallet_missing');
-          await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.purchased_amount,Number(restored.rows[0].balance),roundId,`bet_token_winner_return:${roundId}:${winnerId}`,JSON.stringify({reason:'winner_original_stake_return'})]});
+          await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.purchasedAmount,Number(restored.rows[0].balance),roundId,`bet_token_winner_return:${roundId}:${winnerId}`,JSON.stringify({reason:'winner_original_stake_return'})]});
         }
-        if (winner.wallet_amount > 0) {
-          const restoredWallet = await tx.execute({sql:"UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance",args:[winner.wallet_amount,winnerId]});
+        if (winner.walletAmount > 0) {
+          const restoredWallet = await tx.execute({sql:"UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance",args:[winner.walletAmount,winnerId]});
           if (!restoredWallet.rows.length) throw new Error('player_wallet_not_found');
-          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_winner_stake_return',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.wallet_amount,Number(restoredWallet.rows[0].coins_balance),roundId,`arena_winner_stake_return:${roundId}:${winnerId}`,JSON.stringify({roundId})]});
+          await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_winner_stake_return',?,?, 'arena_round',?,?,?)",args:[randomUUID(),winnerId,winner.walletAmount,Number(restoredWallet.rows[0].coins_balance),roundId,`arena_winner_stake_return:${roundId}:${winnerId}`,JSON.stringify({roundId})]});
         }
         const opponentPool = total - winner.amount;
         const fee = Math.floor(opponentPool * 0.10);
