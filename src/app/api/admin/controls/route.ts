@@ -118,6 +118,45 @@ export async function GET(req: NextRequest) {
       } }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
+    if (section === 'crash') {
+      const rounds = await db.execute(`SELECT id,status,betting_ends_at,started_at,crashed_at,crash_multiplier,seed_hash,created_at
+        FROM crash_rounds ORDER BY created_at DESC,rowid DESC LIMIT 100`);
+      const bets = await db.execute(`SELECT b.round_id,b.telegram_id,b.username,b.amount,b.status,b.cashout_multiplier,b.payout,b.created_at,
+        p.first_name,p.last_name,p.username AS player_username
+        FROM crash_bets b LEFT JOIN players p ON p.telegram_id=b.telegram_id
+        WHERE b.round_id IN (SELECT id FROM crash_rounds ORDER BY created_at DESC,rowid DESC LIMIT 100)
+        ORDER BY b.created_at ASC`);
+      const grouped = new Map<string, Array<Record<string, unknown>>>();
+      for (const row of bets.rows as unknown as Array<Record<string, unknown>>) {
+        const key = String(row.round_id);
+        const list = grouped.get(key) ?? [];
+        list.push({
+          telegramId: String(row.telegram_id),
+          username: String(row.first_name || row.player_username || row.username || row.telegram_id),
+          amount: Number(row.amount),
+          status: String(row.status),
+          cashoutMultiplier: row.cashout_multiplier == null ? null : Number(row.cashout_multiplier),
+          payout: Number(row.payout),
+          netProfit: String(row.status) === 'cashed_out' ? Number(row.payout) - Number(row.amount) : -Number(row.amount),
+        });
+        grouped.set(key, list);
+      }
+      return NextResponse.json({ crashRounds: (rounds.rows as unknown as Array<Record<string, unknown>>).map((round) => {
+        const players = grouped.get(String(round.id)) ?? [];
+        return {
+          id: String(round.id), status: String(round.status), createdAt: String(round.created_at),
+          startedAt: round.started_at == null ? null : Number(round.started_at),
+          crashedAt: round.crashed_at == null ? null : Number(round.crashed_at),
+          crashMultiplier: Number(round.crash_multiplier),
+          participants: players.length,
+          totalStakes: players.reduce((sum, player) => sum + Number(player.amount), 0),
+          winners: players.filter((player) => player.status === 'cashed_out'),
+          players,
+          seedHash: String(round.seed_hash),
+        };
+      }) }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
     if (section === 'playerProducts') {
       const playerId = req.nextUrl.searchParams.get('telegramId') ?? '';
       if (!playerId || playerId.length > 64) return fail('player_required');
