@@ -529,7 +529,8 @@ export async function POST(req: NextRequest) {
     }, { headers: { 'Cache-Control': 'no-store, private' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'arena_join_failed';
-    if (message === 'insufficient_balance') return jsonError('insufficient_balance', 409);
+    if (message === 'insufficient_balance' || message === 'insufficient_bet_balance') return jsonError('insufficient_balance', 409);
+    if (message === 'player_not_found') return jsonError('player_not_found', 404);
     if (message === 'already_joined') return jsonError('already_joined', 409);
     if (message === 'round_closed_for_entries') return jsonError('round_starting', 409);
     console.error('arena_join_failed', error);
