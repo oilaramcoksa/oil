@@ -157,9 +157,9 @@ export async function GET(req: NextRequest) {
               FROM players p
               LEFT JOIN player_wallets w ON w.telegram_id=p.telegram_id
               LEFT JOIN player_game_state g ON g.telegram_id=p.telegram_id
-              WHERE (?='' OR p.telegram_id LIKE ? OR COALESCE(p.username,'') LIKE ? OR COALESCE(p.first_name,'') LIKE ?)
+              WHERE (?='' OR p.telegram_id LIKE ? OR COALESCE(p.username,'') LIKE ? OR COALESCE(p.first_name,'') LIKE ? OR COALESCE(p.last_name,'') LIKE ?)
               ORDER BY p.last_seen_at DESC LIMIT 250`,
-        args: [query, like, like, like],
+        args: [query, like, like, like, like],
       });
       return NextResponse.json({ players: rows.rows }, { headers: { 'Cache-Control': 'no-store' } });
     }
@@ -418,14 +418,16 @@ export async function POST(req: NextRequest) {
           args: [target, refereeId],
         });
         if (players.rows.length !== 2) { await tx.rollback(); return fail('player_not_found', 404); }
+        const cycle = await tx.execute({
+          sql: `WITH RECURSIVE descendants(id) AS (SELECT referee_telegram_id FROM referrals WHERE referrer_telegram_id=? UNION SELECT r.referee_telegram_id FROM referrals r JOIN descendants d ON r.referrer_telegram_id=d.id) SELECT 1 AS cycle FROM descendants WHERE id=? LIMIT 1`,
+          args: [refereeId, target],
+        });
+        if (cycle.rows.length) { await tx.rollback(); return fail('referral_cycle_not_allowed', 409); }
         await tx.execute({
-          sql: `INSERT INTO referrals(id,referrer_telegram_id,referee_telegram_id,status)
-                VALUES(?,?,?,'joined')
-                ON CONFLICT(referee_telegram_id) DO UPDATE SET
-                referrer_telegram_id=excluded.referrer_telegram_id`,
+          sql: `INSERT INTO referrals(id,referrer_telegram_id,referee_telegram_id,status) VALUES(?,?,?,'joined') ON CONFLICT(referee_telegram_id) DO UPDATE SET referrer_telegram_id=excluded.referrer_telegram_id`,
           args: [randomUUID(), target, refereeId],
         });
-        await notify(tx, refereeId, '🔗 تم تحديث جهة الدعوة', 'تم تحديث بيانات الإحالة المرتبطة بحسابك بواسطة إدارة اللعبة.', 'referral');
+        await notify(tx, refereeId, '🔗 تم تحديث جهة الدعوة', 'تم تحديث الداعي المرتبط بحسابك بواسطة إدارة اللعبة.', 'referral', { newReferrerTelegramId: target });
       } else if (action === 'set_speed') {
         const speed = Number(body.speed);
         await tx.execute({ sql: 'INSERT OR IGNORE INTO player_game_state(telegram_id) VALUES(?)', args: [target] });
