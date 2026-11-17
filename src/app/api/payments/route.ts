@@ -9,7 +9,7 @@ import { publishPaymentNotice } from '@/lib/telegram-payment-notice';
 const SHOP_PARTS = [
   { id: 'oil_pump', priceTon: 2 }, { id: 'fuel_station', priceTon: 1.5 },
   { id: 'oil_truck', priceTon: 1 }, { id: 'new_background', priceTon: 1 },
-  { id: 'vip_badge', priceTon: 5 }, { id: 'wheel_expansion', priceTon: 1 },\n  { id: 'arena_tokens_10000', priceTon: 1 },
+  { id: 'vip_badge', priceTon: 5 }, { id: 'wheel_expansion', priceTon: 1 }, { id: 'arena_tokens_10000', priceTon: 1 },
 ] as const;
 const RECEIVER = process.env.TON_MINING_FEE_WALLET || WALLETS.find(w => w.code === 'gram')?.address || '';
 const TONCENTER = (process.env.TONCENTER_API_URL || 'https://toncenter.com/api/v2').replace(/\/$/, '');
@@ -57,7 +57,10 @@ async function activatePurchase(id: string, telegramId: string, txHash: string) 
     const kind = String(payload.kind);
     const duplicate = await tx.execute({sql:"SELECT id FROM payment_transactions WHERE tx_hash=? AND status='confirmed'",args:[txHash]});
     if (duplicate.rows.length) { await tx.rollback(); return false; }
-    if (kind === 'shop_part') {
+    if (kind === 'shop_part' && productId === 'arena_tokens_10000') {
+      const credit = await tx.execute({sql:'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,10000) ON CONFLICT(telegram_id) DO UPDATE SET balance=balance+10000,updated_at=CURRENT_TIMESTAMP RETURNING balance',args:[telegramId]});
+      await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'purchase',?,?, 'payment',?,?,?)",args:[randomUUID(),telegramId,10000,Number(credit.rows[0].balance),id,id,JSON.stringify({priceTon:1,network:'TON Mainnet',productId})]});
+    } else if (kind === 'shop_part') {
       if (['oil_pump','fuel_station','oil_truck'].includes(productId)) {
         await tx.execute({sql:'INSERT INTO player_parts(telegram_id,part_id,quantity) VALUES(?,?,1) ON CONFLICT(telegram_id,part_id) DO UPDATE SET quantity=quantity+1,updated_at=CURRENT_TIMESTAMP',args:[telegramId,productId]});
       } else {
