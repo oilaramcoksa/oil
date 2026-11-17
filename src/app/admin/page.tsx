@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle, Camera, ExternalLink, CheckCircle, XOctagon, MoreHorizontal, Download } from 'lucide-react';
 
-type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'audit';
+type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'crash' | 'audit';
 type Player = {telegram_id:string;username?:string|null;first_name?:string|null;last_name?:string|null;status:string;coins:number;oil:number;base_oil_per_tap:number;fee_exempt:number;mining_fee_paid_at?:string|null};
 type Row = Record<string, unknown>;
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
@@ -24,6 +24,7 @@ export default function AdminPage() {
   const [notificationCounts,setNotificationCounts] = useState<Record<string,number>>({});
   const [productRows,setProductRows] = useState<Row[]>([]);
   const [logs,setLogs] = useState<Row[]>([]);
+  const [crashRounds,setCrashRounds] = useState<Row[]>([]);
   const [shortsRows,setShortsRows] = useState<Row[]>([]);
   const [storyRows,setStoryRows] = useState<Row[]>([]);
   const [shortsContest,setShortsContest] = useState<Row|null>(null);
@@ -85,6 +86,7 @@ export default function AdminPage() {
       if(nextSection==='broadcasts') setBroadcastRows(data.broadcasts||[]);
       if(nextSection==='referrals') setReferralRows(data.referrals||[]);
       if(nextSection==='audit') setLogs(data.logs||[]);
+      if(nextSection==='crash') setCrashRounds(data.crashRounds||[]);
       if(nextSection==='shorts'){setShortsRows(data.shorts||[]);setShortsContest(data.contest||null);}
       if(nextSection==='storyTasks') setStoryRows(data.storyTasks||[]);
     } catch(e){setError(e instanceof Error?e.message:'حدث خطأ');}
@@ -158,6 +160,7 @@ export default function AdminPage() {
     {id:'broadcasts' as const,label:'الرسائل والإعلانات',icon:Megaphone},
     {id:'shorts' as const,label:'مسابقة Shorts',icon:Youtube},
     {id:'storyTasks' as const,label:'مراجعة حالات تيليجرام',icon:Camera},
+    {id:'crash' as const,label:'ARMCOFLY',icon:Plane},
     {id:'audit' as const,label:'سجل الإدارة',icon:Activity}
   ];
   if(!token) return <main dir="rtl" className="min-h-screen bg-gradient-to-br from-sky-50 via-indigo-50 to-violet-100 text-white grid place-items-center p-5"><form onSubmit={login} className="w-full max-w-md rounded-3xl border border-amber-400/20 bg-white shadow-lg shadow-slate-200/60 p-8 shadow-2xl"><div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-amber-400/10 text-amber-300"><ShieldCheck size={32}/></div><h1 className="text-center text-2xl font-black">Aramco Oil</h1><p className="mb-7 mt-2 text-center text-sm text-slate-500">بوابة الإدارة الآمنة</p>{error&&<p className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">{error}</p>}<label className="mb-2 block text-sm text-slate-600">كلمة مرور الإدارة</label><input autoFocus type="password" value={input} onChange={e=>setInput(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-50 px-4 py-3 outline-none focus:border-amber-400" placeholder="أدخل رمز الدخول"/><button disabled={busy} className="mt-4 w-full rounded-xl bg-amber-400 py-3 font-black text-slate-950 disabled:opacity-60">{busy?'جارٍ التحقق…':'دخول لوحة التحكم'}</button><p className="mt-4 text-center text-xs text-slate-500">يتم التحقق من الرمز على الخادم ولا يُحفظ في المتصفح.</p></form></main>;
@@ -234,6 +237,26 @@ export default function AdminPage() {
             </article>)}
             {!storyRows.length&&<div className="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 p-8 text-center text-sm text-slate-500">لا توجد طلبات في هذا التصنيف.</div>}
           </div>
+        </section>}
+        {section==='crash'&&<section className="space-y-4">
+          <div className="rounded-2xl border border-amber-300/20 bg-gradient-to-r from-slate-900 to-indigo-950 p-5 text-white shadow-xl">
+            <div className="text-xl font-black">✈️ ARMCOFLY · سجل الجولات</div>
+            <p className="mt-1 text-xs text-white/60">نتائج آخر 100 جولة، رهانات المشاركين، الأرباح الصافية ونقطة انفجار الطائرة.</p>
+          </div>
+          {crashRounds.map((round)=><article key={String(round.id)} className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-800 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div><div className="font-black">انفجار عند {Number(round.crashMultiplier).toFixed(2)}x</div><div className="mt-1 text-[10px] text-slate-500">{String(round.createdAt)} · {String(round.id).slice(0,8)}</div></div>
+              <div className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-black text-amber-900">{Number(round.participants)} مشارك · إجمالي الرهانات {money(round.totalStakes)}</div>
+            </div>
+            {Array.isArray(round.players)&&round.players.length>0?<div className="mt-3 space-y-2">{(round.players as Row[]).map((player,i)=><div key={String(player.telegramId)+i} className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs sm:grid-cols-4">
+              <div><div className="text-[10px] text-slate-500">اللاعب</div><b>{String(player.username)}</b></div>
+              <div><div className="text-[10px] text-slate-500">دخل بكام</div><b>{money(player.amount)} عملة</b></div>
+              <div><div className="text-[10px] text-slate-500">النتيجة</div><b className={player.status==='cashed_out'?'text-emerald-600':'text-rose-600'}>{player.status==='cashed_out'?'فاز':'خسر'}</b></div>
+              <div><div className="text-[10px] text-slate-500">الربح الصافي / الخسارة</div><b className={Number(player.netProfit)>=0?'text-emerald-600':'text-rose-600'}>{Number(player.netProfit)>0?'+':''}{money(player.netProfit)}</b><div className="text-[10px] text-slate-500">إجمالي ما استلمه: {money(player.payout)}</div></div>
+            </div>)}</div>:<div className="mt-3 rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-500">لم يشارك لاعبون في هذه الجولة.</div>}
+            <div className="mt-3 break-all text-[9px] text-slate-400">SHA-256: {String(round.seedHash)}</div>
+          </article>)}
+          {!crashRounds.length&&<div className="rounded-2xl bg-white p-8 text-center text-sm text-slate-500">لا توجد جولات مسجلة بعد.</div>}
         </section>}
         {section==='audit'&&<DataTable title="آخر العمليات الإدارية" rows={logs} columns={['action','target_type','target_id','details_json','created_at']}/>}
       </main>
