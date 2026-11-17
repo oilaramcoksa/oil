@@ -261,7 +261,7 @@ export function ArenaScreen({
     <div className="h-full overflow-y-auto bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="mx-auto mb-3 grid w-full max-w-md grid-cols-2 gap-2 rounded-2xl border border-amber-900/10 bg-white/70 p-1.5 shadow-sm">
         <button type="button" onClick={() => setGameMode('wheel')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'wheel' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
-          <span>🎡</span>{lang === 'ar' ? 'العجلة' : 'Wheel'}
+          <span>🎡</span>{lang === 'ar' ? 'عجلة الحظ' : 'Lucky Wheel'}
         </button>
         <button type="button" onClick={() => setGameMode('crash')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'crash' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
           <span>✈️</span>{lang === 'ar' ? 'ARMCOFLY' : 'ARMCOFLY'}
