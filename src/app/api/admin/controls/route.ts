@@ -365,7 +365,9 @@ export async function POST(req: NextRequest) {
         const column = action === 'grant_coins' ? 'coins_balance' : 'oil_balance';
         const exists = await tx.execute({ sql: 'SELECT telegram_id FROM players WHERE telegram_id=?', args: [target] });
         if (!exists.rows.length) { await tx.rollback(); return fail('player_not_found', 404); }
-        await tx.execute({ sql: 'UPDATE player_wallets SET ' + column + '=' + column + '+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [amount, target] });
+        await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [target] });
+        const credited = await tx.execute({ sql: 'UPDATE player_wallets SET ' + column + '=' + column + '+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [amount, target] });
+        if (Number(credited.rowsAffected) !== 1) { await tx.rollback(); return fail('wallet_credit_failed', 503); }
         const wallet = await tx.execute({ sql: 'SELECT ' + column + ' AS balance FROM player_wallets WHERE telegram_id=?', args: [target] });
         const balance = Number(wallet.rows[0]?.balance ?? 0);
 
@@ -377,9 +379,14 @@ export async function POST(req: NextRequest) {
           });
           await notify(tx, target, '🎁 مكافأة من إدارة اللعبة', `تمت إضافة ${amount.toLocaleString('en-US')} عملة إلى رصيدك. السبب: ${reason}`, 'reward', { amount, reason });
         } else {
+          const referenceId = randomUUID();
+          await tx.execute({
+            sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'oil','admin_grant',?,?,'admin',?,?,?)",
+            args: [randomUUID(), target, amount, balance, referenceId, `admin-oil-grant:${referenceId}`, JSON.stringify({ reason })],
+          });
           await tx.execute({
             sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'admin_oil_grant',?,?,?)",
-            args: [randomUUID(), target, amount, JSON.stringify({ reason }), `admin-oil:${randomUUID()}`],
+            args: [randomUUID(), target, amount, JSON.stringify({ reason }), `admin-oil:${referenceId}`],
           });
           await notify(tx, target, '🛢️ تمت إضافة نفط إلى حسابك', `أضافت الإدارة ${amount.toLocaleString('en-US')} وحدة نفط. السبب: ${reason}`, 'reward', { amount, reason });
         }
