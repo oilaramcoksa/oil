@@ -402,7 +402,7 @@ export async function POST(req: NextRequest) {
           randomUUID(),
           playerId,
           -body.amount,
-          JSON.stringify({ roundId, amount: body.amount }),
+          JSON.stringify({ roundId, amount: body.amount, purchasedAmount, walletAmount }),
           `event:arena_entry:${roundId}:${playerId}`,
         ],
       });
