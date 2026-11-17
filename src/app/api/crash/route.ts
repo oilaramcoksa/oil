@@ -33,8 +33,14 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
       const round = latest.rows[0];
       const status = String(round.status);
       if (status === 'countdown' && Number(round.betting_ends_at) <= now) {
+        // Lock the participant set before choosing the outcome. Player rounds cap at 10x;
+        // empty demo rounds can fly much further. No bets are accepted after this transaction.
+        const participants = await tx.execute({ sql: "SELECT COUNT(*) AS total FROM crash_bets WHERE round_id=? AND status='active'", args: [String(round.id)] });
+        const maxMultiplier = Number(participants.rows[0]?.total ?? 0) > 0 ? 10 : 1000;
+        const finalCrashPoint = makeCrashPoint(String(round.server_seed), String(round.id), maxMultiplier);
+        await tx.execute({ sql: "UPDATE crash_rounds SET crash_multiplier=? WHERE id=? AND status='countdown'", args: [finalCrashPoint, String(round.id)] });
         await tx.execute({ sql: "UPDATE crash_rounds SET status='running',started_at=? WHERE id=? AND status='countdown'", args: [now, String(round.id)] });
-        if (Number(round.crash_multiplier) <= 1) {
+        if (finalCrashPoint <= 1) {
           await tx.execute({ sql: "UPDATE crash_rounds SET status='crashed',crashed_at=? WHERE id=? AND status='running'", args: [now, String(round.id)] });
           const burned = await tx.execute({ sql: "SELECT COALESCE(SUM(amount),0) AS total FROM crash_bets WHERE round_id=? AND status='active'", args: [String(round.id)] });
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
