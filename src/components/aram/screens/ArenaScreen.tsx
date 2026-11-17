@@ -177,7 +177,7 @@ export function ArenaScreen({
   const total = displayedEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const balance = state.balance;
   const betBalance = state.betBalance;
-  const availableBalance = balance + betBalance;
+  const availableBalance = Math.max(balance, betBalance); // Maximum stake fundable by one wallet.
   const ownEntry = activeEntries.some((entry) => entry.telegramId === telegramUserId);
   const countdown = round?.startsAt
     ? Math.max(0, Math.ceil((round.startsAt - now) / 1000))
@@ -325,12 +325,16 @@ export function ArenaScreen({
             animate={
               isSpinning
                 ? { rotate: 2_880 + displayStop }
-                : { rotate: [displayStop, displayStop + 360] }
+                : state.lastResult && !round
+                  ? { rotate: displayStop }
+                  : { rotate: [0, 360] }
             }
             transition={
               isSpinning
                 ? { duration: spinRemaining, ease: [0.08, 0.72, 0.12, 1] }
-                : { duration: 42, repeat: Infinity, ease: 'linear' }
+                : state.lastResult && !round
+                  ? { duration: 0.35, ease: 'easeOut' }
+                  : { duration: 42, repeat: Infinity, ease: 'linear' }
             }
             className="absolute inset-[11px] overflow-hidden rounded-full border-[3px] border-[#f8dba5]/90 shadow-[inset_0_0_18px_rgba(107,57,15,.18),0_4px_12px_rgba(120,53,15,.2)]"
             style={{ background: wheelGradient, transformStyle: 'preserve-3d', backfaceVisibility: 'hidden' }}
@@ -339,9 +343,9 @@ export function ArenaScreen({
             <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_32%_18%,rgba(255,255,255,.42),transparent_36%),radial-gradient(ellipse_at_50%_50%,transparent_48%,rgba(110,55,10,.18)_100%)]" />
             <div className="pointer-events-none absolute inset-[3px] rounded-full border border-white/25 shadow-[inset_0_2px_8px_rgba(255,255,255,.22),inset_0_-12px_22px_rgba(0,0,0,.22)]" />
             {wheelEntries.map((entry, index) => {
-              const angle = entry.house
-                ? -135
-                : -90 + ((displayedEntries.slice(0, index - 1).reduce((sum, item) => sum + item.amount, 0) + (displayedEntries[index - 1]?.amount ?? 0) / 2) / Math.max(total, 1)) * 270;
+              const playerIndex = index - 1;
+              const beforePlayer = displayedEntries.slice(0, playerIndex).reduce((sum, item) => sum + item.amount, 0);
+              const angle = entry.house ? -45 : ((beforePlayer + (displayedEntries[playerIndex]?.amount ?? 0) / 2) / Math.max(total, 1)) * 270;
               return (
                 <div
                   key={entry.id}
@@ -391,6 +395,18 @@ export function ArenaScreen({
           </div>
         </div>
 
+        {state.lastResult && !round && !replaying && (
+          <section className="mb-3 rounded-2xl border border-emerald-300/70 bg-gradient-to-r from-emerald-50 to-amber-50 p-4 text-center text-[#245b45] shadow-md">
+            <div className="text-lg font-black">🏆 {t(lang, 'arenaWinnerAnnounced')}</div>
+            <div className="mt-1 text-sm font-extrabold">
+              {state.lastResult.winnerType === 'house'
+                ? t(lang, 'arenaAdminSlice')
+                : state.lastResult.entries.find((entry) => entry.telegramId === state.lastResult?.winnerTelegramId)?.username ?? t(lang, 'arenaWinnerAnnounced')}
+            </div>
+            <div className="mt-1 text-[10px] text-emerald-800">{t(lang, 'arenaRoundCompleted')}</div>
+          </section>
+        )}
+
         <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
           <div className="mb-2 flex items-center justify-between text-xs text-[#8f6b4d]">
             <span className="flex items-center gap-1"><Coins size={13} /> {t(lang, 'arenaPot')}</span>
@@ -423,7 +439,7 @@ export function ArenaScreen({
 
         <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
           <div className="mb-2 flex justify-between text-xs text-[#8f6b4d]">
-            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaAvailableBalance')}: <b className="font-black text-amber-800">{availableBalance.toLocaleString()}</b></span>
+            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaAvailableBalance')}: <b className="font-black text-amber-800">{availableBalance.toLocaleString()}</b> <span className="text-[9px]">(من رصيد واحد)</span></span>
           </div>
           <div className="flex gap-2">
             <input
@@ -451,7 +467,7 @@ export function ArenaScreen({
                 key={preset}
                 type="button"
                 onClick={() => setAmount(String(preset))}
-                disabled={loading || !isVerified || ownEntry || isRoundClosed || availableBalance < preset}
+                disabled={loading || !isVerified || ownEntry || isRoundClosed || (betBalance < preset && balance < preset)}
                 aria-pressed={amount === String(preset)}
                 className={`rounded-lg border px-2 py-2 text-xs font-black tabular-nums transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${amount === String(preset) ? 'border-amber-500 bg-gradient-to-b from-amber-300 to-orange-400 text-[#3b210c] shadow-inner' : 'border-amber-800/15 bg-[#fff7e9] text-[#70431f] hover:border-amber-500/60'}`}
               >
@@ -460,7 +476,7 @@ export function ArenaScreen({
             ))}
           </div>
           <button
-            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < 100 || Number(amount) > availableBalance}
+            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < 100 || (Number(amount) > betBalance && Number(amount) > balance)}
             onClick={() => void join()}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#ff9f50] py-3 font-black text-[#24180f] disabled:opacity-40"
           >
