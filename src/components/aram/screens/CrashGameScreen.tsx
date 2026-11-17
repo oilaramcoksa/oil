@@ -229,12 +229,39 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
         </div>
       </section>
 
+      {ownBet?.status === 'active' && (
+        <section className="sticky top-1 z-40 -mt-1 rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 p-2.5 text-white shadow-[0_8px_24px_rgba(5,150,105,.35)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold text-white/85">{lang === 'ar' ? 'المبلغ الذي ستحصل عليه الآن' : 'YOUR CASHOUT VALUE'}</div>
+              <div className="mt-0.5 text-2xl font-black tabular-nums leading-none">{fmt(ownBet.amount * liveMultiplier)} <span className="text-xs">{lang === 'ar' ? 'عملة' : 'coins'}</span></div>
+              <div className="mt-1 text-[10px] font-bold text-white/80">{liveMultiplier.toFixed(2)}x · {lang === 'ar' ? 'يتحدث لحظيًا' : 'Live value'}</div>
+            </div>
+            <button onClick={() => void act('cashout')} disabled={!canCashout} className="min-h-[58px] shrink-0 rounded-xl border border-white/40 bg-white px-5 text-base font-black text-emerald-800 shadow-lg transition active:scale-[.97] disabled:opacity-50">
+              {loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? 'اسحب أرباحك' : 'CASH OUT')}
+            </button>
+          </div>
+        </section>
+      )}
+      <section className="mb-1 rounded-xl border border-emerald-700/20 bg-gradient-to-r from-emerald-50/95 to-teal-50/95 p-3 text-[#245b45] shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-black">{lang === 'ar' ? '10,000 عملة رهان' : '10,000 Betting Coins'}</div>
+            <p className="mt-1 text-[10px] leading-relaxed text-emerald-800">{lang === 'ar' ? 'رصيد منفصل مخصص للرهان فقط، لا يمكن سحبه أو تحويله إلى المحفظة العادية. عند الفوز يعود رهانك الأصلي إلى هذا الرصيد وتضاف أرباحك الصافية إلى المحفظة العادية.' : 'Separate betting-only balance. Cannot be withdrawn or transferred to the regular wallet.'}</p>
+            <div className="mt-1 text-xs font-black text-emerald-900">10,000 · 1 TON</div>
+          </div>
+          <button type="button" onClick={onBuyTokens} disabled={buyingTokens || !isVerified} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-teal-600 px-4 py-3 text-xs font-black text-white shadow-md disabled:opacity-50">
+            {buyingTokens ? <Loader2 size={15} className="animate-spin"/> : <span aria-hidden="true">🛒</span>}
+            {buyingTokens ? (lang === 'ar' ? 'جارٍ التجهيز…' : 'Preparing…') : (lang === 'ar' ? 'شراء القطعة عبر TON' : 'Buy with TON')}
+          </button>
+        </div>
+        <p className="mt-2 text-[9px] text-emerald-800/75">{lang === 'ar' ? 'يمكن شراء المنتج مرات غير محدودة؛ تُضاف العملات بعد تأكيد الدفع على TON Mainnet.' : 'Unlimited purchases; coins are credited after TON Mainnet payment confirmation.'}</p>
+      </section>
       <section className="rounded-2xl border border-amber-300/20 bg-[#fff5df] p-3 text-[#633715] shadow-lg">
         <div className="mb-2 flex items-center justify-between text-xs"><b>{lang === 'ar' ? 'رهانك' : 'Your bet'}</b><span>{lang === 'ar' ? 'الحد الأدنى 100' : 'Min 100'}</span></div>
         {ownBet ? (
           <div className="rounded-xl bg-white p-3">
             <div className="flex items-center justify-between"><b>{fmt(ownBet.amount)} {lang === 'ar' ? 'عملة' : 'coins'}</b><span className="text-xs font-bold">{ownBet.status === 'active' ? (lang === 'ar' ? 'رهان نشط' : 'Active') : ownBet.status === 'cashed_out' ? (lang === 'ar' ? 'تم السحب' : 'Cashed out') : (lang === 'ar' ? 'خاسر' : 'Lost')}</span></div>
-            {ownBet.status === 'active' && <button onClick={() => void act('cashout')} disabled={!canCashout} className="mt-3 w-full rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 py-4 text-lg font-black text-white shadow-lg disabled:opacity-40">{loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? 'اسحب الآن' : 'CASH OUT')} · {liveMultiplier.toFixed(2)}x</button>}
             {ownBet.status === 'cashed_out' && <div className="mt-2 text-sm font-black text-emerald-700">+{fmt(ownBet.payout - ownBet.amount)} {lang === 'ar' ? 'ربح صافٍ' : 'net profit'} · {ownBet.cashoutMultiplier?.toFixed(2)}x</div>}
             {ownBet.status === 'lost' && <div className="mt-2 text-sm font-black text-rose-600">{lang === 'ar' ? 'خسرت كامل الرهان' : 'Stake lost'}</div>}
           </div>
@@ -245,10 +272,6 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
               {previousOwnBet.status === 'cashed_out' ? '+' + fmt(previousOwnBet.payout - previousOwnBet.amount) + ' ' + (lang === 'ar' ? 'ربح صافٍ' : 'net profit') + ' · ' + previousOwnBet.cashoutMultiplier?.toFixed(2) + 'x' : (lang === 'ar' ? 'خسرت ' : 'Lost ') + fmt(previousOwnBet.amount)}
             </div>}
             <div className="mb-2 flex justify-between text-[10px] text-[#8e6a4b]"><span>{lang === 'ar' ? 'المحفظة العادية' : 'Wallet'}: {fmt(state?.balance ?? 0)}</span><span>{lang === 'ar' ? 'عملات الرهان' : 'Bet tokens'}: {fmt(state?.betBalance ?? 0)}</span></div>
-            <button type="button" onClick={onBuyTokens} disabled={buyingTokens || !isVerified} className="mb-3 flex w-full items-center justify-between rounded-xl border border-amber-300/40 bg-gradient-to-r from-amber-100 to-orange-100 px-3 py-3 text-start text-xs font-black text-[#633715] shadow-sm disabled:opacity-50">
-              <span>{buyingTokens ? (lang === 'ar' ? 'جارٍ تجهيز عملية الشراء…' : 'Preparing purchase…') : (lang === 'ar' ? 'شراء عملات رهان للطائرة' : 'Buy flight betting tokens')}</span>
-              <span className="rounded-lg bg-amber-400 px-3 py-2 text-[#42230c]">10,000 · 1 TON</span>
-            </button>
             <input type="number" inputMode="numeric" min="100" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={!canBet} className="w-full rounded-xl border border-amber-900/15 bg-white p-3 font-black outline-none focus:border-amber-500 disabled:opacity-50"/>
             <div className="mt-2 grid grid-cols-4 gap-2">{[100,500,1000,5000].map((v) => <button key={v} onClick={() => setAmount(String(v))} disabled={!canBet} className="rounded-lg bg-amber-100 py-2 text-xs font-black disabled:opacity-40">{fmt(v)}</button>)}</div>
             <button onClick={() => void act('bet')} disabled={!canBet || !Number.isSafeInteger(Number(amount)) || Number(amount) < 100 || (Number(amount) > (state?.balance ?? 0) && Number(amount) > (state?.betBalance ?? 0))} className="mt-3 w-full rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 py-3 font-black text-[#44240d] shadow-md disabled:opacity-40">{loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? 'تأكيد الرهان' : 'PLACE BET')}</button>
