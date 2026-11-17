@@ -229,7 +229,8 @@ export function ArenaScreen({
       });
       const data = await response.json() as { balance?: number; error?: string };
       if (!response.ok) {
-        const errorKey = data.error === 'insufficient_balance'
+        console.error('arena_join_rejected', { status: response.status, error: data.error ?? 'unknown' });
+        const errorKey = (data.error === 'insufficient_balance' || data.error === 'insufficient_bet_balance')
           ? 'arenaInsufficient'
           : data.error === 'already_joined'
             ? 'arenaJoinedAlready'
@@ -355,7 +356,7 @@ export function ArenaScreen({
             {wheelEntries.map((entry, index) => {
               const playerIndex = index - 1;
               const beforePlayer = displayedEntries.slice(0, playerIndex).reduce((sum, item) => sum + item.amount, 0);
-              const angle = entry.house ? -45 : ((beforePlayer + (displayedEntries[playerIndex]?.amount ?? 0) / 2) / Math.max(total, 1)) * 270;
+              const angle = entry.house ? 135 : ((beforePlayer + (displayedEntries[playerIndex]?.amount ?? 0) / 2) / Math.max(total, 1)) * 270;
               return (
                 <div
                   key={entry.id}
