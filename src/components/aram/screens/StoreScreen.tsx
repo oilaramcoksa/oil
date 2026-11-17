@@ -198,6 +198,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     { id: 'new_background', nameKey: 'specialBackgroundName', label: t(lang, 'specialBackgroundName'), description: t(lang, 'specialBackgroundDesc'), price: 1, multiplier: '×1.5', image: '/images/shop/day.png', descriptionKey: 'specialBackgroundDesc' },
     { id: 'vip_badge', nameKey: 'vipBadgeName', label: t(lang, 'vipBadgeName'), description: t(lang, 'vipBadgeDesc'), price: 5, multiplier: '×5', image: '/images/shop/vip.png', descriptionKey: 'vipBadgeDesc' },
     { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: t(lang, 'wheelExpansionDesc'), price: 1, multiplier: '×2', image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
+    { id: 'arena_tokens_10000', nameKey: 'arenaBuyTokensStore', label: t(lang, 'arenaBuyTokensStore'), description: t(lang, 'arenaBuyTokenDescription'), price: 1, multiplier: '10,000', image: '/images/shop/luck.png', descriptionKey: 'arenaBuyTokenDescription' },
   ];
 
   const buyPart = async () => {
@@ -258,7 +259,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
           {shopParts.map((part) => (
             <motion.button key={part.id} whileTap={{ scale: 0.97 }} onClick={() => { setSelectedPart(part); setPartFailed(false); setPartVerifying(false); }}
               className="aram-card rounded-2xl p-2 text-center border border-amber-300">
-              <div className="h-20 flex items-center justify-center mb-1"><img src={part.image} alt={part.label} className="max-h-20 max-w-full object-contain" /></div>
+              <div className="h-20 flex items-center justify-center mb-1">{part.id === 'arena_tokens_10000' ? <div className="grid h-16 w-16 place-items-center rounded-full border-4 border-amber-300 bg-gradient-to-br from-amber-200 via-yellow-400 to-orange-500 text-amber-950 shadow-lg"><Coins className="h-9 w-9" /></div> : <img src={part.image} alt={part.label} className="max-h-20 max-w-full object-contain" />}</div>
               <div className="text-[11px] font-black text-[#2a1c0a] leading-tight">{part.label}</div>
               <div className="text-lg font-black text-emerald-700 my-1">{part.multiplier}</div>
               <div className="text-[11px] font-bold text-amber-900">{part.price} TON</div>
@@ -448,7 +449,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                   className="h-36 flex items-center justify-center mb-2"
                 >
-                  <img src={selectedPart.image} alt={selectedPart.label} className="max-h-36 max-w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.45)]" />
+                  {selectedPart.id === 'arena_tokens_10000' ? <div className="grid h-32 w-32 place-items-center rounded-full border-[7px] border-amber-300 bg-gradient-to-br from-amber-200 via-yellow-400 to-orange-500 text-amber-950 shadow-[0_12px_28px_rgba(245,158,11,.3)]"><Coins className="h-16 w-16" /></div> : <img src={selectedPart.image} alt={selectedPart.label} className="max-h-36 max-w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.45)]" />}
                 </motion.div>
                 <h3 className="text-amber-100 font-black text-lg">{selectedPart.label}</h3>
                 <motion.div
@@ -466,6 +467,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
                 </div>
                 <div className="text-emerald-300 font-black text-2xl">{selectedPart.price} TON</div>
                 <p className="mt-2 text-[10px] leading-5 text-amber-100/60">{t(lang, 'partPurchaseInstruction')}</p>
+                {selectedPart.id === 'arena_tokens_10000' && <p className="mt-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-2 text-[10px] leading-5 text-emerald-100">{t(lang, 'arenaBuyTokenDescription')}</p>}
               </div>
 
               <AnimatePresence mode="wait">
