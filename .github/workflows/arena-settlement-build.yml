@@ -1,0 +1,49 @@
+name: Arena settlement and production build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arena-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  settlement-tests:
+    name: Arena win, loss and cancellation tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run settlement tests
+        run: npm run test:arena
+
+  production-build:
+    name: Next.js production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: Build production application
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_APP_URL: https://example.invalid
+          ADMIN_SESSION_SECRET: ci-only-not-a-production-secret-000000000000
+          ADMIN_PASSWORD_HASH: ci-only
+          TELEGRAM_BOT_TOKEN: ci-only
+          CRON_SECRET: ci-only
+        run: bun run build
