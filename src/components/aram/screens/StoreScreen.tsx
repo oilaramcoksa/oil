@@ -199,6 +199,7 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     { id: 'vip_badge', nameKey: 'vipBadgeName', label: t(lang, 'vipBadgeName'), description: t(lang, 'vipBadgeDesc'), price: 5, multiplier: '×5', image: '/images/shop/vip.png', descriptionKey: 'vipBadgeDesc' },
     { id: 'wheel_expansion', nameKey: 'wheelExpansionName', label: t(lang, 'wheelExpansionName'), description: t(lang, 'wheelExpansionDesc'), price: 1, multiplier: '×2', image: '/images/shop/luck.png', descriptionKey: 'wheelExpansionDesc' },
     { id: 'arena_tokens_10000', nameKey: 'arenaBuyTokensStore', label: t(lang, 'arenaBuyTokensStore'), description: t(lang, 'arenaBuyTokenDescription'), price: 1, multiplier: '10,000', image: '/images/shop/luck.png', descriptionKey: 'arenaBuyTokenDescription' },
+    { id: 'plane_tips', nameKey: 'planeTipsPart', label: t(lang, 'planeTipsPart'), description: t(lang, 'planeTipsDescription'), price: 5, multiplier: t(lang, 'planeTipsUses'), image: '/brain.png', descriptionKey: 'planeTipsDescription' },
   ];
 
   const buyPart = async () => {
