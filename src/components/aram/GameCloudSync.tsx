@@ -143,6 +143,9 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
     };
 
     const onFocus = () => void pull(false);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void pull(false);
+    };
 
     const save = async (state: ReturnType<typeof useGame.getState>) => {
       const sent = JSON.stringify(snapshot(state));
@@ -188,6 +191,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
       pollTimer = setInterval(() => { void pull(false); syncParts(); }, PULL_INTERVAL_MS);
       window.addEventListener('focus', onFocus);
       window.addEventListener('online', onFocus);
+      document.addEventListener('visibilitychange', onVisibilityChange);
     })();
 
     return () => {
@@ -196,6 +200,7 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
       if (pollTimer) clearInterval(pollTimer);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       unsubscribe?.();
     };
   }, [initData, userId, userName]);
