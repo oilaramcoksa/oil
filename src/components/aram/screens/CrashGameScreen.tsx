@@ -65,7 +65,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
   const liveMultiplier = round?.status === 'running' && round.startedAt
     ? Math.max(1, Math.floor(Math.exp(Math.max(0, serverNow - round.startedAt) / 12_000) * 100) / 100)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
-  const flightProgress = round?.status === 'running' ? Math.max(0, Math.min(1, Math.log(Math.max(1, liveMultiplier)) / Math.log(10))) : 0;
+  const flightCeiling = (state?.bets.length ?? 0) > 0 ? 10 : 1000;
+  const flightProgress = round?.status === 'running' ? Math.max(0, Math.min(1, Math.log(Math.max(1, liveMultiplier)) / Math.log(flightCeiling))) : 0;
   const planeLeft = 7 + flightProgress * 75;
   const planeTop = 78 - flightProgress * 66;
   const recentCrash = Boolean(state?.previousRound?.crashedAt && serverNow - state.previousRound.crashedAt < 3_500);
