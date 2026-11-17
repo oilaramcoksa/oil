@@ -159,7 +159,7 @@ export function ArenaScreen({
       }
     };
     void poll();
-    const timer = window.setInterval(() => void poll(), 1_000);
+    const timer = window.setInterval(() => void poll(), 650);
     return () => {
       stopped = true;
       window.clearInterval(timer);
@@ -175,7 +175,7 @@ export function ArenaScreen({
   const activeEntries = state.entries;
   const displayedEntries = replaying && state.lastResult
     ? state.lastResult.entries
-    : round ? activeEntries : (state.lastResult?.entries ?? []);
+    : round ? activeEntries : [];
   const total = displayedEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const balance = state.balance;
   const betBalance = state.betBalance;
