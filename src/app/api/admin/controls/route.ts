@@ -366,20 +366,29 @@ export async function POST(req: NextRequest) {
         const exists = await tx.execute({ sql: 'SELECT telegram_id FROM players WHERE telegram_id=?', args: [target] });
         if (!exists.rows.length) { await tx.rollback(); return fail('player_not_found', 404); }
         await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [target] });
-        const credited = await tx.execute({ sql: 'UPDATE player_wallets SET ' + column + '=' + column + '+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [amount, target] });
-        if (Number(credited.rowsAffected) !== 1) { await tx.rollback(); return fail('wallet_credit_failed', 503); }
-        const wallet = await tx.execute({ sql: 'SELECT ' + column + ' AS balance FROM player_wallets WHERE telegram_id=?', args: [target] });
-        const balance = Number(wallet.rows[0]?.balance ?? 0);
+        const beforeRow = await tx.execute({ sql: 'SELECT ' + column + ' AS balance FROM player_wallets WHERE telegram_id=?', args: [target] });
+        const previousBalance = Number(beforeRow.rows[0]?.balance ?? 0);
+        const balance = previousBalance + amount;
+        const referenceId = randomUUID();
 
+        // For coin grants, write the immutable admin ledger marker BEFORE the
+        // wallet update. The database cap trigger recognizes this exact
+        // (amount, balance_after) admin entry and bypasses only this admin grant.
         if (action === 'grant_coins') {
-          const referenceId = randomUUID();
           await tx.execute({
             sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','admin_grant',?,?,'admin',?,?,?)",
-            args: [randomUUID(), target, amount, balance, referenceId, `admin-grant:${referenceId}`, JSON.stringify({ reason })],
+            args: [randomUUID(), target, amount, balance, referenceId, `admin-grant:${referenceId}`, JSON.stringify({ reason, source: 'admin_panel', dailyLimitExempt: true })],
           });
-          await notify(tx, target, '🎁 مكافأة من إدارة اللعبة', `تمت إضافة ${amount.toLocaleString('en-US')} عملة إلى رصيدك. السبب: ${reason}`, 'reward', { amount, reason });
+        }
+        const credited = await tx.execute({
+          sql: 'UPDATE player_wallets SET ' + column + '= '+column+'+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
+          args: [amount, target],
+        });
+        if (Number(credited.rowsAffected) !== 1) { await tx.rollback(); return fail('wallet_credit_failed', 503); }
+
+        if (action === 'grant_coins') {
+          await notify(tx, target, '🎁 مكافأة من إدارة اللعبة', `تمت إضافة ${amount.toLocaleString('en-US')} عملة إلى رصيدك. السبب: ${reason}`, 'reward', { amount, reason, balance, dailyLimitExempt: true });
         } else {
-          const referenceId = randomUUID();
           await tx.execute({
             sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'oil','admin_grant',?,?,'admin',?,?,?)",
             args: [randomUUID(), target, amount, balance, referenceId, `admin-oil-grant:${referenceId}`, JSON.stringify({ reason })],
@@ -388,7 +397,7 @@ export async function POST(req: NextRequest) {
             sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'admin_oil_grant',?,?,?)",
             args: [randomUUID(), target, amount, JSON.stringify({ reason }), `admin-oil:${referenceId}`],
           });
-          await notify(tx, target, '🛢️ تمت إضافة نفط إلى حسابك', `أضافت الإدارة ${amount.toLocaleString('en-US')} وحدة نفط. السبب: ${reason}`, 'reward', { amount, reason });
+          await notify(tx, target, '🛢️ تمت إضافة نفط إلى حسابك', `أضافت الإدارة ${amount.toLocaleString('en-US')} وحدة نفط. السبب: ${reason}`, 'reward', { amount, reason, balance });
         }
         const snapshot = await tx.execute({ sql: 'SELECT state_json FROM player_game_snapshots WHERE telegram_id=?', args: [target] });
         if (snapshot.rows.length) {
