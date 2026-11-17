@@ -35,6 +35,38 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const [storyUrl, setStoryUrl] = useState('');
   const [storyInfo, setStoryInfo] = useState<{ canSubmit: boolean; pending: { story_url: string; submitted_at: string } | null; latest: { status: string; review_reason?: string | null } | null; nextAllowedAt: number | null } | null>(null);
   const [storySubmitting, setStorySubmitting] = useState(false);
+  const [dailyLogin, setDailyLogin] = useState<{day:number;reward:number;claimed:boolean;available:boolean;nextClaimAt:number|null}|null>(null);
+  const [dailyLoginBusy, setDailyLoginBusy] = useState(false);
+  const refreshDailyLogin = async () => {
+    if (!isVerified || !initData) return;
+    try {
+      const r = await fetch('/api/daily-login',{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
+      if (!r.ok) throw new Error('daily_login_status_unavailable');
+      const d = await r.json();
+      setDailyLogin({day:Number(d.day??1),reward:Number(d.reward??d.day??1),claimed:d.claimed===true,available:d.available===true,nextClaimAt:d.nextClaimAt==null?null:Number(d.nextClaimAt)});
+    } catch(e) { console.error('daily_login_status_failed',e); }
+  };
+  useEffect(() => {
+    if (!isVerified || !initData) return;
+    void refreshDailyLogin();
+    const timer=window.setInterval(()=>void refreshDailyLogin(),30000);
+    const onFocus=()=>void refreshDailyLogin();
+    window.addEventListener('focus',onFocus); document.addEventListener('visibilitychange',onFocus);
+    return ()=>{window.clearInterval(timer);window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onFocus);};
+  },[initData,isVerified]);
+  const claimDailyLogin = async () => {
+    if (!dailyLogin?.available || dailyLoginBusy) return;
+    setDailyLoginBusy(true);
+    try {
+      const r=await fetch('/api/daily-login',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:'{}',cache:'no-store'});
+      const d=await r.json();
+      if(!r.ok){toast.error(d.error==='daily_login_not_ready'?(lang==='ar'?'لم تمر 24 ساعة بعد.':'24 hours have not passed yet.'):lang==='ar'?'تعذر استلام المكافأة.':'Could not claim reward.');await refreshDailyLogin();return;}
+      if(typeof d.walletCoins==='number') syncServerWalletCoins(d.walletCoins);
+      setDailyLogin({day:Number(d.day),reward:Number(d.reward),claimed:true,available:false,nextClaimAt:Number(d.nextClaimAt)});
+      haptic('heavy');notify('success');toast.success(lang==='ar'?`تم استلام مكافأة اليوم +${d.reward} عملة`:`Daily reward claimed: +${d.reward} coins`);
+    } catch {toast.error(lang==='ar'?'تعذر الاتصال بالخادم.':'Server connection failed.');}
+    finally {setDailyLoginBusy(false);}
+  };
 
   useEffect(() => {
     if (!isVerified || !initData) {
@@ -263,42 +295,13 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         </div>
       </div>
 
-      {/* === Login streak (7-day) === */}
+      {/* === Server-side 24-hour login reward === */}
       <div className="aram-card rounded-2xl p-3 mb-3">
-        <div className="flex items-center gap-2 mb-2">
-          <Flame className="w-4 h-4 text-orange-500" />
-          <span className="text-sm font-black text-[#2a1c0a]">{t(lang, 'loginStreak')}</span>
-          <span className="ml-auto text-[10px] text-amber-900/60 font-bold">
-            {t(lang, 'todayReward')}: +{loginStreak || 1}
-          </span>
-        </div>
+        <div className="flex items-center gap-2 mb-2"><Flame className="w-4 h-4 text-orange-500"/><span className="text-sm font-black text-[#2a1c0a]">{t(lang,'loginStreak')}</span><span className="ml-auto text-[10px] text-amber-900/60 font-bold">{dailyLogin?.claimed?(lang==='ar'?'تم استلام مكافأة اليوم':'Today claimed'):dailyLogin?.available?(lang==='ar'?`مكافأة اليوم +${dailyLogin.reward}`:'Reward available'):(lang==='ar'?'المكافأة التالية بعد 24 ساعة':'Next reward in 24 hours')}</span></div>
         <div className="grid grid-cols-7 gap-1.5">
-          {[1, 2, 3, 4, 5, 6, 7].map((day) => {
-            const isCurrent = loginStreak === day;
-            const isPast = loginStreak > day;
-            return (
-              <div
-                key={day}
-                className={`flex flex-col items-center py-1.5 rounded-lg transition-all ${
-                  isCurrent
-                    ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg scale-105'
-                    : isPast
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-amber-50 text-amber-900/40'
-                }`}
-              >
-                <span className="text-[9px] font-bold uppercase">{t(lang, 'day')}</span>
-                <span className="text-xs font-black tabular-nums">{day}</span>
-                <span className={`text-[9px] font-bold tabular-nums ${isCurrent ? 'text-white' : isPast ? 'text-emerald-600' : 'text-amber-900/40'}`}>
-                  +{day}
-                </span>
-              </div>
-            );
-          })}
+          {[1,2,3,4,5,6,7].map(day=>{const current=dailyLogin?.day??1;const claimed=dailyLogin?.claimed===true&&day===current;const available=dailyLogin?.available===true&&day===current;const past=day<current;return <button key={day} type="button" disabled={!available||dailyLoginBusy} onClick={()=>void claimDailyLogin()} className={`flex min-w-0 flex-col items-center gap-0.5 py-2 rounded-xl border transition-all duration-300 ${available?'border-orange-400 bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg scale-105 animate-pulse':claimed||past?'border-emerald-200 bg-emerald-50 text-emerald-700 opacity-60':'border-amber-100 bg-amber-50 text-amber-900/40'}`}><span className="text-[9px] font-bold">{lang==='ar'?'نهار':'Day'}</span><span className="text-xs font-black">{day}</span><span className="text-[9px] font-bold">{claimed||past?<Check className="h-3 w-3"/>:available?(dailyLoginBusy?'…':lang==='ar'?'استلام':'Claim'):'🔒'}</span></button>;})}
         </div>
-        <p className="text-[9px] text-amber-900/50 font-bold text-center mt-2">
-          ⓘ {t(lang, 'streakReset')}
-        </p>
+        <p className="text-[9px] text-amber-900/50 font-bold text-center mt-2">{dailyLogin?.claimed?(lang==='ar'?'المكافأة التالية بعد 24 ساعة كاملة من الاستلام.':'Next reward unlocks 24 hours after claiming.'):dailyLogin?.available?(lang==='ar'?'اضغط على اليوم المضيء لاستلام المكافأة.':'Tap the highlighted day to claim.'):lang==='ar'?'المكافأة تعتمد على مرور 24 ساعة من آخر استلام.':'Rewards unlock 24 hours after the previous claim.'}</p>
       </div>
 
       {/* === Lucky box === */}
