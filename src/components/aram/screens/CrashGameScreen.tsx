@@ -168,6 +168,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
           <span className="flex items-center gap-1"><Clock3 size={13}/> {round?.status === 'countdown' ? (lang === 'ar' ? 'إغلاق الرهان بعد' : 'Betting closes in') : round?.status === 'running' ? (lang === 'ar' ? 'جولة مباشرة' : 'Live round') : (lang === 'ar' ? 'استراحة الجولة' : 'Round break')}</span>
           <b className="text-amber-300">{round?.status === 'countdown' ? secondsLeft + 's' : round?.status === 'running' ? liveMultiplier.toFixed(2) + 'x' : '50s'}</b>
         </div>
+        <div className="mt-2 break-all rounded-lg bg-black/20 px-3 py-2 text-[9px] text-white/45">SHA-256 commitment: {round?.seedHash}</div>
       </section>
 
       <section className="rounded-2xl border border-amber-300/20 bg-[#fff5df] p-3 text-[#633715] shadow-lg">
@@ -202,7 +203,10 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
       {state?.previousRound && <section className="rounded-2xl border border-white/10 bg-[#17213f] p-3 text-xs">
         <div className="mb-2 flex items-center gap-2 font-black"><Trophy size={15} className="text-amber-300"/> {lang === 'ar' ? 'نتائج الجولة السابقة' : 'Previous round results'} · {state.previousRound.crashMultiplier.toFixed(2)}x {state.previousRound.crashMultiplier <= 1 ? (lang === 'ar' ? '· انفجار قبل الإقلاع' : '· Instant crash') : ''}</div>
         <div className="space-y-2">{state.previousRound.bets.map((bet) => <div key={bet.telegramId} className="flex justify-between gap-2"><span className="truncate">{bet.username} · {fmt(bet.amount)}</span><b className={bet.status === 'cashed_out' ? 'text-emerald-300' : 'text-rose-300'}>{bet.status === 'cashed_out' ? '+' + fmt(bet.payout - bet.amount) + ' ' + (lang === 'ar' ? 'ربح صافٍ' : 'net profit') + ' · ' + bet.cashoutMultiplier?.toFixed(2) + 'x' : '−' + fmt(bet.amount)}</b></div>)}</div>
-        <div className="mt-3 flex items-center gap-1 break-all text-[9px] text-white/40"><ShieldCheck size={12} className="shrink-0"/> SHA-256: {state.previousRound.seedHash}</div>
+        <div className="mt-3 space-y-1 break-all text-[9px] text-white/40">
+          <div className="flex items-center gap-1"><ShieldCheck size={12} className="shrink-0"/> SHA-256: {state.previousRound.seedHash}</div>
+          <div>{lang === 'ar' ? 'البذرة بعد الانفجار:' : 'Revealed seed:'} {state.previousRound.revealedSeed}</div>
+        </div>
       </section>}
 
       <div className="rounded-xl border border-amber-300/20 bg-amber-100/10 px-3 py-2 text-center text-[10px] leading-relaxed text-amber-100/65">
