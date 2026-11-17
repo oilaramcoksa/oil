@@ -182,32 +182,32 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           </motion.div>
           <div className="absolute inset-0 opacity-20" style={{backgroundImage:'radial-gradient(#fff 0.7px,transparent 0.7px)',backgroundSize:'34px 34px'}} />
           {round?.status === 'running' && (
-            <div className="pointer-events-none absolute left-[8%] top-[53%] z-10 h-24 w-[48%] -translate-y-1/2">
+            <div className="pointer-events-none absolute left-[15%] top-[43%] z-10 h-16 w-[19%] -translate-y-1/2">
               <motion.div
-                className="absolute left-0 top-1/2 h-10 w-full -translate-y-1/2 rounded-full blur-xl"
+                className="absolute left-0 top-1/2 h-7 w-full -translate-y-1/2 rounded-full blur-lg"
                 style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,75,0,.12) 18%, rgba(255,119,0,.82) 58%, rgba(255,220,90,.95) 88%, transparent 100%)', transformOrigin: 'right center' }}
                 animate={{ scaleX: [0.72, 1.08, 0.86], scaleY: [0.7, 1.15, 0.82], opacity: [.55, 1, .68] }}
                 transition={{ duration: .42, repeat: Infinity, ease: 'easeInOut' }}
               />
               <motion.div
-                className="absolute left-[8%] top-1/2 h-5 w-[88%] -translate-y-1/2 rounded-full blur-md"
+                className="absolute left-[5%] top-1/2 h-3 w-[90%] -translate-y-1/2 rounded-full blur-md"
                 style={{ background: 'linear-gradient(90deg, transparent, #f97316 35%, #facc15 78%, #fff2a8)' }}
                 animate={{ scaleX: [.75, 1, .82], skewX: [-8, 5, -4], opacity: [.65, 1, .72] }}
                 transition={{ duration: .28, repeat: Infinity, ease: 'easeInOut' }}
               />
-              {Array.from({ length: 7 }, (_, i) => (
+              {Array.from({ length: 5 }, (_, i) => (
                 <motion.i
                   key={i}
-                  className="absolute top-1/2 h-2 w-3 rounded-full bg-orange-300 shadow-[0_0_14px_5px_rgba(249,115,22,.8)]"
-                  style={{ left: `${8 + i * 12}%`, filter: 'blur(2px)' }}
-                  animate={{ x: [-8, -34 - (i % 3) * 10], y: [0, (i % 2 ? -1 : 1) * (8 + i * 2)], opacity: [1, .15, 0], scale: [1, .7, .1] }}
+                  className="absolute top-1/2 h-1.5 w-2 rounded-full bg-orange-300 shadow-[0_0_14px_5px_rgba(249,115,22,.8)]"
+                  style={{ left: `${5 + i * 17}%`, filter: 'blur(2px)' }}
+                  animate={{ x: [-2, -16 - (i % 3) * 5], y: [0, (i % 2 ? -1 : 1) * (4 + i)], opacity: [1, .15, 0], scale: [1, .7, .1] }}
                   transition={{ duration: .42 + (i % 3) * .12, repeat: Infinity, delay: i * .055, ease: 'easeOut' }}
                 />
               ))}
             </div>
           )}
           <motion.div
-            className="absolute left-1/2 top-[53%] z-20 w-[82%] max-w-[390px] -translate-x-1/2 -translate-y-1/2"
+            className="absolute left-1/2 top-[43%] z-20 w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2"
             animate={recentCrash || round?.status === 'crashed'
               ? { y: [0, -8, 18], rotate: [0, 8, 22], scale: [1, 1.08, .72], opacity: [1, 1, 0] }
               : round?.status === 'running'
@@ -219,9 +219,9 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           </motion.div>
           {round?.status === 'running' && <motion.div className="absolute left-1/2 top-[53%] z-10 h-36 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/10 blur-2xl" animate={{ scale: [1, 1.15, 1], opacity: [.35, .65, .35] }} transition={{ duration: 1.4, repeat: Infinity }} />}
           {showExplosion && <motion.div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.05, times: [0, .18, 1] }}>
-            <motion.img src="/flydawn.png" alt="" draggable={false} className="absolute left-1/2 top-[53%] w-[112%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_0_32px_rgba(249,115,22,1)]" initial={{ scale: .9, opacity: 0, rotate: -2 }} animate={{ scale: [ .9, 1.08, 1.2 ], opacity: [ 0, 1, 0 ], rotate: [-2, 1, 5] }} transition={{ duration: .72, times: [0, .12, 1], ease: 'easeOut' }}/>
-            <motion.div className="absolute left-1/2 top-[53%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-200/90 blur-md" initial={{ scale: .15 }} animate={{ scale: [0.15, 3.6, 5.2], opacity: [1, .85, 0] }} transition={{ duration: .85, ease: 'easeOut' }}/>
-            {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute left-1/2 top-[53%] h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" initial={{ x: 0, y: 0, scale: 1, opacity: 1 }} animate={{ x: Math.cos(i*Math.PI/7)*150, y: Math.sin(i*Math.PI/7)*105, scale: 0, opacity: 0 }} transition={{ duration: .85, ease: 'easeOut' }}/>)}
+            <motion.img src="/flydawn.png" alt="" draggable={false} className="absolute left-1/2 top-[43%] w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_0_32px_rgba(249,115,22,1)]" initial={{ scale: .9, opacity: 0, rotate: -2 }} animate={{ scale: [ .9, 1.08, 1.2 ], opacity: [ 0, 1, 0 ], rotate: [-2, 1, 5] }} transition={{ duration: .72, times: [0, .12, 1], ease: 'easeOut' }}/>
+            <motion.div className="absolute left-1/2 top-[43%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-200/90 blur-md" initial={{ scale: .15 }} animate={{ scale: [0.15, 3.6, 5.2], opacity: [1, .85, 0] }} transition={{ duration: .85, ease: 'easeOut' }}/>
+            {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute left-1/2 top-[43%] h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" initial={{ x: 0, y: 0, scale: 1, opacity: 1 }} animate={{ x: Math.cos(i*Math.PI/7)*150, y: Math.sin(i*Math.PI/7)*105, scale: 0, opacity: 0 }} transition={{ duration: .85, ease: 'easeOut' }}/>)}
           </motion.div>}
           <div className="absolute inset-x-0 bottom-3 text-center">
             <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400' : 'text-white'}`}>
