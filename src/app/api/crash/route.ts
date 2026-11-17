@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
       balance: Number(wallet.rows[0]?.coins_balance ?? 0),
       betBalance: Number(purchased.rows[0]?.balance ?? 0),
       previousRound: previousRound ? {
-        id: String(previousRound.id), crashMultiplier: Number(previousRound.crash_multiplier),
+        id: String(previousRound.id), crashMultiplier: Number(previousRound.crash_multiplier), crashedAt: Number(previousRound.crashed_at ?? now),
         seedHash: String(previousRound.seed_hash), revealedSeed: String(previousRound.server_seed), bets: previousBets,
       } : null,
       serverTime: now,
