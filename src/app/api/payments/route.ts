@@ -9,7 +9,7 @@ import { publishPaymentNotice } from '@/lib/telegram-payment-notice';
 const SHOP_PARTS = [
   { id: 'oil_pump', priceTon: 2 }, { id: 'fuel_station', priceTon: 1.5 },
   { id: 'oil_truck', priceTon: 1 }, { id: 'new_background', priceTon: 1 },
-  { id: 'vip_badge', priceTon: 5 }, { id: 'wheel_expansion', priceTon: 1 },
+  { id: 'vip_badge', priceTon: 5 }, { id: 'wheel_expansion', priceTon: 1 },\n  { id: 'arena_tokens_10000', priceTon: 1 },
 ] as const;
 const RECEIVER = process.env.TON_MINING_FEE_WALLET || WALLETS.find(w => w.code === 'gram')?.address || '';
 const TONCENTER = (process.env.TONCENTER_API_URL || 'https://toncenter.com/api/v2').replace(/\/$/, '');
