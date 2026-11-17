@@ -88,15 +88,8 @@ async function cancelAndRefundRound(
   db: ReturnType<typeof getTurso>,
   roundId: string,
   expectedStatus: 'open' | 'countdown',
-  entries: ArenaEntryRow[],
   reason: string,
 ) {
-  const settlement = calculateArenaSettlement(entries.map((entry) => ({
-    telegramId: entry.telegram_id,
-    amount: entry.amount,
-    purchasedAmount: entry.purchased_amount,
-    walletAmount: entry.wallet_amount,
-  })), null, null, true);
   const tx = await db.transaction('write');
   try {
     const cancelled = await tx.execute({
@@ -107,6 +100,22 @@ async function cancelAndRefundRound(
       await tx.rollback();
       return false;
     }
+    const entryRows = await tx.execute({
+      sql: 'SELECT telegram_id,amount,purchased_amount,wallet_amount FROM arena_entries WHERE round_id=? ORDER BY created_at,telegram_id',
+      args: [roundId],
+    });
+    const entries: ArenaEntryRow[] = entryRows.rows.map((row) => ({
+      telegram_id: String(row.telegram_id),
+      amount: Number(row.amount),
+      purchased_amount: Number(row.purchased_amount ?? 0),
+      wallet_amount: Number(row.wallet_amount ?? 0) || (Number(row.purchased_amount ?? 0) === 0 ? Number(row.amount) : 0),
+    }));
+    const settlement = calculateArenaSettlement(entries.map((entry) => ({
+      telegramId: entry.telegram_id,
+      amount: entry.amount,
+      purchasedAmount: entry.purchased_amount,
+      walletAmount: entry.wallet_amount,
+    })), null, null, true);
     for (const refund of settlement.refunds) {
       if (refund.purchasedAmount > 0) {
         const balance = await tx.execute({
@@ -147,8 +156,7 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
   });
   for (const candidate of expiredWaiting.rows) {
     const roundId = String(candidate.id);
-    const entries = await readEntries(db, roundId);
-    await cancelAndRefundRound(db, roundId, 'open', entries, 'waiting_timeout');
+    await cancelAndRefundRound(db, roundId, 'open', 'waiting_timeout');
   }
 
   const dueCountdowns = await db.execute({
@@ -162,7 +170,7 @@ async function settleDueRounds(db: ReturnType<typeof getTurso>) {
     const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
 
     if (entries.length < 2) {
-      await cancelAndRefundRound(db, roundId, 'countdown', entries, 'insufficient_players');
+      await cancelAndRefundRound(db, roundId, 'countdown', 'insufficient_players');
       continue;
     }
 
