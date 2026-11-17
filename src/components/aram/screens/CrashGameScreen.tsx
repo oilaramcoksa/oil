@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plane, Volume2, VolumeX, Zap, Loader2, Users, Clock3, Trophy, ShieldCheck } from 'lucide-react';
+import { Volume2, VolumeX, Loader2, Users, Clock3, Trophy, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
