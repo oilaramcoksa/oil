@@ -262,7 +262,7 @@ export function ArenaScreen({
     <div className="h-full overflow-y-auto bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="mx-auto mb-3 grid w-full max-w-md grid-cols-2 gap-2 rounded-2xl border border-amber-900/10 bg-white/70 p-1.5 shadow-sm">
         <button type="button" onClick={() => setGameMode('wheel')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'wheel' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
-          <span>🎡</span>{lang === 'ar' ? 'عجلة الحظ' : 'Lucky Wheel'}
+          <span>🎡</span>{lang === 'ar' ? 'عجلة الحظ' : lang === 'ru' ? 'Колесо удачи' : 'Lucky Wheel'}
         </button>
         <button type="button" onClick={() => setGameMode('crash')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'crash' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
           <span>✈️</span>{lang === 'ar' ? 'ARMCOFLY' : 'ARMCOFLY'}
@@ -445,12 +445,12 @@ export function ArenaScreen({
               {buyingTokens ? t(lang, 'paymentSentVerifying') : t(lang, 'buyPartNow')}
             </button>
           </div>
-          <p className="mt-2 text-[9px] text-emerald-800/75">يمكن شراء المنتج مرات غير محدودة؛ تُضاف العملات بعد تأكيد الدفع على TON Mainnet.</p>
+          <p className="mt-2 text-[9px] text-emerald-800/75">{lang === 'ru' ? 'Количество покупок не ограничено; монеты будут зачислены после подтверждения платежа в TON Mainnet.' : 'يمكن شراء المنتج مرات غير محدودة؛ تُضاف العملات بعد تأكيد الدفع على TON Mainnet.'}</p>
         </section>
 
         <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
           <div className="mb-2 flex justify-between text-xs text-[#8f6b4d]">
-            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaAvailableBalance')}: <b className="font-black text-amber-800">{availableBalance.toLocaleString()}</b> <span className="text-[9px]">(من رصيد واحد)</span></span>
+            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaAvailableBalance')}: <b className="font-black text-amber-800">{availableBalance.toLocaleString()}</b> <span className="text-[9px]">{lang === 'ru' ? '(из одного кошелька)' : '(من رصيد واحد)'}</span></span>
           </div>
           <div className="flex gap-2">
             <input
