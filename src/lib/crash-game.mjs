@@ -8,6 +8,9 @@ function sha256(value) {
 
 export function makeCrashPoint(seed, roundId, maxMultiplier = MAX_MULTIPLIER) {
   const value = Number(BigInt('0x' + sha256(seed + ':' + roundId).slice(0, 8))) / 0x1_0000_0000;
+  // With players, choose one of the ten visible crash marks evenly from 1x to 10x.
+  if (maxMultiplier <= 10) return 1 + Math.floor(value * 10);
+  // Empty rounds use the classic heavy-tail crash distribution and may fly much farther.
   return Math.min(maxMultiplier, Math.max(1, Math.floor((0.97 / (1 - value)) * 100) / 100));
 }
 
