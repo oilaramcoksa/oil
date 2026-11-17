@@ -34,6 +34,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const [serverOffset, setServerOffset] = useState(0);
   const [sound, setSound] = useState(soundEnabled);
   const [showExplosion, setShowExplosion] = useState(false);
+  const [parachuteEvents, setParachuteEvents] = useState<Array<{id:string;username:string}>>([]);
+  const seenCashouts = useRef<Set<string>>(new Set());
   const playedExplosionFor = useRef<string | null>(null);
   const headers = useMemo(() => ({ 'X-Telegram-Init-Data': initData }), [initData]);
 
@@ -65,11 +67,28 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const serverNow = now + serverOffset;
   const secondsLeft = round?.status === 'countdown' ? Math.max(0, Math.ceil((round.bettingEndsAt - serverNow) / 1000)) : 0;
   const liveMultiplier = round?.status === 'running' && round.startedAt
-    ? Math.min(1000, Math.floor((1 + Math.max(0, serverNow - round.startedAt) / 10_000) * 10) / 10)
+    ? Math.min(20, Math.floor((1 + Math.max(0, serverNow - round.startedAt) / 10_000) * 10) / 10)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
   const recentCrash = Boolean(state?.previousRound?.crashedAt && serverNow - state.previousRound.crashedAt < 3_500);
   const ownBet = state?.bets.find((bet) => bet.telegramId === telegramUserId);
   const previousOwnBet = state?.previousRound?.bets.find((bet) => bet.telegramId === telegramUserId);
+  useEffect(() => {
+    if (!state) return;
+    const observed = [
+      ...state.bets.map((bet) => ({ roundId: state.round.id, ...bet })),
+      ...(state.previousRound?.bets ?? []).map((bet) => ({ roundId: state.previousRound!.id, ...bet })),
+    ];
+    const fresh = observed.filter((bet) => bet.status === 'cashed_out' && !seenCashouts.current.has(`${bet.roundId}:${bet.telegramId}`));
+    if (!fresh.length) return;
+    const events = fresh.map((bet) => {
+      const id = `${bet.roundId}:${bet.telegramId}`;
+      seenCashouts.current.add(id);
+      return { id, username: bet.username };
+    });
+    setParachuteEvents((current) => [...current, ...events].slice(-10));
+    const timer = window.setTimeout(() => setParachuteEvents((current) => current.filter((event) => !events.some((item) => item.id === event.id))), 4300);
+    return () => window.clearTimeout(timer);
+  }, [state]);
   const maxSingleWallet = Math.max(state?.balance ?? 0, state?.betBalance ?? 0);
   const canBet = Boolean(round?.status === 'countdown' && !ownBet && !loading && isVerified);
   const canCashout = Boolean(round?.status === 'running' && ownBet?.status === 'active' && !loading);
@@ -135,8 +154,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     const timer = window.setTimeout(() => {
       setShowExplosion(true);
       playTone(72, 0.62);
-      window.setTimeout(() => setShowExplosion(false), 1_150);
-    }, 240);
+      window.setTimeout(() => setShowExplosion(false), 900);
+    }, 35);
     return () => window.clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [explosionKey, round?.status, state?.previousRound?.crashedAt]);
@@ -154,7 +173,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           <motion.div
             className="absolute inset-y-0 left-0 w-[200%]"
             animate={{ x: ['0%', '-50%'] }}
-            transition={{ duration: Math.max(2.2, 18 / Math.max(1, liveMultiplier)), repeat: Infinity, ease: 'linear' }}
+            transition={{ duration: 38, repeat: Infinity, ease: 'linear' }}
           >
             <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="h-full w-full">
               <g fill="#e8f4ff" opacity=".13">
@@ -172,7 +191,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           <motion.div
             className="absolute inset-y-0 left-0 w-[200%]"
             animate={{ x: ['0%', '-50%'] }}
-            transition={{ duration: Math.max(1.1, 9 / Math.max(1, liveMultiplier)), repeat: Infinity, ease: 'linear' }}
+            transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
           >
             <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="h-full w-full">
               <g fill="#fff" opacity=".42">
@@ -181,6 +200,11 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             </svg>
           </motion.div>
           <div className="absolute inset-0 opacity-20" style={{backgroundImage:'radial-gradient(#fff 0.7px,transparent 0.7px)',backgroundSize:'34px 34px'}} />
+          <motion.svg viewBox="0 0 1200 290" className="pointer-events-none absolute inset-0 z-[6] h-full w-full" animate={{ x: ['-1%', '1%', '-1%'], y: [0, -2, 0] }} transition={{ duration: 23, repeat: Infinity, ease: 'easeInOut' }} aria-hidden="true">
+            <g fill="none" stroke="#172b45" strokeWidth="2.1" strokeLinecap="round" opacity=".36"><path d="M145 70q8-7 16 0q8-7 16 0M190 88q6-5 12 0q6-5 12 0M735 58q8-7 16 0q8-7 16 0M790 82q6-5 12 0q6-5 12 0"/></g>
+            <g fill="none" stroke="#f7faff" strokeWidth="1.7" strokeLinecap="round" opacity=".45"><path d="M475 116q7-6 14 0q7-6 14 0M510 132q5-4 10 0q5-4 10 0M1010 106q7-6 14 0q7-6 14 0"/></g>
+          </motion.svg>
+
           {round?.status === 'running' && (
             <div className="pointer-events-none absolute left-[15%] top-[43%] z-10 h-16 w-[19%] -translate-y-1/2">
               <motion.div
@@ -207,7 +231,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             </div>
           )}
           <motion.div
-            className="absolute left-1/2 top-[43%] z-20 w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2"
+            className="absolute left-1/2 top-[36%] z-20 w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2"
             animate={recentCrash || round?.status === 'crashed'
               ? { y: [0, -8, 18], rotate: [0, 8, 22], scale: [1, 1.08, .72], opacity: [1, 1, 0] }
               : round?.status === 'running'
@@ -217,13 +241,22 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           >
             <img src="/fly.png" alt="ARMCOFLY aircraft" draggable={false} className="block h-auto w-full select-none object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,.55)]" />
           </motion.div>
-          {round?.status === 'running' && <motion.div className="absolute left-1/2 top-[53%] z-10 h-36 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/10 blur-2xl" animate={{ scale: [1, 1.15, 1], opacity: [.35, .65, .35] }} transition={{ duration: 1.4, repeat: Infinity }} />}
+          {round?.status === 'running' && <motion.div className="absolute left-1/2 top-[46%] z-10 h-36 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/10 blur-2xl" animate={{ scale: [1, 1.15, 1], opacity: [.35, .65, .35] }} transition={{ duration: 1.4, repeat: Infinity }} />}
           {showExplosion && <motion.div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.05, times: [0, .18, 1] }}>
-            <motion.img src="/flydawn.png" alt="" draggable={false} className="absolute left-1/2 top-[43%] w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_0_32px_rgba(249,115,22,1)]" initial={{ scale: .9, opacity: 0, rotate: -2 }} animate={{ scale: [ .9, 1.08, 1.2 ], opacity: [ 0, 1, 0 ], rotate: [-2, 1, 5] }} transition={{ duration: .72, times: [0, .12, 1], ease: 'easeOut' }}/>
-            <motion.div className="absolute left-1/2 top-[43%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-200/90 blur-md" initial={{ scale: .15 }} animate={{ scale: [0.15, 3.6, 5.2], opacity: [1, .85, 0] }} transition={{ duration: .85, ease: 'easeOut' }}/>
-            {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute left-1/2 top-[43%] h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" initial={{ x: 0, y: 0, scale: 1, opacity: 1 }} animate={{ x: Math.cos(i*Math.PI/7)*150, y: Math.sin(i*Math.PI/7)*105, scale: 0, opacity: 0 }} transition={{ duration: .85, ease: 'easeOut' }}/>)}
+            <motion.img src="/flydawn.png" alt="" draggable={false} className="absolute left-1/2 top-[36%] w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_0_32px_rgba(249,115,22,1)]" initial={{ scale: .9, opacity: 0, rotate: -2 }} animate={{ scale: [ .9, 1.08, 1.2 ], opacity: [ 0, 1, 0 ], rotate: [-2, 1, 5] }} transition={{ duration: .72, times: [0, .12, 1], ease: 'easeOut' }}/>
+            <motion.div className="absolute left-1/2 top-[36%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-200/90 blur-md" initial={{ scale: .15 }} animate={{ scale: [0.15, 3.6, 5.2], opacity: [1, .85, 0] }} transition={{ duration: .85, ease: 'easeOut' }}/>
+            {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute left-1/2 top-[36%] h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" initial={{ x: 0, y: 0, scale: 1, opacity: 1 }} animate={{ x: Math.cos(i*Math.PI/7)*150, y: Math.sin(i*Math.PI/7)*105, scale: 0, opacity: 0 }} transition={{ duration: .85, ease: 'easeOut' }}/>)}
           </motion.div>}
-          <div className="absolute inset-x-0 bottom-3 text-center">
+          <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" aria-live="polite">
+            {parachuteEvents.map((event, index) => (
+              <motion.div key={event.id} className="absolute left-[18%] top-[27%] flex flex-col items-center" initial={{ x: 0, y: 0, opacity: 0, scale: .7 }} animate={{ x: [0, 20 + index * 4, 42 + index * 5], y: [0, 78, 184], opacity: [0, 1, 1, 0], rotate: [0, -3, 3] }} transition={{ duration: 4, ease: 'easeOut', times: [0, .12, .82, 1] }}>
+                <svg width="44" height="34" viewBox="0 0 44 34" aria-hidden="true"><path d="M2 18C3 4 13 1 22 1S41 4 42 18Q22 27 2 18Z" fill="#f5c451" stroke="#fff0bd" strokeWidth="1.5"/><path d="M2 18L18 29M42 18L26 29M22 22L22 30" fill="none" stroke="#f8e8c8" strokeWidth="1.4"/></svg>
+                <span className="h-4 w-3 rounded-full bg-amber-100 shadow-sm"/>
+                <span className="mt-1 max-w-20 truncate rounded bg-slate-950/60 px-1.5 py-0.5 text-[8px] font-bold text-white">{event.username}</span>
+              </motion.div>
+            ))}
+          </div>
+          <div className="absolute inset-x-0 bottom-3 z-20 text-center">
             <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400' : 'text-white'}`}>
               {recentCrash || round?.status === 'crashed' ? (round?.crashMultiplier !== null && round?.crashMultiplier !== undefined && round.crashMultiplier <= 1 ? (lang === 'ar' ? 'تعذّر الإقلاع!' : 'WEATHER DELAY!') : (lang === 'ar' ? 'انفجار!' : 'CRASHED!')) : liveMultiplier.toFixed(2) + 'x'}
             </div>
