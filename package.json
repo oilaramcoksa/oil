@@ -11,7 +11,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
-    "test:arena": "node --test tests/arena-settlement.test.mjs"
+    "test:arena": "node --test tests/arena-settlement.test.mjs",
+    "test:crash": "node --test tests/crash-game.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
