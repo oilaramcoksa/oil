@@ -65,6 +65,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
     ? Math.max(1, Math.floor(Math.exp(Math.max(0, serverNow - round.startedAt) / 12_000) * 100) / 100)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
   const ownBet = state?.bets.find((bet) => bet.telegramId === telegramUserId);
+  const previousOwnBet = state?.previousRound?.bets.find((bet) => bet.telegramId === telegramUserId);
   const maxSingleWallet = Math.max(state?.balance ?? 0, state?.betBalance ?? 0);
   const canBet = Boolean(round?.status === 'countdown' && !ownBet && !loading && isVerified);
   const canCashout = Boolean(round?.status === 'running' && ownBet?.status === 'active' && !loading);
@@ -179,6 +180,10 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
           </div>
         ) : (
           <>
+            {previousOwnBet && <div className={`mb-2 rounded-lg px-3 py-2 text-[10px] font-bold ${previousOwnBet.status === 'cashed_out' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700'}`}>
+              {lang === 'ar' ? 'نتيجتك في الجولة السابقة: ' : 'Your previous round: '}
+              {previousOwnBet.status === 'cashed_out' ? '+' + fmt(previousOwnBet.payout) + ' · ' + previousOwnBet.cashoutMultiplier?.toFixed(2) + 'x' : (lang === 'ar' ? 'خسرت ' : 'Lost ') + fmt(previousOwnBet.amount)}
+            </div>}
             <div className="mb-2 flex justify-between text-[10px] text-[#8e6a4b]"><span>{lang === 'ar' ? 'المحفظة العادية' : 'Wallet'}: {fmt(state?.balance ?? 0)}</span><span>{lang === 'ar' ? 'عملات الرهان' : 'Bet tokens'}: {fmt(state?.betBalance ?? 0)}</span></div>
             <input type="number" inputMode="numeric" min="100" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={!canBet} className="w-full rounded-xl border border-amber-900/15 bg-white p-3 font-black outline-none focus:border-amber-500 disabled:opacity-50"/>
             <div className="mt-2 grid grid-cols-4 gap-2">{[100,500,1000,5000].map((v) => <button key={v} onClick={() => setAmount(String(v))} disabled={!canBet} className="rounded-lg bg-amber-100 py-2 text-xs font-black disabled:opacity-40">{fmt(v)}</button>)}</div>
