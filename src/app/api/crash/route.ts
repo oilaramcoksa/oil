@@ -33,6 +33,12 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
       const round = latest.rows[0];
       const status = String(round.status);
       if (status === 'countdown' && Number(round.betting_ends_at) <= now) {
+        // Count locked-in bets inside the same write transaction before choosing
+        // the committed crash point. This prevents late entries changing the outcome.
+        const participants = await tx.execute({
+          sql: "SELECT COUNT(*) AS total FROM crash_bets WHERE round_id=? AND status='active'",
+          args: [String(round.id)],
+        });
         // The crash point is committed before takeoff and never changes after bets are locked.
         // This lets the aircraft keep climbing after every player has cashed out, without
         // manipulating the outcome in response to player actions.
