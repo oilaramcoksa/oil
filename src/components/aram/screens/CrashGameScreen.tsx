@@ -37,11 +37,12 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
 
   const refresh = useCallback(async () => {
     if (!isVerified || !initData) return;
+    const requestStartedAt = Date.now();
     const response = await fetch('/api/crash', { headers, cache: 'no-store' });
     if (!response.ok) throw new Error('crash_state_failed');
     const data = await response.json() as CrashState;
     setState(data);
-    setServerOffset(data.serverTime - Date.now());
+    setServerOffset(data.serverTime - (requestStartedAt + Date.now()) / 2);
   }, [headers, initData, isVerified]);
 
   useEffect(() => {
@@ -64,6 +65,9 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
   const liveMultiplier = round?.status === 'running' && round.startedAt
     ? Math.max(1, Math.floor(Math.exp(Math.max(0, serverNow - round.startedAt) / 12_000) * 100) / 100)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
+  const flightProgress = round?.status === 'running' ? Math.max(0, Math.min(1, Math.log(Math.max(1, liveMultiplier)) / Math.log(10))) : 0;
+  const planeLeft = 7 + flightProgress * 75;
+  const planeTop = 78 - flightProgress * 66;
   const recentCrash = Boolean(state?.previousRound?.crashedAt && serverNow - state.previousRound.crashedAt < 3_500);
   const ownBet = state?.bets.find((bet) => bet.telegramId === telegramUserId);
   const previousOwnBet = state?.previousRound?.bets.find((bet) => bet.telegramId === telegramUserId);
@@ -141,7 +145,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
     <div className="mx-auto w-full max-w-md space-y-3 pb-8 text-[#f8e7c6]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <section className="rounded-2xl border border-amber-300/20 bg-[#111a35] p-3 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
-          <div><div className="text-lg font-black">{lang === 'ar' ? 'لعبة الطائرة · CRASH' : 'AIRPLANE · CRASH'}</div><div className="text-[10px] text-amber-100/60">{lang === 'ar' ? 'اسحب أرباحك قبل الانفجار' : 'Cash out before the crash'}</div></div>
+          <div><div className="text-lg font-black">{lang === 'ar' ? 'ARMCOFLY · لعبة الطائرة' : 'ARMCOFLY · CRASH'}</div><div className="text-[10px] text-amber-100/60">{lang === 'ar' ? 'اسحب أرباحك قبل الانفجار' : 'Cash out before the crash'}</div></div>
           <button onClick={() => setSound((v) => !v)} className="rounded-xl border border-white/15 bg-white/5 p-2" aria-label="Toggle sound">{sound ? <Volume2 size={18}/> : <VolumeX size={18}/>}</button>
         </div>
         <div className="relative h-64 overflow-hidden rounded-xl border border-white/10 bg-[radial-gradient(ellipse_at_75%_12%,rgba(251,191,36,.22),transparent_40%),linear-gradient(160deg,#1c2547,#11182f_65%,#241a37)]">
@@ -152,8 +156,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId }: { init
           </svg>
           <motion.div
             className="absolute z-10 text-5xl drop-shadow-[0_0_18px_rgba(251,191,36,.65)]"
-            animate={recentCrash ? { left: '82%', top: '10%', rotate: 90, scale: [1,1.4,0.7], opacity: [1,1,0] } : round?.status === 'running' ? { left: [ '7%', '80%' ], top: [ '78%', '12%' ], rotate: [ -8, 4, -4, 0 ] } : round?.status === 'crashed' ? { left: '82%', top: '10%', rotate: 90, opacity: [1,0.2,0] } : { left: '7%', top: '78%', rotate: -8, opacity: 1 }}
-            transition={recentCrash ? { duration: 0.8, ease: 'easeOut' } : round?.status === 'running' ? { duration: 2.2, repeat: Infinity, ease: 'linear' } : { duration: 0.5 }}
+            animate={recentCrash ? { left: '82%', top: '10%', rotate: 90, scale: [1,1.4,0.7], opacity: [1,1,0] } : round?.status === 'running' ? { left: planeLeft + '%', top: planeTop + '%', rotate: -8 + flightProgress * 8 } : round?.status === 'crashed' ? { left: '82%', top: '10%', rotate: 90, opacity: [1,0.2,0] } : { left: '7%', top: '78%', rotate: -8, opacity: 1 }}
+            transition={recentCrash ? { duration: 0.8, ease: 'easeOut' } : { duration: 0.12, ease: 'linear' }}
           >✈️</motion.div>
           <div className="absolute inset-x-0 bottom-3 text-center">
             <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400' : 'text-white'}`}>
