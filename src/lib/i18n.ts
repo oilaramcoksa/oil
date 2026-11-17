@@ -308,7 +308,7 @@ const ar: Dict = {
   joined: 'انضم منذ',
 
   // Speed parts shop
-  speedPartsTitle: 'قطع زيادة السرعة',
+  speedPartsTitle: 'متجر القطع والإكسسوارات',
   buyMiningPackage: 'شراء باقة لتسريع التعدين',
   oilPumpPart: 'مضخة البترول',
   fuelStationPart: 'محطة الوقود',
@@ -863,7 +863,7 @@ const en: Dict = {
   joined: 'joined',
 
     // Speed parts shop
-  speedPartsTitle: 'Speed Boost Parts',
+  speedPartsTitle: 'Parts & Accessories Store',
   buyMiningPackage: 'Buy a Mining Speed Package',
   oilPumpPart: 'Oil Pump',
   fuelStationPart: 'Fuel Station',
@@ -1414,7 +1414,7 @@ const ru: Dict = {
   joined: 'присоединился',
 
     // Speed parts shop
-  speedPartsTitle: 'Детали для увеличения скорости',
+  speedPartsTitle: 'Магазин деталей и аксессуаров',
   buyMiningPackage: 'Купить пакет для ускорения добычи',
   oilPumpPart: 'Нефтяной насос',
   fuelStationPart: 'Заправочная станция',
