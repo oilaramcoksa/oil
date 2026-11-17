@@ -259,7 +259,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
       </section>}
 
       <div className="rounded-xl border border-amber-200 bg-[#fff3d9] px-3 py-3 text-center text-[11px] font-medium leading-6 text-[#68431f] shadow-sm">
-        {lang === 'ar' ? 'تنبيه: هذه لعبة ترفيهية برصيد عملات ARMCO OIL داخل التطبيق، وليست رهانًا نقديًا مباشرًا داخل اللعبة. تخضع العملات لقواعد المحفظة والتبديل العامة للتطبيق.' : 'Notice: This is an in-app game using ARMCO OIL coins, not a direct cash wager. Coins remain subject to the app's wallet and conversion rules.'}
+        {lang === 'ar' ? 'تنبيه: هذه لعبة ترفيهية برصيد عملات ARMCO OIL داخل التطبيق، وليست رهانًا نقديًا مباشرًا داخل اللعبة. تخضع العملات لقواعد المحفظة والتبديل العامة للتطبيق.' : 'Notice: This is an in-app game using ARMCO OIL coins, not a direct cash wager. Coins remain subject to the app wallet and conversion rules.'}
       </div>
     </div>
   );
