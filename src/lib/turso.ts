@@ -673,7 +673,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
           AND NOT EXISTS (
             SELECT 1 FROM ledger_entries
             WHERE telegram_id=NEW.telegram_id AND asset='coins'
-              AND entry_type IN ('admin_grant','oil_sale','arena_winner_stake_return','arena_prize')
+              AND entry_type IN ('admin_grant','oil_sale','arena_winner_stake_return','arena_prize','crash_payout')
               AND reference_type IN ('admin','oil_sale','arena_round')
               AND amount=(NEW.coins_balance-OLD.coins_balance)
               AND balance_after=NEW.coins_balance
