@@ -691,7 +691,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
             SELECT 1 FROM ledger_entries
             WHERE telegram_id=NEW.telegram_id AND asset='coins'
               AND entry_type IN ('admin_grant','oil_sale','arena_winner_stake_return','arena_prize','crash_payout','daily_login_reward','lucky_box_reward')
-              AND reference_type IN ('admin','oil_sale','arena_round','crash_round')
+              AND reference_type IN ('admin','oil_sale','arena_round','crash_round','daily_login','lucky_box')
               AND amount=(NEW.coins_balance-OLD.coins_balance)
               AND balance_after=NEW.coins_balance
           )
