@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Coins, History, Loader2, Users, Zap } from 'lucide-react';
+import { Coins, History, Loader2, Users, Zap, ShoppingCart } from 'lucide-react';
+import { TonConnectUI } from '@tonconnect/ui';
+import { beginCell } from '@ton/core';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
@@ -56,7 +58,64 @@ export function ArenaScreen({
   const [history, setHistory] = useState<HistoryRound[]>([]);
   const [replaying, setReplaying] = useState(false);
   const [replayNonce, setReplayNonce] = useState(0);
+  const [tonConnector, setTonConnector] = useState<TonConnectUI | null>(null);
+  const [buyingTokens, setBuyingTokens] = useState(false);
   const headers = useMemo(() => ({ 'X-Telegram-Init-Data': initData }), [initData]);
+
+  useEffect(() => {
+    let alive = true;
+    void import('@tonconnect/ui').then(({ TonConnectUI: TonConnect }) => {
+      if (!alive) return;
+      const connector = new TonConnect({ manifestUrl: new URL('/api/mining/activation/tonconnect-manifest.json', window.location.origin).toString(), restoreConnection: true });
+      setTonConnector(connector);
+    }).catch((error) => console.error('arena_tonconnect_init_failed', error));
+    return () => { alive = false; };
+  }, []);
+
+  const buyArenaTokens = async () => {
+    if (buyingTokens) return;
+    const telegramInitData = initData || (typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '');
+    if (!telegramInitData) { toast.error(t(lang, 'telegramRequired')); return; }
+    if (!tonConnector) { toast.error(t(lang, 'walletNotReady')); return; }
+    if (!tonConnector.connected) { await tonConnector.openModal(); toast.info(t(lang, 'walletConnectFirst')); return; }
+    setBuyingTokens(true);
+    try {
+      const response = await fetch('/api/payments', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': telegramInitData }, body: JSON.stringify({ itemId: 'arena_tokens_10000' }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.payment?.id) throw new Error(data.error ?? 'payment_request_failed');
+      const payment = data.payment;
+      const accountAddress = tonConnector.account?.address;
+      if (!accountAddress) throw new Error('wallet_not_connected');
+      const balanceUrl = new URL('https://toncenter.com/api/v2/getAddressBalance'); balanceUrl.searchParams.set('address', accountAddress);
+      const balanceResponse = await fetch(balanceUrl.toString(), { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+      const balanceData = await balanceResponse.json().catch(() => ({})) as { ok?: boolean; result?: string };
+      if (!balanceResponse.ok || balanceData.ok !== true || !/^\d+$/.test(String(balanceData.result ?? ''))) throw new Error('wallet_balance_unavailable');
+      if (BigInt(String(balanceData.result)) < BigInt(String(payment.amountNanoton)) + 50_000_000n) throw new Error('insufficient_ton_balance');
+      const payload = beginCell().storeUint(0, 32).storeStringTail(String(payment.comment)).endCell().toBoc().toString('base64');
+      await tonConnector.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 600, network: '-239', messages: [{ address: String(payment.destination), amount: String(payment.amountNanoton), payload }] });
+      toast.info(t(lang, 'paymentSentVerifying'));
+      const startedAt = Date.now();
+      const poll = async (): Promise<void> => {
+        try {
+          const statusResponse = await fetch('/api/payments?id=' + encodeURIComponent(String(payment.id)), { headers: { 'X-Telegram-Init-Data': telegramInitData }, cache: 'no-store' });
+          const statusData = await statusResponse.json().catch(() => ({}));
+          if (!statusResponse.ok) throw new Error(statusData.error ?? 'payment_status_unavailable');
+          if (statusData.payment?.status === 'confirmed') { setBuyingTokens(false); await refresh(); toast.success(t(lang, 'paymentConfirmedToast')); return; }
+          if (['expired', 'rejected'].includes(String(statusData.payment?.status)) || Date.now() - startedAt > 35 * 60 * 1000) { setBuyingTokens(false); toast.error(t(lang, 'paymentExpiredToast')); return; }
+          window.setTimeout(() => { void poll(); }, 7000);
+        } catch { if (Date.now() - startedAt > 35 * 60 * 1000) { setBuyingTokens(false); toast.error(t(lang, 'paymentVerifyFailedToast')); } else window.setTimeout(() => { void poll(); }, 10000); }
+      };
+      void poll();
+    } catch (error) {
+      setBuyingTokens(false);
+      const message = String((error as { message?: string })?.message ?? '');
+      if (message === 'insufficient_ton_balance') toast.error(t(lang, 'walletNotEnoughTon'));
+      else if (message === 'wallet_balance_unavailable') toast.error(t(lang, 'walletBalanceUnavailable'));
+      else if (message === 'wallet_not_connected') toast.error(t(lang, 'walletNotConnected'));
+      else if (/UserRejectsError|user rejected|user declined/i.test(message)) toast.info(t(lang, 'paymentRejectedToast'));
+      else { console.error('arena_token_purchase_failed', error); toast.error(t(lang, 'purchaseGenericError')); }
+    }
+  };
 
   const refreshHistory = useCallback(async () => {
     if (!isVerified || !initData) return;
@@ -344,6 +403,22 @@ export function ArenaScreen({
             <span>{t(lang, 'arenaBurnSlice')}</span><span>25%</span>
           </div>
           <p className="mt-1 text-[10px] leading-relaxed text-[#8f6b4d]">{t(lang, 'arenaAdminNote')}</p>
+        </section>
+
+        <section className="mb-3 rounded-xl border border-emerald-700/20 bg-gradient-to-r from-emerald-50/95 to-teal-50/95 p-3 text-[#245b45] shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-black">{t(lang, 'arenaBuyTokensStore')}</div>
+              <p className="mt-1 text-[10px] leading-relaxed text-emerald-800">{t(lang, 'arenaBuyTokenDescription')}</p>
+              <div className="mt-1 text-xs font-black text-emerald-900">10,000 · 1 TON</div>
+            </div>
+            <button type="button" onClick={() => void buyArenaTokens()} disabled={buyingTokens || !isVerified}
+              className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-teal-600 px-4 py-3 text-xs font-black text-white shadow-md disabled:opacity-50">
+              {buyingTokens ? <Loader2 size={15} className="animate-spin" /> : <ShoppingCart size={15} />}
+              {buyingTokens ? t(lang, 'paymentSentVerifying') : t(lang, 'buyPartNow')}
+            </button>
+          </div>
+          <p className="mt-2 text-[9px] text-emerald-800/75">يمكن شراء المنتج مرات غير محدودة؛ تُضاف العملات بعد تأكيد الدفع على TON Mainnet.</p>
         </section>
 
         <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
