@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
+import { makeCrashPoint, multiplierAt, crashPayout } from '@/lib/crash-game.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,13 +17,6 @@ function fail(error: string, status = 400) {
 }
 function hash(value: string) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
-}
-function makeCrashPoint(seed: string, roundId: string) {
-  const value = Number(BigInt('0x' + hash(seed + ':' + roundId).slice(0, 8))) / 0x1_0000_0000;
-  return Math.min(MAX_MULTIPLIER, Math.max(1, Math.floor((0.97 / (1 - value)) * 100) / 100));
-}
-function multiplierAt(startedAt: number, now: number) {
-  return Math.min(MAX_MULTIPLIER, Math.floor(Math.exp(Math.max(0, now - startedAt) / 12_000) * 100) / 100);
 }
 async function createRound(db: ReturnType<typeof getTurso>, now: number) {
   const id = randomUUID();
@@ -231,7 +225,7 @@ export async function POST(req: NextRequest) {
         return fail('round_crashed');
       }
       const acceptedMultiplier = Math.max(1, Math.floor(multiplier * 100) / 100);
-      const payout = Math.floor(Number(wager.amount) * acceptedMultiplier);
+      const payout = crashPayout(Number(wager.amount), acceptedMultiplier);
       const marked = await tx.execute({
         sql: "UPDATE crash_bets SET status='cashed_out',cashout_multiplier=?,payout=?,settled_at=CURRENT_TIMESTAMP WHERE id=? AND status='active' RETURNING id",
         args: [acceptedMultiplier, payout, String(wager.id)],
