@@ -13,14 +13,15 @@ test('different round ids produce independently derived crash points', () => {
   assert.notEqual(makeCrashPoint('sample-seed', 'round-1'), makeCrashPoint('sample-seed', 'round-2'));
 });
 
-test('multiplier starts at 1.00x and grows exponentially with server time', () => {
+test('multiplier starts at 1.00x and increases by 0.10x per second', () => {
   assert.equal(multiplierAt(10_000, 10_000), 1);
-  assert.ok(multiplierAt(10_000, 22_000) > 2.7);
-  assert.ok(multiplierAt(10_000, 22_000) < 2.8);
+  assert.equal(multiplierAt(10_000, 11_000), 1.1);
+  assert.equal(multiplierAt(10_000, 12_000), 1.2);
+  assert.equal(multiplierAt(10_000, 22_000), 2.2);
 });
 
 test('multiplier is capped at the published game maximum', () => {
-  assert.equal(multiplierAt(0, 1_000_000), 1000);
+  assert.equal(multiplierAt(0, 10_000_000), 1000);
 });
 
 test('cashout returns the stake multiplied by the accepted multiplier', () => {
