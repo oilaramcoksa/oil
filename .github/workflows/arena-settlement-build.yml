@@ -1,4 +1,4 @@
-name: Arena settlement and production build
+name: Arena and Crash game tests and production build
 
 on:
   push:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   settlement-tests:
-    name: Arena win, loss and cancellation tests
+    name: Arena settlement and Crash math tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 22
       - name: Run settlement tests
-        run: npm run test:arena
+        run: npm run test:arena && npm run test:crash
 
   production-build:
     name: Next.js production build
