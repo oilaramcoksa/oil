@@ -146,6 +146,7 @@ export async function GET(req: NextRequest) {
               new_background: 'قطعة خلفية جديدة',
               vip_badge: 'شارة VIP',
               wheel_expansion: 'توسعة العجلة',
+              arena_tokens_10000: '10,000 عملة رهان مخصصة للساحة',
             };
             await publishPaymentNotice({
               username: user.username,
