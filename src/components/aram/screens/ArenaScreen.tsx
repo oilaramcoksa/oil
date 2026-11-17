@@ -445,7 +445,7 @@ export function ArenaScreen({
               {buyingTokens ? t(lang, 'paymentSentVerifying') : t(lang, 'buyPartNow')}
             </button>
           </div>
-          <p className="mt-2 text-[9px] text-emerald-800/75">{lang === 'ar' ? 'يمكن شراء المنتج مرات غير محدودة؛ تُضاف العملات بعد تأكيد الدفع على TON Mainnet.' : lang === 'ru' ? 'Количество покупок не ограничено; монеты будут зачислены после подтверждения платежа в TON Mainnet.' : 'Unlimited purchases; coins are credited after TON Mainnet payment confirmation.'}</p>
+          <p className="mt-2 text-[9px] text-emerald-800/75">{t(lang, 'arenaBuyTokensFootnote')}</p>
         </section>
 
         <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
