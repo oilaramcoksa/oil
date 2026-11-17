@@ -17,6 +17,8 @@ const WAITING_REFUND_MS = 60 * 60 * 1000;
 type ArenaEntryRow = {
   telegram_id: string;
   amount: number;
+  purchased_amount: number;
+  wallet_amount: number;
   username?: string | null;
   first_name?: string | null;
   photo_url?: string | null;
@@ -43,6 +45,8 @@ async function readEntries(db: ReturnType<typeof getTurso>, roundId: string): Pr
   return result.rows.map((row) => ({
     telegram_id: String(row.telegram_id),
     amount: Number(row.amount),
+    purchased_amount: Number(row.purchased_amount ?? 0),
+    wallet_amount: Number(row.wallet_amount ?? 0),
     username: row.username == null ? null : String(row.username),
     first_name: row.first_name == null ? null : String(row.first_name),
     photo_url: row.photo_url == null ? null : String(row.photo_url),
