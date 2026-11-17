@@ -620,6 +620,36 @@ export async function ensureDatabaseSchema(): Promise<void> {
           AND l.entry_type NOT IN ('opening_balance','withdrawal_refund')
           AND date(l.created_at)=date('now')
         GROUP BY l.telegram_id`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS crash_rounds (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL CHECK(status IN ('countdown','running','crashed')),
+        betting_ends_at INTEGER NOT NULL,
+        started_at INTEGER,
+        crashed_at INTEGER,
+        crash_multiplier REAL NOT NULL,
+        server_seed TEXT NOT NULL,
+        seed_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`);
+      await db.execute(`CREATE INDEX IF NOT EXISTS idx_crash_rounds_status_created ON crash_rounds(status, created_at)`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS crash_bets (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL REFERENCES crash_rounds(id),
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id),
+        username TEXT NOT NULL DEFAULT 'Player',
+        amount INTEGER NOT NULL CHECK(amount >= 100),
+        purchased_amount INTEGER NOT NULL DEFAULT 0 CHECK(purchased_amount >= 0),
+        wallet_amount INTEGER NOT NULL DEFAULT 0 CHECK(wallet_amount >= 0),
+        status TEXT NOT NULL CHECK(status IN ('active','cashed_out','lost')),
+        cashout_multiplier REAL,
+        payout INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        settled_at TEXT,
+        UNIQUE(round_id, telegram_id),
+        CHECK(purchased_amount + wallet_amount = amount)
+      )`);
+      await db.execute(`CREATE INDEX IF NOT EXISTS idx_crash_bets_round ON crash_bets(round_id, created_at)`);
+
       // Central rolling 24-hour cap for every positive coin credit.
       const ownedPartsSql = `SELECT part_id FROM player_parts
         WHERE telegram_id=NEW.telegram_id AND quantity>0
