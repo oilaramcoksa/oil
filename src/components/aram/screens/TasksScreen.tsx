@@ -389,7 +389,7 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
         </div>
         <div className="flex items-center justify-between rounded-xl bg-amber-50/80 border border-amber-900/5 px-3 py-2 mb-3">
           <span className="text-xs font-black text-[#56351b]">{t(lang, 'rewardPerAdLabel')}</span>
-          <span className="text-sm font-black text-emerald-700">+100 {t(lang, 'coins')}</span>
+          <span className="text-sm font-black text-emerald-700">+20 {t(lang, 'coins')}</span>
         </div>
         {isVerified && initData ? (
           <HybridRewardedAd
