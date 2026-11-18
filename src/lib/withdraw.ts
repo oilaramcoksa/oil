@@ -1,10 +1,8 @@
 // Withdrawal rules shared by the client and the API.
-//
 // Conversion rate: 1,000 game coins = 1 USD (100,000 coins = 100 USD).
 // Minimum withdrawal is 100 USD; requests are allowed every 48 hours.
-// There is NO upfront fee: nothing is ever requested from the player to
-// "unlock" a withdrawal. Requests are reviewed manually and marked as
-// paid (with the TON transaction hash) or rejected (coins are refunded).
+// Each withdrawal request requires a verified 1 TON network fee payment.
+// Requests are reviewed manually and marked as paid or rejected (coins are refunded).
 
 export const COINS_PER_USD = 1_000;
 export const MIN_UNITS = 100;        // minimum = 100 USD = 100,000 coins
