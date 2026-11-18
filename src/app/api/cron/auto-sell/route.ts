@@ -60,7 +60,8 @@ export async function GET(req: NextRequest) {
           AND sp.expires_at>gs.cycle_ends_at
           AND COALESCE(pc.status,'active')='active'
         GROUP BY p.telegram_id,gs.cycle_ends_at
-        ORDER BY gs.cycle_ends_at ASC LIMIT 150`,
+        AND (p.fee_exempt=1 OR p.mining_fee_paid_at IS NOT NULL)
+        ORDER BY gs.cycle_ends_at ASC LIMIT 15`,
       args: [now],
     });
 
