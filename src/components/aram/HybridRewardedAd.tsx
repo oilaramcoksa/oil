@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Loader2, Play, ShieldCheck } from 'lucide-react';
+import { TadsWidget, renderTadsWidget } from 'react-tads-widget';
 
 
 const ADEXIUM_WID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
@@ -13,9 +14,9 @@ type Provider = 'adexium' | 'tads';
 type AdexiumAd = { id?: string };
 type AdexiumInstance = {
   requestRewardedAd: (format: 'interstitial') => void;
-  displayAd: (ad: AdexiumAd) => void;
-  on: (event: string, callback: (ad?: AdexiumAd) => void) => void;
-  off?: (event: string, callback: (ad?: AdexiumAd) => void) => void;
+  displayAd: (ads: AdexiumAd[]) => void;
+  on: (event: string, callback: (...args: any[]) => void) => void;
+  off?: (event: string, callback: (...args: any[]) => void) => void;
   destroy?: () => void;
 };
 declare global {
@@ -143,15 +144,19 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
         }
       }
     }, 15000);
-    // No provider UI is opened on an unavailable inventory; return control silently.
-    handleTadsNoAd();
+    try {
+      renderTadsWidget({ id: String(TADS_WID), type: 'fullscreen' });
+    } catch (error) {
+      console.warn('TADS fullscreen request failed', error);
+      handleTadsNoAd();
+    }
   }, [clearTimer, handleTadsNoAd, onError]);
 
   const startAdexium = useCallback(async () => {
     const failover = () => {
       if (!pendingRef.current) return;
       clearTimer();
-      if (fallbackRef.current || rewardPurpose === 'lucky_wheel') {
+      if (fallbackRef.current) {
         pendingRef.current = false;
         busyRef.current = false;
         setBusy(false);
@@ -168,7 +173,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       if (!window.AdexiumWidget) {
         if (!script) {
           script = document.createElement('script');
-          script.src = 'https://cdn.adexium.tech/assets/js/tg-ads-co-widget.min.js';
+          script.src = 'https://cdn.tgads.space/assets/js/adexium-widget.min.js';
           script.async = true;
           script.dataset.adexiumSdk = 'true';
           document.head.appendChild(script);
@@ -186,8 +191,10 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       const ad = new window.AdexiumWidget({ wid: ADEXIUM_WID, adFormat: 'interstitial', debug: false });
       instanceRef.current?.destroy?.();
       instanceRef.current = ad;
-      ad.on('adReceived', (creative) => {
+      ad.on('adReceived', (ads) => {
         if (!pendingRef.current || providerRef.current !== 'adexium') return;
+        const creatives = Array.isArray(ads) ? ads : [];
+        const creative = creatives[0];
         const id = creative?.id;
         if (!id) { failover(); return; }
         taskIdRef.current = id;
@@ -200,9 +207,12 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
             onError('ad_playback_timeout');
           }
         }, 120000);
-        try { ad.displayAd(creative!); } catch { failover(); }
+        try { ad.displayAd(creatives); } catch { failover(); }
       });
       ad.on('noAdFound', () => {
+        if (pendingRef.current && providerRef.current === 'adexium') failover();
+      });
+      ad.on('requestAdError', () => {
         if (pendingRef.current && providerRef.current === 'adexium') failover();
       });
       ad.on('adPlaybackCompleted', () => {
@@ -250,6 +260,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
 
   return (
     <div className="w-full">
+      <TadsWidget id={String(TADS_WID)} type="fullscreen" debug={false} onShowReward={handleTadsReward} onAdsNotFound={handleTadsNoAd} />
       <button type="button" onClick={start} disabled={!isVerified || !initData || busy || (rewardPurpose === 'coins' && (locked || cycle?.remaining === 0))}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-[#33213b] to-[#563126] px-4 py-3 text-sm font-black text-amber-50 shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : rewardPurpose === 'coins' && locked ? <ShieldCheck className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
