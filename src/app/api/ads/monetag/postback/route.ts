@@ -14,9 +14,9 @@ export async function GET(req: NextRequest) {
   const zoneId = params.get('zone_id') ?? '';
   const eventType = params.get('event_type') ?? '';
   const rewardEventType = params.get('reward_event_type') ?? '';
-  const telegramId = params.get('telegram_id') ?? ymid.split('_')[0] ?? '';
-  const match = ymid.match(/^([0-9]+)_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
-  if (!match || match[1] !== telegramId || zoneId !== MONETAG_ZONE_ID || eventType !== 'impression') {
+  const telegramId = params.get('telegram_id') ?? '';
+  const validYmid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ymid);
+  if (!validYmid || !/^\\d+$/.test(telegramId) || zoneId !== MONETAG_ZONE_ID || eventType !== 'impression') {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
