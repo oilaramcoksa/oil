@@ -94,15 +94,23 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
   // Presentation follows the authoritative multiplier; it never changes the game result.
   // A short runway roll precedes the climb. Even an instant 1.00x crash stays on the runway.
+  const recentPreviousCrash = Boolean(state?.previousRound?.crashedAt && serverNow - state.previousRound.crashedAt < 3_500);
+  const visualMultiplier = round?.status === 'crashed'
+    ? (round.crashMultiplier ?? 1)
+    : round?.status === 'countdown' && recentPreviousCrash
+      ? state?.previousRound?.crashMultiplier ?? 1
+      : liveMultiplier;
   const flightElapsedMs = round?.status === 'running' && round.startedAt
     ? Math.max(0, serverNow - round.startedAt)
     : round?.status === 'crashed' && round.crashMultiplier != null
       ? Math.max(0, (round.crashMultiplier - 1) * 10_000)
-      : 0;
+      : recentPreviousCrash && state?.previousRound
+        ? Math.max(0, (state.previousRound.crashMultiplier - 1) * 10_000)
+        : 0;
   const runwayProgress = Math.min(1, flightElapsedMs / 650);
-  const flightProgress = round?.status === 'crashed' && (round.crashMultiplier ?? 1) <= 1
+  const flightProgress = visualMultiplier <= 1
     ? 0
-    : Math.max(0, Math.min(0.985, (Math.log(Math.max(1, liveMultiplier)) / Math.log(20) - 0.018) / 0.982));
+    : Math.max(0, Math.min(0.985, (Math.log(Math.max(1, visualMultiplier)) / Math.log(20) - 0.018) / 0.982));
   const flightPoint = flightElapsedMs < 650
     ? { x: 90 + runwayProgress * 125, y: 250 }
     : getFlightPoint(flightProgress);
