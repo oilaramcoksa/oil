@@ -11,7 +11,6 @@ export const dynamic = 'force-dynamic';
 const COUNTDOWN_MS = 30_000;
 const SPIN_MS = 7_000;
 const HOUSE_SLICE = 0.25;
-const WAITING_REFUND_MS = 60 * 60 * 1000;
 
 type ArenaEntryRow = {
   telegram_id: string;
@@ -147,15 +146,6 @@ async function cancelAndRefundRound(
 
 async function settleDueRounds(db: ReturnType<typeof getTurso>) {
   const now = Date.now();
-
-  // An unpaired entry expires one hour after the round was created.
-  const expiredWaiting = await db.execute({
-    sql: "SELECT id FROM arena_rounds WHERE status='open' AND created_at <= datetime('now', '-1 hour') ORDER BY created_at LIMIT 25",
-  });
-  for (const candidate of expiredWaiting.rows) {
-    const roundId = String(candidate.id);
-    await cancelAndRefundRound(db, roundId, 'open', 'waiting_timeout');
-  }
 
   const dueCountdowns = await db.execute({
     sql: "SELECT id, outcome_seed, algorithm_version FROM arena_rounds WHERE status='countdown' AND starts_at <= ? ORDER BY created_at LIMIT 10",
@@ -325,15 +315,10 @@ export async function GET(req: NextRequest) {
 
     if (activeRound) {
       const entries = await readEntries(db, String(activeRound.id));
-      const createdAtMs = activeRound.created_at == null ? now : Date.parse(String(activeRound.created_at).replace(' ', 'T') + 'Z');
-      const waitingExpiresAt = String(activeRound.status) === 'open'
-        ? (Number.isFinite(createdAtMs) ? createdAtMs : now) + WAITING_REFUND_MS
-        : null;
       return NextResponse.json({
         round: {
           id: String(activeRound.id),
           status: String(activeRound.status),
-          waitingExpiresAt,
           startsAt: activeRound.starts_at == null ? null : Number(activeRound.starts_at),
           spinStartedAt: activeRound.spin_started_at == null ? null : Number(activeRound.spin_started_at),
           totalEntries: Number(activeRound.total_entries),
@@ -370,13 +355,13 @@ export async function POST(req: NextRequest) {
   const identity = verifiedPlayerFromRequest(req);
   if (!identity) return jsonError('telegram_auth_required', 401);
 
-  let body: { amount?: unknown };
+  let body: { amount?: unknown; action?: unknown };
   try {
     body = await req.json();
   } catch {
     return jsonError('invalid_body');
   }
-  if (!validAmount(body.amount)) return jsonError('minimum_100_required');
+  if (body.action !== 'cancel' && !validAmount(body.amount)) return jsonError('minimum_100_required');
 
   try {
     await ensureDatabaseSchema();
@@ -389,6 +374,73 @@ export async function POST(req: NextRequest) {
       args: [playerId],
     });
     if (!player.rows.length) return jsonError('player_not_found', 404);
+
+    if (body.action === 'cancel') {
+      const tx = await db.transaction('write');
+      try {
+        const active = await tx.execute({
+          sql: "SELECT id FROM arena_rounds WHERE status='open' ORDER BY created_at DESC LIMIT 1",
+        });
+        if (!active.rows.length) { await tx.rollback(); return jsonError('no_cancellable_round', 409); }
+        const roundId = String(active.rows[0].id);
+        const entryResult = await tx.execute({
+          sql: 'SELECT amount,purchased_amount,wallet_amount FROM arena_entries WHERE round_id=? AND telegram_id=?',
+          args: [roundId, playerId],
+        });
+        if (!entryResult.rows.length) { await tx.rollback(); return jsonError('entry_not_found', 404); }
+        const countResult = await tx.execute({
+          sql: 'SELECT COUNT(*) AS count FROM arena_entries WHERE round_id=?',
+          args: [roundId],
+        });
+        if (Number(countResult.rows[0]?.count ?? 0) !== 1) {
+          await tx.rollback();
+          return jsonError('cancellation_locked_second_player_joined', 409);
+        }
+        const cancelled = await tx.execute({
+          sql: "UPDATE arena_rounds SET status='cancelled',completed_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=? AND status='open' AND (SELECT COUNT(*) FROM arena_entries WHERE round_id=?)=1 RETURNING id",
+          args: [roundId, roundId],
+        });
+        if (!cancelled.rows.length) { await tx.rollback(); return jsonError('cancellation_locked_second_player_joined', 409); }
+        const entry = entryResult.rows[0];
+        const purchasedAmount = Number(entry.purchased_amount ?? 0);
+        const walletAmount = Number(entry.wallet_amount ?? 0) || (purchasedAmount === 0 ? Number(entry.amount) : 0);
+        if (purchasedAmount > 0) {
+          const restored = await tx.execute({
+            sql: 'UPDATE bet_token_balances SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING balance',
+            args: [purchasedAmount, playerId],
+          });
+          if (!restored.rows.length) throw new Error('bet_token_wallet_missing');
+          await tx.execute({
+            sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'arena_round',?,?,?)",
+            args: [randomUUID(), playerId, purchasedAmount, Number(restored.rows[0].balance), roundId, `arena_cancel_purchased_refund:${roundId}:${playerId}`, JSON.stringify({ reason: 'player_cancelled_waiting_round' })],
+          });
+        }
+        if (walletAmount > 0) {
+          const restored = await tx.execute({
+            sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance',
+            args: [walletAmount, playerId],
+          });
+          if (!restored.rows.length) throw new Error('player_wallet_not_found_for_arena_refund');
+          await tx.execute({
+            sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_refund',?,?, 'arena_round',?,?,?)",
+            args: [randomUUID(), playerId, walletAmount, Number(restored.rows[0].coins_balance), roundId, `arena_cancel_wallet_refund:${roundId}:${playerId}`, JSON.stringify({ reason: 'player_cancelled_waiting_round', purchasedRefund: purchasedAmount })],
+          });
+        }
+        await tx.execute({
+          sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'arena_entry_cancelled',?,?,?)",
+          args: [randomUUID(), playerId, Number(entry.amount), JSON.stringify({ roundId, purchasedAmount, walletAmount }), `event:arena_entry_cancelled:${roundId}:${playerId}`],
+        });
+        const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [playerId] });
+        const bet = await tx.execute({ sql: 'SELECT balance FROM bet_token_balances WHERE telegram_id=?', args: [playerId] });
+        await tx.commit();
+        return NextResponse.json({ ok: true, cancelled: true, balance: Number(wallet.rows[0]?.coins_balance ?? 0), betBalance: Number(bet.rows[0]?.balance ?? 0) }, { headers: { 'Cache-Control': 'no-store, private' } });
+      } catch (error) {
+        await tx.rollback();
+        throw error;
+      }
+    }
+
+    if (!validAmount(body.amount)) return jsonError('minimum_100_required');
 
     const tx = await db.transaction('write');
     let roundId = '';
