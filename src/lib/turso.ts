@@ -697,7 +697,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
       const ownedPartsSql = `SELECT part_id FROM player_parts
         WHERE telegram_id=NEW.telegram_id AND quantity>0
         UNION SELECT part_id FROM player_special_parts
-        WHERE telegram_id=NEW.telegram_id
+        WHERE telegram_id=NEW.telegram_id AND part_id<>'auto_sell'
           AND (expires_at IS NULL OR expires_at > CAST(strftime('%s','now') AS INTEGER)*1000)`;
       const dailyTierSql = `CASE
         WHEN (SELECT COUNT(DISTINCT part_id) FROM (${ownedPartsSql})) >= 6 THEN 2000
