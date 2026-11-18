@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
           if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [roundId] });
-        // Keep the crashed round current until CRASH_WAIT_MS elapses.
+        // The next GET opens the next round's betting window during the break.
         await tx.commit();
         return fail('round_crashed');
       }
