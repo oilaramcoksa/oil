@@ -16,7 +16,6 @@ type Round = {
   id: string;
   status: 'open' | 'countdown' | 'spinning';
   startsAt: number | null;
-  waitingExpiresAt: number | null;
   spinStartedAt: number | null;
   totalEntries: number;
   entriesCount: number;
@@ -193,10 +192,6 @@ export function ArenaScreen({
   const countdown = round?.startsAt
     ? Math.max(0, Math.ceil((round.startsAt - now) / 1000))
     : null;
-  const waitingSeconds = round?.status === 'open' && round.waitingExpiresAt
-    ? Math.max(0, Math.ceil((round.waitingExpiresAt - now) / 1000))
-    : null;
-  const waitingClock = waitingSeconds === null ? null : [Math.floor(waitingSeconds / 3600), Math.floor((waitingSeconds % 3600) / 60), waitingSeconds % 60].map((value) => String(value).padStart(2, '0')).join(':');
   const isSpinning = round?.status === 'spinning' || replaying;
   const displayStop = replaying
     ? (state.lastResult?.wheelStopDegrees ?? 0)
@@ -269,7 +264,36 @@ export function ArenaScreen({
     }
   };
 
+  const cancelWaitingEntry = async () => {
+    if (!canCancelWaitingEntry || joinLock.current) return;
+    joinLock.current = true;
+    setLoading(true);
+    try {
+      const response = await fetch('/api/arena', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel' }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) {
+        const key = data.error === 'cancellation_locked_second_player_joined' ? 'arenaCancelLocked' : 'arenaCancelError';
+        toast.error(t(lang, key));
+        await refresh();
+        return;
+      }
+      await refresh();
+      toast.success(t(lang, 'arenaCancelled'));
+    } catch (error) {
+      console.error('arena_cancel_failed', error);
+      toast.error(t(lang, 'arenaCancelError'));
+    } finally {
+      joinLock.current = false;
+      setLoading(false);
+    }
+  };
+
   const isRoundClosed = Boolean(round && (round.status === 'spinning' || (round.startsAt !== null && round.startsAt <= now)));
+  const canCancelWaitingEntry = Boolean(round?.status === 'open' && ownEntry && displayedEntries.length === 1 && !loading);
   const spinRemaining = replaying ? 7 : round?.spinStartedAt
     ? Math.max(0.2, (round.spinStartedAt + 7_000 - now) / 1_000)
     : 7;
@@ -431,7 +455,7 @@ export function ArenaScreen({
                   ? t(lang, 'arenaSpinning')
                   : t(lang, 'arenaReady')}
             </div>
-            {round?.status === 'open' && waitingClock && <div className="mt-1 text-[8px] font-bold text-[#8b613d]">{t(lang, 'arenaWaitingRefund')} {waitingClock}</div>}
+            {round?.status === 'open' && <div className="mt-1 text-[8px] font-bold text-[#8b613d]">{t(lang, 'arenaWaitingNoExpiry')}</div>}
             <div className="mt-2 flex items-center justify-center gap-1 text-[11px] font-bold leading-none text-[#8b613d]">
               <span>{displayedEntries.length}</span>
               <Users size={12} className="shrink-0 text-amber-300" />
@@ -527,9 +551,14 @@ export function ArenaScreen({
             {loading ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
             {t(lang, 'arenaJoin')} · {Number(amount || 0).toLocaleString()}
           </button>
+          {canCancelWaitingEntry && (
+            <button type="button" onClick={() => void cancelWaitingEntry()} disabled={loading} className="mt-2 w-full rounded-lg border border-red-300 bg-red-50 py-2.5 text-xs font-black text-red-700 disabled:opacity-50">
+              {loading ? <Loader2 className="mx-auto animate-spin" size={15} /> : t(lang, 'arenaCancelEntry')}
+            </button>
+          )}
           <p className="mt-2 text-[10px] text-[#9a7659]">{t(lang, 'arenaMin')} · {t(lang, 'arenaRules')} · {t(lang, 'arenaMaxHint')}</p>
           <p className="mt-2 rounded-lg border border-emerald-700/15 bg-emerald-50/80 px-3 py-2 text-[10px] leading-relaxed text-emerald-900">{t(lang, 'arenaWinFeeNote')}</p>
-          <p className="mt-2 rounded-lg border border-blue-400/15 bg-blue-400/[.06] px-3 py-2 text-[10px] leading-relaxed text-blue-100/75">{t(lang, 'arenaTimeoutRefund')}</p>
+          <p className="mt-2 rounded-lg border border-blue-400/15 bg-blue-400/[.06] px-3 py-2 text-[10px] leading-relaxed text-blue-100/75">{t(lang, 'arenaWaitingNoExpiry')}</p>
         </section>
 
         <section className="rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
