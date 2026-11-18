@@ -1,11 +1,12 @@
 # Monetag Telegram Mini App integration
 
-## SDK
-- Main zone ID: `12295910`
-- Format: Rewarded Interstitial
-- SDK tag is loaded once from the application root:
-  `https://libtl.com/sdk.js` with `data-zone="12295910"` and `data-sdk="show_12295910"`.
-- The rewarded ad is called with a unique UUID `ymid` and `requestVar: rewarded_coins`.
+Main SDK zone: `12295910`
+
+The app loads the Monetag SDK once in `src/app/layout.tsx`. The three supported formats are enabled:
+
+1. Rewarded Interstitial — user-initiated reward ad.
+2. Rewarded Popup — a separate user-click action that opens the popup format.
+3. In-App Interstitial — automatic format configured globally in the Telegram Mini App.
 
 ## Server-side postback setup
 
@@ -15,26 +16,24 @@ Set a long random value as the Vercel environment variable:
 
 In Monetag SSP, open the main SDK zone settings and configure this Postback URL, replacing YOUR_APP_DOMAIN and YOUR_SECRET with the production app domain and the exact same secret value:
 
-`https://YOUR_APP_DOMAIN/api/ads/monetag/postback?secret=YOUR_SECRET&ymid={ymid}&zone_id={zone_id}&event_type={event_type}&reward_event_type={reward_event_type}&telegram_id={telegram_id}`
+`https://YOUR_APP_DOMAIN/api/ads/monetag/postback?secret=YOUR_SECRET&ymid={ymid}&zone_id={zone_id}&sub_zone_id={sub_zone_id}&event_type={event_type}&reward_event_type={reward_event_type}&request_var={request_var}&telegram_id={telegram_id}&estimated_price={estimated_price}`
 
-Use HTTPS and do not add a redirect. The endpoint accepts impression postbacks for zone 12295910 and stores them idempotently by ymid. The reward API credits 100 coins only when:
-- the authenticated Telegram player submits the matching ymid;
-- a matching Monetag server postback exists for that Telegram ID and main zone;
-- event_type is impression and reward_event_type is valued;
-- the ymid has not already been consumed.
+Use HTTPS and do not add a redirect. One postback URL on the main zone covers all three formats. Monetag distinguishes the delivered format using `sub_zone_id` and `request_var`.
 
-Non-valued events are stored for diagnostics but cannot grant coins. Postback retries cannot grant a second reward.
+## Reward security
 
-## Runtime behavior
-
-Monetag is the third provider/fallback in the rewarded-ad flow. Existing Adexium and TADS flows remain available. Monetag is currently enabled for coin rewards, not the lucky-wheel reward purpose.
+- Rewarded Interstitial and Rewarded Popup send a unique UUID as `ymid`.
+- The frontend Promise is used for UI feedback only.
+- Wallet credit is granted only after the server receives a matching Monetag postback for the authenticated Telegram player, main zone `12295910`, `event_type=impression`, and `reward_event_type=valued`.
+- Each `ymid` can be consumed only once. Monetag postback retries do not grant duplicate rewards.
+- In-App Interstitial is automatic and does not grant coins. It is configured with frequency 2, capping 0.1 hours, interval 30 seconds, timeout 5 seconds, and `everyPage=false`.
 
 ## Deployment checklist
 
 1. Add `MONETAG_POSTBACK_SECRET` in Vercel Production Environment Variables.
 2. Redeploy the app so the server endpoint can authenticate Monetag.
-3. Paste the Postback URL into the main Monetag SDK zone settings.
-4. Test inside Telegram Mini App with a real available ad.
-5. Confirm the postback reaches `/api/ads/monetag/postback` and only a valued impression credits coins.
+3. Paste the Postback URL above into the main Monetag SDK zone settings.
+4. Test all formats inside the real Telegram Mini App.
+5. Confirm valued postbacks reach `/api/ads/monetag/postback` and that each rewarded `ymid` credits only once.
 
-The frontend SDK Promise is used for UI feedback, while the wallet credit is independently gated by the Monetag server-side postback.
+The Monetag SDK Promise and server postback are delivered independently; the app waits for server verification before crediting the wallet.
