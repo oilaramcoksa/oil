@@ -53,6 +53,11 @@ export function ArenaScreen({
 }) {
   const lang = useGame((s) => s.lang);
   const [gameMode, setGameMode] = useState<'wheel' | 'crash'>('wheel');
+  useEffect(() => {
+    const openCrash = () => setGameMode('crash');
+    window.addEventListener('open-crash-game', openCrash);
+    return () => window.removeEventListener('open-crash-game', openCrash);
+  }, []);
   const [state, setState] = useState<ArenaState>(EMPTY_STATE);
   const [amount, setAmount] = useState('1000');
   const joinLock = useRef(false);
