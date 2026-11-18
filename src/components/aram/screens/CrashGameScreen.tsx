@@ -281,7 +281,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
                   <stop offset="100%" stopColor="#ffb347" stopOpacity=".2"/>
                 </linearGradient>
               </defs>
-              <path d="M90 250 Q600 190 1080 30 L1080 290 L90 290 Z" fill="url(#armco-flight-fill)" opacity=".72"/>
+              <path d={`M90 250 Q${90 + 510 * flightProgress} ${250 - 60 * flightProgress} ${flightPoint.x} ${flightPoint.y} Z`} fill="url(#armco-flight-fill)" opacity=".72"/>
               <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#ff7a18" strokeWidth="30" strokeLinecap="round" opacity=".18" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress} style={{filter:'blur(12px)'}}/>
               <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#ff8b24" strokeWidth="12" strokeLinecap="round" opacity=".38" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress} style={{filter:'blur(5px)'}}/>
               <path d="M90 250 Q600 190 1080 30" fill="none" stroke="url(#armco-flight-trail)" strokeWidth="5.5" strokeLinecap="round" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress}/>
