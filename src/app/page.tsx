@@ -39,7 +39,7 @@ export default function Home() {
   const resetWeekly = useGame((s) => s.resetWeeklyIfNeeded);
   const resetMonthly = useGame((s) => s.resetMonthlyIfNeeded);
   const { user, startParam, initData, isVerified } = useTelegram();
-  const setLang = useGame((s) => s.setLang);
+  const setLangFromTelegram = useGame((s) => s.setLangFromTelegram);
   const addReferral = useGame((s) => s.addReferral);
 
   const [tab, setTab] = useState<Tab>('pump');
@@ -81,9 +81,9 @@ export default function Home() {
         ['bn', 'bn'], ['ja', 'ja'], ['ko', 'ko'], ['ur', 'ur'],
       ];
       const matched = localeMap.find(([prefix]) => code === prefix || code.startsWith(prefix + '-'));
-      setLang(matched?.[1] ?? 'en');
+      setLangFromTelegram(matched?.[1] ?? 'en');
     }
-  }, [user, setLang]);
+  }, [user, setLangFromTelegram]);
 
   // Open the requested game directly from a Telegram invite link.
   useEffect(() => {
