@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useGame } from '@/lib/store';
-import { t } from '@/lib/i18n';
+import { t, type Lang } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Users, Copy, Share2, UserPlus, Check, Gift, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -179,7 +179,7 @@ export function FriendsScreen() {
   );
 }
 
-function timeAgo(ts: number, lang: 'ar' | 'en' | 'ru'): string {
+function timeAgo(ts: number, lang: Lang): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
