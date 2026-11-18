@@ -52,14 +52,11 @@ export function MonetagInAppAds() {
           timeout: 5,
           everyPage: false,
         },
-      }).then(async (result: unknown) => {
-        const adResult = result as { reward_event_type?: string; variable2?: string } | undefined;
-        if (adResult?.reward_event_type === 'valued' && (!adResult.variable2 || adResult.variable2 === ymid)) {
-          const initData = w.Telegram?.WebApp?.initData ?? '';
-          if (initData) {
-            const reward = await claimMonetagActionReward({ initData, ymid, purpose: 'automatic_in_app' });
-            syncServerWalletCoins(reward.walletCoins);
-          }
+      }).then(async () => {
+        const initData = w.Telegram?.WebApp?.initData ?? '';
+        if (initData) {
+          const reward = await claimMonetagActionReward({ initData, ymid, purpose: 'automatic_in_app' });
+          syncServerWalletCoins(reward.walletCoins);
         }
       }).catch((error) => {
         console.warn('Monetag in-app interstitial setup failed', error);
