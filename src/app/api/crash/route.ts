@@ -7,8 +7,8 @@ import { makeCrashPoint, multiplierAt, crashPayout } from '@/lib/crash-game.mjs'
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const BETTING_MS = 50_000;
-const CRASH_WAIT_MS = 50_000;
+const BETTING_MS = 60_000;
+const CRASH_WAIT_MS = 60_000;
 const MIN_BET = 100;
 
 function fail(error: string, status = 400) {
