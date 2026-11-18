@@ -99,7 +99,7 @@ export function LuckyWheel({ open, onClose }: { open: boolean; onClose: () => vo
             <div className="mb-3 flex items-center justify-center gap-2 pt-1"><Gift className="h-6 w-6 text-orange-600" /><h2 className="text-center text-lg font-black">{t(lang, 'luckyWheelHeader')}</h2></div>
             <div className="relative mx-auto my-3 aspect-square w-full max-w-[330px]">
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-300 via-yellow-500 to-orange-600 p-[9px] shadow-[0_12px_30px_rgba(115,55,8,.3)]">
-                <div className="relative h-full w-full rounded-full border-[5px] border-amber-100 shadow-inner" style={{ background: `conic-gradient(from -22.5deg, ${COLORS.map((c,i)=>`${c} ${i*45}deg ${(i+1)*45}deg`).join(',')})`, transform: `rotate(${rotation}deg)`, transition: spinning ? 'transform 10s cubic-bezier(.12,.78,.08,1)' : 'none' }} onTransitionEnd={onSpinEnd}>
+                <div className="relative h-full w-full rounded-full border-[5px] border-amber-100 shadow-inner" style={{ background: `conic-gradient(from -22.5deg, ${COLORS.map((c,i)=>`${c} ${i*45}deg ${(i+1)*45}deg`).join(',')})`, transform: `rotate(${rotation}deg)`, transition: spinning ? 'transform 10s cubic-bezier(.12,.78,.08,1)' : 'none' }} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === 'transform') onSpinEnd(); }}>
                   {VALUES.map((value, index) => {
                     const angle = index * 45;
                     const radians = (angle * Math.PI) / 180;
