@@ -4,11 +4,11 @@ import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { PACKAGES, UPGRADE_DURATION_MS } from '@/lib/wallets';
 
 const ADMIN_SHOP_PARTS = [
-  'plane_tips','oil_pump','fuel_station','oil_truck','new_background','vip_badge','wheel_expansion','arena_tokens_10000',
+  'plane_tips','auto_sell','oil_pump','fuel_station','oil_truck','new_background','vip_badge','wheel_expansion','arena_tokens_10000',
 ] as const;
 const ADMIN_PRODUCT_NAMES: Record<string,string> = {
   fast_oil:'باقة Fast Oil', king_oil:'باقة King Oil', super_oil:'باقة Super Oil',
-  plane_tips:'قطعة توصيات الطائرة', oil_pump:'قطعة مضخة النفط', fuel_station:'قطعة محطة الوقود',
+  plane_tips:'قطعة توصيات الطائرة', auto_sell:'البيع الآلي', oil_pump:'قطعة مضخة النفط', fuel_station:'قطعة محطة الوقود',
   oil_truck:'قطعة شاحنة النفط', new_background:'الخلفية الجديدة', vip_badge:'شارة VIP',
   wheel_expansion:'توسعة عجلة الحظ', arena_tokens_10000:'10,000 عملة للساحة',
 };
@@ -383,7 +383,7 @@ export async function POST(req: NextRequest) {
           )`);
           for (let i=0;i<quantity;i++) {
             const now = Date.now();
-            await tx.execute({ sql: 'INSERT INTO player_special_parts(telegram_id,part_id,purchased_at,expires_at,payment_id,usage_count) VALUES(?,?,?,?,?,0)', args: [target,productId,now,productId==='wheel_expansion'?now+72*60*60*1000:null,randomUUID()] });
+            await tx.execute({ sql: 'INSERT INTO player_special_parts(telegram_id,part_id,purchased_at,expires_at,payment_id,usage_count) VALUES(?,?,?,?,?,0)', args: [target,productId,now,productId==='wheel_expansion'?now+72*60*60*1000:productId==='auto_sell'?now+30*24*60*60*1000:null,randomUUID()] });
           }
         }
         if (productId !== 'arena_tokens_10000') {
@@ -627,7 +627,7 @@ export async function POST(req: NextRequest) {
           const rawPartId = String(payload.partId ?? payload.itemId ?? payload.productId ?? packageId).trim();
           const normalizedPartId = rawPartId.replace(/^(?:shop_part[:_]|part[:_])/, '');
           const legacyParts = ['oil_pump', 'fuel_station', 'oil_truck'];
-          const specialParts = ['new_background', 'vip_badge', 'wheel_expansion'];
+          const specialParts = ['new_background', 'vip_badge', 'wheel_expansion', 'auto_sell'];
           const isShopPart = payload.kind === 'shop_part' || payload.type === 'shop_part' ||
             payload.category === 'shop_part' || legacyParts.includes(normalizedPartId) || specialParts.includes(normalizedPartId);
           if (isShopPart) {
@@ -646,10 +646,10 @@ export async function POST(req: NextRequest) {
               const now = Date.now();
               await tx.execute({
                 sql: 'INSERT INTO player_special_parts(telegram_id,part_id,purchased_at,expires_at,payment_id) VALUES(?,?,?,?,?)',
-                args: [telegramId, normalizedPartId, now, normalizedPartId === 'wheel_expansion' ? now + 72*60*60*1000 : null, id],
+                args: [telegramId, normalizedPartId, now, normalizedPartId === 'wheel_expansion' ? now + 72*60*60*1000 : normalizedPartId === 'auto_sell' ? now + 30*24*60*60*1000 : null, id],
               });
             } else { await tx.rollback(); return fail('invalid_part', 400); }
-            const partNames: Record<string, string> = { oil_pump: 'مضخة النفط', fuel_station: 'محطة الوقود', oil_truck: 'شاحنة النفط', new_background: 'الخلفية الجديدة', vip_badge: 'شارة VIP', wheel_expansion: 'توسعة عجلة الحظ' };
+            const partNames: Record<string, string> = { oil_pump: 'مضخة النفط', fuel_station: 'محطة الوقود', oil_truck: 'شاحنة النفط', new_background: 'الخلفية الجديدة', vip_badge: 'شارة VIP', wheel_expansion: 'توسعة عجلة الحظ', auto_sell: 'البيع الآلي' };
             await notify(tx, telegramId, '🧰 تمت الموافقة على شراء القطعة', `تم تفعيل ${partNames[normalizedPartId]} في حسابك.`, 'part', { partId: normalizedPartId });
           } else {
             if (!PACKAGES.some((pkg) => pkg.id === packageId)) { await tx.rollback(); return fail('invalid_package'); }
