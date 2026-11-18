@@ -1,12 +1,24 @@
 // Lightweight i18n dictionary for aramcooil — Arabic / English / Russian
 // Arabic is the default. RTL is applied at the layout level when lang === 'ar'.
 
-export type Lang = 'ar' | 'en' | 'ru';
+export type Lang = 'ar' | 'en' | 'ru' | 'es' | 'pt' | 'fr' | 'de' | 'tr' | 'zh' | 'hi' | 'id' | 'bn' | 'ja' | 'ko' | 'ur';
 
 export const LANGS: { code: Lang; label: string; flag: string; dir: 'rtl' | 'ltr' }[] = [
-  { code: 'ar', label: 'العربية', flag: '🇸🇦', dir: 'rtl' },
+  { code: 'ar', label: 'العربية', flag: '🇪🇬', dir: 'rtl' },
   { code: 'en', label: 'English', flag: '🇬🇧', dir: 'ltr' },
   { code: 'ru', label: 'Русский', flag: '🇷🇺', dir: 'ltr' },
+  { code: 'es', label: 'Español', flag: '🇪🇸', dir: 'ltr' },
+  { code: 'pt', label: 'Português (Brasil)', flag: '🇧🇷', dir: 'ltr' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷', dir: 'ltr' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪', dir: 'ltr' },
+  { code: 'tr', label: 'Türkçe', flag: '🇹🇷', dir: 'ltr' },
+  { code: 'zh', label: '简体中文', flag: '🇨🇳', dir: 'ltr' },
+  { code: 'hi', label: 'हिन्दी', flag: '🇮🇳', dir: 'ltr' },
+  { code: 'id', label: 'Bahasa Indonesia', flag: '🇮🇩', dir: 'ltr' },
+  { code: 'bn', label: 'বাংলা', flag: '🇧🇩', dir: 'ltr' },
+  { code: 'ja', label: '日本語', flag: '🇯🇵', dir: 'ltr' },
+  { code: 'ko', label: '한국어', flag: '🇰🇷', dir: 'ltr' },
+  { code: 'ur', label: 'اردو', flag: '🇵🇰', dir: 'rtl' },
 ];
 
 type Dict = Record<string, string>;
@@ -1811,12 +1823,139 @@ shortsVideoDescription: "Хочу познакомить вас с Aramco Oil �
   miningFeeSafety: "Мы никогда не попросим вашу seed-фразу или приватные ключи. Подтверждайте перевод только в приложении кошелька. Плата за активацию взимается один раз на весь срок действия аккаунта.",
 };
 
-export const dictionaries: Record<Lang, Dict> = { ar, en, ru };
+
+/**
+ * Locale packs use English as an explicit per-locale fallback for keys that
+ * have not yet received a reviewed translation. This prevents Arabic strings
+ * leaking into an unrelated language and keeps every key defined.
+ */
+const es: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: 'Extrae petróleo · reúne monedas',
+  settingsTitle: 'Configuración', language: 'Idioma', sound: 'Sonido', vibration: 'Vibración', about: 'Acerca de', back: 'Volver',
+  balance: 'Saldo', coins: 'Monedas', oil: 'Petróleo', speed: 'Velocidad', settings: 'Configuración', leaderboard: 'Clasificación',
+  navWallet: 'Billetera', navTasks: 'Tareas', navPump: 'Bombear', navFriends: 'Amigos', navStore: 'Tienda', navSwap: 'Intercambiar',
+  swapTitle: 'Intercambio de monedas', tapToPump: 'Toca la bomba', sell: 'Vender', startMining: 'Iniciar minería',
+  tasksTitle: 'Tareas', dailyTasks: 'Tareas diarias', weeklyTasks: 'Tareas semanales', friendsTitle: 'Amigos',
+  inviteLink: 'Enlace de invitación', copyLink: 'Copiar enlace', yourReferrals: 'Tus referidos', noReferrals: 'Aún no hay referidos',
+  speedPartsTitle: 'Tienda de mejoras', crashRecentRounds: 'Últimas 10 rondas',
+};
+const pt: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: 'Extraia petróleo · reúna moedas',
+  settingsTitle: 'Configurações', language: 'Idioma', sound: 'Som', vibration: 'Vibração', about: 'Sobre', back: 'Voltar',
+  balance: 'Saldo', coins: 'Moedas', oil: 'Petróleo', speed: 'Velocidade', settings: 'Configurações', leaderboard: 'Classificação',
+  navWallet: 'Carteira', navTasks: 'Tarefas', navPump: 'Bombear', navFriends: 'Amigos', navStore: 'Loja', navSwap: 'Trocar',
+  swapTitle: 'Troca de moedas', tapToPump: 'Toque na bomba', sell: 'Vender', startMining: 'Iniciar mineração',
+  tasksTitle: 'Tarefas', dailyTasks: 'Tarefas diárias', weeklyTasks: 'Tarefas semanais', friendsTitle: 'Amigos',
+  inviteLink: 'Link de convite', copyLink: 'Copiar link', yourReferrals: 'Seus indicados', noReferrals: 'Nenhum indicado ainda',
+  speedPartsTitle: 'Loja de melhorias', crashRecentRounds: 'Últimas 10 rodadas',
+};
+const fr: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: 'Extrayez du pétrole · gagnez des pièces',
+  settingsTitle: 'Paramètres', language: 'Langue', sound: 'Son', vibration: 'Vibrations', about: 'À propos', back: 'Retour',
+  balance: 'Solde', coins: 'Pièces', oil: 'Pétrole', speed: 'Vitesse', settings: 'Paramètres', leaderboard: 'Classement',
+  navWallet: 'Portefeuille', navTasks: 'Missions', navPump: 'Pomper', navFriends: 'Amis', navStore: 'Boutique', navSwap: 'Échanger',
+  swapTitle: 'Échange de pièces', tapToPump: 'Appuyez sur la pompe', sell: 'Vendre', startMining: 'Démarrer le minage',
+  tasksTitle: 'Missions', dailyTasks: 'Missions quotidiennes', weeklyTasks: 'Missions hebdomadaires', friendsTitle: 'Amis',
+  inviteLink: 'Lien d’invitation', copyLink: 'Copier le lien', yourReferrals: 'Vos filleuls', noReferrals: 'Aucun filleul pour le moment',
+  speedPartsTitle: 'Boutique des améliorations', crashRecentRounds: '10 dernières manches',
+};
+const de: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: 'Öl fördern · Münzen sammeln',
+  settingsTitle: 'Einstellungen', language: 'Sprache', sound: 'Ton', vibration: 'Vibration', about: 'Über das Spiel', back: 'Zurück',
+  balance: 'Guthaben', coins: 'Münzen', oil: 'Öl', speed: 'Geschwindigkeit', settings: 'Einstellungen', leaderboard: 'Bestenliste',
+  navWallet: 'Wallet', navTasks: 'Aufgaben', navPump: 'Fördern', navFriends: 'Freunde', navStore: 'Shop', navSwap: 'Tauschen',
+  swapTitle: 'Münzen tauschen', tapToPump: 'Pumpe antippen', sell: 'Verkaufen', startMining: 'Mining starten',
+  tasksTitle: 'Aufgaben', dailyTasks: 'Tägliche Aufgaben', weeklyTasks: 'Wöchentliche Aufgaben', friendsTitle: 'Freunde',
+  inviteLink: 'Einladungslink', copyLink: 'Link kopieren', yourReferrals: 'Deine Empfehlungen', noReferrals: 'Noch keine Empfehlungen',
+  speedPartsTitle: 'Upgrade-Shop', crashRecentRounds: 'Letzte 10 Runden',
+};
+const tr: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: 'Petrol çıkar · jeton biriktir',
+  settingsTitle: 'Ayarlar', language: 'Dil', sound: 'Ses', vibration: 'Titreşim', about: 'Hakkında', back: 'Geri',
+  balance: 'Bakiye', coins: 'Jeton', oil: 'Petrol', speed: 'Hız', settings: 'Ayarlar', leaderboard: 'Liderlik tablosu',
+  navWallet: 'Cüzdan', navTasks: 'Görevler', navPump: 'Pompalama', navFriends: 'Arkadaşlar', navStore: 'Mağaza', navSwap: 'Takas',
+  swapTitle: 'Jeton takası', tapToPump: 'Pompaya dokun', sell: 'Sat', startMining: 'Madenciliği başlat',
+  tasksTitle: 'Görevler', dailyTasks: 'Günlük görevler', weeklyTasks: 'Haftalık görevler', friendsTitle: 'Arkadaşlar',
+  inviteLink: 'Davet bağlantısı', copyLink: 'Bağlantıyı kopyala', yourReferrals: 'Davet ettiklerin', noReferrals: 'Henüz davet yok',
+  speedPartsTitle: 'Yükseltme mağazası', crashRecentRounds: 'Son 10 tur',
+};
+const zh: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: '开采石油 · 收集金币',
+  settingsTitle: '设置', language: '语言', sound: '声音', vibration: '震动', about: '关于', back: '返回',
+  balance: '余额', coins: '金币', oil: '石油', speed: '速度', settings: '设置', leaderboard: '排行榜',
+  navWallet: '钱包', navTasks: '任务', navPump: '开采', navFriends: '好友', navStore: '商店', navSwap: '兑换',
+  swapTitle: '金币兑换', tapToPump: '点击油泵', sell: '出售', startMining: '开始开采',
+  tasksTitle: '任务', dailyTasks: '每日任务', weeklyTasks: '每周任务', friendsTitle: '好友',
+  inviteLink: '邀请链接', copyLink: '复制链接', yourReferrals: '邀请好友', noReferrals: '暂无邀请记录',
+  speedPartsTitle: '升级商店', crashRecentRounds: '最近 10 局',
+};
+const hi: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: 'तेल निकालें · सिक्के जमा करें',
+  settingsTitle: 'सेटिंग्स', language: 'भाषा', sound: 'ध्वनि', vibration: 'कंपन', about: 'जानकारी', back: 'वापस',
+  balance: 'बैलेंस', coins: 'सिक्के', oil: 'तेल', speed: 'गति', settings: 'सेटिंग्स', leaderboard: 'लीडरबोर्ड',
+  navWallet: 'वॉलेट', navTasks: 'कार्य', navPump: 'पंप', navFriends: 'दोस्त', navStore: 'स्टोर', navSwap: 'बदलें',
+  swapTitle: 'सिक्कों का विनिमय', tapToPump: 'पंप पर टैप करें', sell: 'बेचें', startMining: 'माइनिंग शुरू करें',
+  tasksTitle: 'कार्य', dailyTasks: 'दैनिक कार्य', weeklyTasks: 'साप्ताहिक कार्य', friendsTitle: 'दोस्त',
+  inviteLink: 'आमंत्रण लिंक', copyLink: 'लिंक कॉपी करें', yourReferrals: 'आपके रेफ़रल', noReferrals: 'अभी कोई रेफ़रल नहीं',
+  speedPartsTitle: 'अपग्रेड स्टोर', crashRecentRounds: 'पिछले 10 राउंड',
+};
+const id: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: 'Ekstrak minyak · kumpulkan koin',
+  settingsTitle: 'Pengaturan', language: 'Bahasa', sound: 'Suara', vibration: 'Getaran', about: 'Tentang', back: 'Kembali',
+  balance: 'Saldo', coins: 'Koin', oil: 'Minyak', speed: 'Kecepatan', settings: 'Pengaturan', leaderboard: 'Papan peringkat',
+  navWallet: 'Dompet', navTasks: 'Tugas', navPump: 'Pompa', navFriends: 'Teman', navStore: 'Toko', navSwap: 'Tukar',
+  swapTitle: 'Penukaran koin', tapToPump: 'Ketuk pompa', sell: 'Jual', startMining: 'Mulai menambang',
+  tasksTitle: 'Tugas', dailyTasks: 'Tugas harian', weeklyTasks: 'Tugas mingguan', friendsTitle: 'Teman',
+  inviteLink: 'Tautan undangan', copyLink: 'Salin tautan', yourReferrals: 'Referral Anda', noReferrals: 'Belum ada referral',
+  speedPartsTitle: 'Toko peningkatan', crashRecentRounds: '10 ronde terakhir',
+};
+const bn: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: 'তেল উত্তোলন করুন · কয়েন সংগ্রহ করুন',
+  settingsTitle: 'সেটিংস', language: 'ভাষা', sound: 'শব্দ', vibration: 'কম্পন', about: 'সম্পর্কে', back: 'ফিরে যান',
+  balance: 'ব্যালেন্স', coins: 'কয়েন', oil: 'তেল', speed: 'গতি', settings: 'সেটিংস', leaderboard: 'লিডারবোর্ড',
+  navWallet: 'ওয়ালেট', navTasks: 'কাজ', navPump: 'পাম্প', navFriends: 'বন্ধু', navStore: 'দোকান', navSwap: 'বদল',
+  swapTitle: 'কয়েন বিনিময়', tapToPump: 'পাম্পে চাপ দিন', sell: 'বিক্রি', startMining: 'মাইনিং শুরু করুন',
+  tasksTitle: 'কাজ', dailyTasks: 'দৈনিক কাজ', weeklyTasks: 'সাপ্তাহিক কাজ', friendsTitle: 'বন্ধু',
+  inviteLink: 'আমন্ত্রণ লিংক', copyLink: 'লিংক কপি করুন', yourReferrals: 'আপনার রেফারেল', noReferrals: 'এখনও কোনো রেফারেল নেই',
+  speedPartsTitle: 'আপগ্রেড স্টোর', crashRecentRounds: 'শেষ ১০ রাউন্ড',
+};
+const ja: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: '石油を採掘 · コインを集める',
+  settingsTitle: '設定', language: '言語', sound: 'サウンド', vibration: '振動', about: 'このアプリについて', back: '戻る',
+  balance: '残高', coins: 'コイン', oil: '石油', speed: '速度', settings: '設定', leaderboard: 'ランキング',
+  navWallet: 'ウォレット', navTasks: 'タスク', navPump: '採掘', navFriends: '友達', navStore: 'ショップ', navSwap: '交換',
+  swapTitle: 'コイン交換', tapToPump: 'ポンプをタップ', sell: '売却', startMining: '採掘を開始',
+  tasksTitle: 'タスク', dailyTasks: 'デイリータスク', weeklyTasks: 'ウィークリータスク', friendsTitle: '友達',
+  inviteLink: '招待リンク', copyLink: 'リンクをコピー', yourReferrals: '紹介した友達', noReferrals: '紹介はまだありません',
+  speedPartsTitle: 'アップグレードショップ', crashRecentRounds: '直近10ラウンド',
+};
+const ko: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: '석유 채굴 · 코인 모으기',
+  settingsTitle: '설정', language: '언어', sound: '소리', vibration: '진동', about: '정보', back: '뒤로',
+  balance: '잔액', coins: '코인', oil: '석유', speed: '속도', settings: '설정', leaderboard: '순위표',
+  navWallet: '지갑', navTasks: '미션', navPump: '채굴', navFriends: '친구', navStore: '상점', navSwap: '교환',
+  swapTitle: '코인 교환', tapToPump: '펌프 누르기', sell: '판매', startMining: '채굴 시작',
+  tasksTitle: '미션', dailyTasks: '일일 미션', weeklyTasks: '주간 미션', friendsTitle: '친구',
+  inviteLink: '초대 링크', copyLink: '링크 복사', yourReferrals: '내 추천', noReferrals: '아직 추천한 친구가 없습니다',
+  speedPartsTitle: '업그레이드 상점', crashRecentRounds: '최근 10라운드',
+};
+const ur: Dict = { ...en,
+  appName: 'Aramco Oil', appTagline: 'تیل نکالیں · سکے جمع کریں',
+  settingsTitle: 'ترتیبات', language: 'زبان', sound: 'آواز', vibration: 'وائبریشن', about: 'تعارف', back: 'واپس',
+  balance: 'بیلنس', coins: 'سکے', oil: 'تیل', speed: 'رفتار', settings: 'ترتیبات', leaderboard: 'درجہ بندی',
+  navWallet: 'والیٹ', navTasks: 'مشن', navPump: 'پمپ', navFriends: 'دوست', navStore: 'اسٹور', navSwap: 'تبادلہ',
+  swapTitle: 'سکوں کا تبادلہ', tapToPump: 'پمپ کو دبائیں', sell: 'فروخت', startMining: 'مائننگ شروع کریں',
+  tasksTitle: 'مشن', dailyTasks: 'روزانہ مشن', weeklyTasks: 'ہفتہ وار مشن', friendsTitle: 'دوست',
+  inviteLink: 'دعوتی لنک', copyLink: 'لنک کاپی کریں', yourReferrals: 'آپ کے ریفرلز', noReferrals: 'ابھی کوئی ریفرل نہیں',
+  speedPartsTitle: 'اپ گریڈ اسٹور', crashRecentRounds: 'آخری 10 راؤنڈ',
+};
+
+export const dictionaries: Record<Lang, Dict> = { ar, en, ru, es, pt, fr, de, tr, zh, hi, id, bn, ja, ko, ur };
 
 export function t(lang: Lang, key: string): string {
-  return dictionaries[lang][key] ?? dictionaries.ar[key] ?? key;
+  return dictionaries[lang][key] ?? dictionaries.en[key] ?? key;
 }
 
 export function dirOf(lang: Lang): 'rtl' | 'ltr' {
-  return lang === 'ar' ? 'rtl' : 'ltr';
+  return lang === 'ar' || lang === 'ur' ? 'rtl' : 'ltr';
 }
