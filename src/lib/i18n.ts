@@ -12,6 +12,11 @@ export const LANGS: { code: Lang; label: string; flag: string; dir: 'rtl' | 'ltr
 type Dict = Record<string, string>;
 
 const ar: Dict = {
+  arenaWaitingNoExpiry: "الجولة تظل مفتوحة حتى ينضم لاعب آخر. يمكنك إلغاء رهانك واسترداده ما دمت اللاعب الوحيد.",
+  arenaCancelEntry: "إلغاء رهاني واسترداد العملات",
+  arenaCancelled: "تم إلغاء مشاركتك وإعادة رهانك إلى رصيدك.",
+  arenaCancelLocked: "انضم لاعب آخر بالفعل؛ لا يمكن إلغاء الرهان بعد بدء المشاركة.",
+  arenaCancelError: "تعذر إلغاء الرهان الآن. حدّث الصفحة وحاول مرة أخرى.",
   arenaLastRoundResult: "آخر نتيجة للجولة السابقة",
   arenaWaitingPlayer: "بانتظار لاعب آخر للانضمام",
   arenaWaitingRefund: "الإلغاء وإرجاع الرهانات خلال",
@@ -614,6 +619,11 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
 };
 
 const en: Dict = {
+  arenaWaitingNoExpiry: "This round stays open until another player joins. You can cancel and get your stake back while you are the only player.",
+  arenaCancelEntry: "Cancel my entry and refund",
+  arenaCancelled: "Your entry was cancelled and your stake was refunded.",
+  arenaCancelLocked: "Another player has joined. The entry can no longer be cancelled.",
+  arenaCancelError: "Could not cancel the entry. Refresh and try again.",
   arenaLastRoundResult: "Latest completed round",
   arenaWaitingPlayer: "Waiting for another player to join",
   arenaWaitingRefund: "Round cancellation and refunds in",
@@ -1204,6 +1214,11 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
 };
 
 const ru: Dict = {
+  arenaWaitingNoExpiry: "Раунд остаётся открытым, пока не присоединится другой игрок. Вы можете отменить ставку и вернуть её, пока вы единственный участник.",
+  arenaCancelEntry: "Отменить ставку и вернуть монеты",
+  arenaCancelled: "Участие отменено, ставка возвращена.",
+  arenaCancelLocked: "Другой игрок уже присоединился. Отменить ставку больше нельзя.",
+  arenaCancelError: "Не удалось отменить ставку. Обновите страницу и повторите попытку.",
   arenaLastRoundResult: "Результат последнего раунда",
   arenaWaitingPlayer: "Ожидание второго игрока",
   arenaWaitingRefund: "Отмена раунда и возврат ставок через",
