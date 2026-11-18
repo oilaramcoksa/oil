@@ -1,3 +1,9 @@
+export const MIN_ARENA_ENTRY = 100;
+
+export function isValidArenaEntryAmount(value) {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= MIN_ARENA_ENTRY;
+}
+
 export function calculateArenaSettlement(entries, winnerType, winnerTelegramId, cancelled = false) {
   const normalized = entries.map((entry) => {
     const amount = Number(entry.amount);
