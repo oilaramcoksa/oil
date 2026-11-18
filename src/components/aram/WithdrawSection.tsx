@@ -144,7 +144,7 @@ export function WithdrawSection() {
       await syncWithdrawals();
       toast.success(reviewText[lang] ?? reviewText.en);
     } catch (error) {
-      if (!walletApproved) setPendingFeePaymentId(null);
+      if (!walletApproved || (error instanceof Error && error.message === 'payment_expired')) setPendingFeePaymentId(null);
       const message = error instanceof Error ? error.message : 'server_error';
       if (message === 'payment_verification_pending') {
         toast.info(lang === 'ar' ? 'تم إرسال الدفع، جارٍ التحقق منه. اضغط سحب مجددًا لإكمال الطلب دون دفع مرة أخرى.' : 'Payment sent. Verification is pending; press Withdraw again to continue without paying again.');
