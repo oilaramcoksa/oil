@@ -58,13 +58,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = getVerifiedTelegramUser(req);
   if (!user) return jsonError('telegram_auth_required', 401);
-  let body: { units?: unknown; tonAddress?: unknown; idempotencyKey?: unknown };
+  let body: { units?: unknown; tonAddress?: unknown; idempotencyKey?: unknown; feePaymentId?: unknown };
   try { body = await req.json(); } catch { return jsonError('invalid_body', 400); }
   const units = Number(body.units);
   const tonAddress = typeof body.tonAddress === 'string' ? body.tonAddress.trim() : '';
-  const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';
+  const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';\n  const feePaymentId = typeof body.feePaymentId === 'string' ? body.feePaymentId.trim() : '';
   if (!Number.isSafeInteger(units) || units < MIN_UNITS || units > MAX_UNITS_PER_REQUEST) return jsonError('invalid_units', 400);
-  if (!isValidTonAddress(tonAddress)) return jsonError('invalid_ton_address', 400);
+  if (!isValidTonAddress(tonAddress)) return jsonError('invalid_ton_address', 400);\n  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(feePaymentId)) return jsonError('withdrawal_fee_required', 402);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) return jsonError('invalid_idempotency_key', 400);
   const coins = units * COINS_PER_USD;
   const telegramId = String(user.id);
@@ -102,6 +102,20 @@ export async function POST(req: NextRequest) {
           source: 'turso',
           duplicate: true,
         }, { headers: { 'Cache-Control': 'no-store' } });
+      }
+
+      const feeRows = await tx.execute({
+        sql: "SELECT status, provider_payload_json FROM payment_transactions WHERE id=? AND telegram_id=? AND provider='tonconnect_withdrawal_fee'",
+        args: [feePaymentId, telegramId],
+      });
+      if (!feeRows.rows.length || feeRows.rows[0].status !== 'confirmed') {
+        await tx.rollback();
+        return jsonError('withdrawal_fee_not_paid', 402);
+      }
+      const feePayload = JSON.parse(String(feeRows.rows[0].provider_payload_json || '{}')) as Record<string, unknown>;
+      if (feePayload.kind !== 'withdrawal_fee' || Number(feePayload.units) !== units || String(feePayload.tonAddress ?? '') !== tonAddress || feePayload.consumedWithdrawalId) {
+        await tx.rollback();
+        return jsonError('withdrawal_fee_invalid_or_used', 409);
       }
 
       const player = await tx.execute({ sql: "SELECT status FROM players WHERE telegram_id = ?", args: [telegramId] });
@@ -148,6 +162,11 @@ export async function POST(req: NextRequest) {
               VALUES (?, ?, 'withdrawal_requested', ?, ?, ?)`,
         args: [randomUUID(), telegramId, -coins, JSON.stringify({ withdrawalId, units }), `withdrawal-event:${withdrawalId}`],
       });
+      await tx.execute({
+        sql: "UPDATE payment_transactions SET provider_payload_json=? WHERE id=? AND telegram_id=? AND status='confirmed'",
+        args: [JSON.stringify({ ...feePayload, consumedWithdrawalId: withdrawalId }), feePaymentId, telegramId],
+      });
+
       await tx.commit();
       return NextResponse.json({
         withdrawal: { id: withdrawalId, units, coins, usd: units, tonAddress, status: 'pending', createdAt: Date.now(), updatedAt: Date.now() },
