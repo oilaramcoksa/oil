@@ -8,13 +8,12 @@ export function getTonConnectUI(): Promise<TonConnectUI> {
   if (tonConnectInstance) return Promise.resolve(tonConnectInstance);
   if (tonConnectPromise) return tonConnectPromise;
   tonConnectPromise = import('@tonconnect/ui').then(({ TonConnectUI }) => {
-    if (!tonConnectInstance) {
-      tonConnectInstance = new TonConnectUI({
-        manifestUrl: new URL('/api/mining/activation/tonconnect-manifest.json', window.location.origin).toString(),
-        restoreConnection: true,
-      });
-    }
-    return tonConnectInstance;
+    const instance = tonConnectInstance ?? new TonConnectUI({
+      manifestUrl: new URL('/api/mining/activation/tonconnect-manifest.json', window.location.origin).toString(),
+      restoreConnection: true,
+    });
+    tonConnectInstance = instance;
+    return instance;
   }).catch((error) => {
     tonConnectPromise = null;
     throw error;
