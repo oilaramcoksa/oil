@@ -404,8 +404,8 @@ export const useGame = create<GameState>()(
         return { reward };
       },
 
-      // Create a withdrawal request. The server validates it first; only on
-      // success are the coins locked (deducted). No fee is ever charged.
+      // Create a withdrawal request only after the server confirms the one-time TON fee payment.
+      // On success, the server locks the requested game coins for manual review.
       requestWithdrawal: async (units, tonAddress, feePaymentId) => {
         const s = get();
         const coins = units * COINS_PER_USD;
