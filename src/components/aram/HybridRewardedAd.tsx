@@ -15,7 +15,7 @@ type Props = {
   rewardPurpose?: 'coins' | 'lucky_wheel';
 };
 
-export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loadingLabel, onRewarded }: Props) {
+export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loadingLabel, onRewarded, rewardPurpose = 'coins' }: Props) {
   const [busy, setBusy] = useState(false);
   const [cycle, setCycle] = useState<{ used: number; remaining: number; cooldownUntil: number | null } | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -40,17 +40,22 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
   const countdown = `${String(Math.floor(left / 3600000)).padStart(2, '0')}:${String(Math.floor((left % 3600000) / 60000)).padStart(2, '0')}:${String(Math.floor((left % 60000) / 1000)).padStart(2, '0')}`;
 
   const start = async () => {
-    if (busy || !isVerified || !initData || locked || cycle?.remaining === 0) return;
+    if (busy || !isVerified || !initData || (rewardPurpose === 'coins' && (locked || cycle?.remaining === 0))) return;
     setBusy(true);
     try {
-      const result = await watchMonetagRewardedAd({
+      const result = await watchMonetagRewardedAd(rewardPurpose === 'lucky_wheel' ? {
+        initData,
+        requestVar: 'lucky_wheel_extra_spin',
+        endpoint: '/api/lucky-wheel',
+        body: (ymid) => ({ action: 'ad', provider: 'monetag', widgetId: 12295910, ymid }),
+      } : {
         initData,
         requestVar: 'task_reward_20_coins',
         endpoint: '/api/ads/reward',
         body: (ymid) => ({ provider: 'monetag', widgetId: 12295910, ymid }),
       });
       onRewarded(result.reward, result.walletCoins);
-      await loadCycle();
+      if (rewardPurpose === 'coins') await loadCycle();
     } catch (error) {
       console.warn('Monetag rewarded ad failed', error);
       const message = error instanceof Error ? error.message : 'monetag_ad_failed';
@@ -62,15 +67,15 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
 
   return (
     <div className="w-full">
-      <button type="button" onClick={() => void start()} disabled={!isVerified || !initData || busy || locked || cycle?.remaining === 0}
+      <button type="button" onClick={() => void start()} disabled={!isVerified || !initData || busy || (rewardPurpose === 'coins' && (locked || cycle?.remaining === 0))}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-[#33213b] to-[#563126] px-4 py-3 text-sm font-black text-amber-50 shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : locked ? <ShieldCheck className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
-        {locked ? countdown : busy ? loadingLabel : actionLabel || title}
+        {rewardPurpose === 'coins' && locked ? countdown : busy ? loadingLabel : actionLabel || title}
       </button>
-      <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-amber-900/60">
+      {rewardPurpose === 'coins' && <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-amber-900/60">
         <span>{cycle ? `${cycle.used}/30` : '…/30'}</span>
         <span>{cycle ? `المتبقي: ${cycle.remaining}` : title}</span>
-      </div>
+      </div>}
     </div>
   );
 }
