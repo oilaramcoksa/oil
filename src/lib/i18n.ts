@@ -12,6 +12,7 @@ export const LANGS: { code: Lang; label: string; flag: string; dir: 'rtl' | 'ltr
 type Dict = Record<string, string>;
 
 const ar: Dict = {
+  arenaLastRoundResult: "آخر نتيجة للجولة السابقة",
   arenaWaitingPlayer: "بانتظار لاعب آخر للانضمام",
   arenaWaitingRefund: "الإلغاء وإرجاع الرهانات خلال",
   luckyWheelTitle: "حظك اليوم",
@@ -613,6 +614,7 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
 };
 
 const en: Dict = {
+  arenaLastRoundResult: "Latest completed round",
   arenaWaitingPlayer: "Waiting for another player to join",
   arenaWaitingRefund: "Round cancellation and refunds in",
   luckyWheelTitle: "Your Daily Luck",
@@ -1202,6 +1204,7 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
 };
 
 const ru: Dict = {
+  arenaLastRoundResult: "Результат последнего раунда",
   arenaWaitingPlayer: "Ожидание второго игрока",
   arenaWaitingRefund: "Отмена раунда и возврат ставок через",
   luckyWheelTitle: "Удача дня",
