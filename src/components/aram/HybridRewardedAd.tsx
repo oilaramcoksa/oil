@@ -127,21 +127,14 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
   const handleTadsNoAd = useCallback(() => {
     if (!pendingRef.current || providerRef.current !== 'tads' || completedRef.current) return;
     clearTimer();
-    if (!fallbackRef.current) {
-      fallbackRef.current = true;
-      switchToMonetagRef.current();
-    } else {
-      pendingRef.current = false;
-      busyRef.current = false;
-      setBusy(false);
-      onError('no_ad_available');
-    }
+    fallbackRef.current = true;
+    switchToMonetagRef.current();
   }, [clearTimer, onError]);
 
   const startMonetag = useCallback(async () => {
     if (rewardPurpose !== 'coins') { pendingRef.current = false; busyRef.current = false; setBusy(false); onError('no_ad_available'); return; }
     providerRef.current = 'monetag';
-    taskIdRef.current = `${initData ? 'tg' : 'web'}_${crypto.randomUUID()}`;
+    taskIdRef.current = crypto.randomUUID();
     clearTimer();
     timeoutRef.current = setTimeout(() => {
       if (pendingRef.current && providerRef.current === 'monetag' && !completedRef.current) {
@@ -271,7 +264,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       console.warn('Adexium failed; falling back to TADS', error);
       failover();
     }
-  }, [clearTimer, onError, postReward, rewardPurpose, startTads]);
+  }, [clearTimer, onError, postReward, rewardPurpose, startMonetag]);
 
   useEffect(() => { switchToAdexiumRef.current = () => { void startAdexium(); }; switchToMonetagRef.current = () => { void startMonetag(); }; }, [startAdexium, startMonetag]);
 
