@@ -433,8 +433,8 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       'ALTER TABLE arena_entries ADD COLUMN wallet_amount INTEGER NOT NULL DEFAULT 0 CHECK(wallet_amount >= 0)',
       'CREATE INDEX IF NOT EXISTS idx_bet_token_transactions_player ON bet_token_transactions(telegram_id, created_at)',
     ],
-  }
-  ,{
+  },
+  {
     version: 16,
     statements: [
       `CREATE TABLE arena_entries_v16 (
