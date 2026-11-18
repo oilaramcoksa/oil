@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
+import { isValidArenaEntryAmount, MIN_ARENA_ENTRY } from '@/lib/arena-settlement.mjs';
 import { CrashGameScreen } from '@/components/aram/screens/CrashGameScreen';
 
 type Entry = { telegramId: string; username: string; amount: number; photoUrl?: string | null };
@@ -15,6 +16,7 @@ type Round = {
   id: string;
   status: 'open' | 'countdown' | 'spinning';
   startsAt: number | null;
+  waitingExpiresAt: number | null;
   spinStartedAt: number | null;
   totalEntries: number;
   entriesCount: number;
@@ -60,7 +62,7 @@ export function ArenaScreen({
     return () => window.removeEventListener('open-crash-game', openCrash);
   }, []);
   const [state, setState] = useState<ArenaState>(EMPTY_STATE);
-  const [amount, setAmount] = useState('1000');
+  const [amount, setAmount] = useState('100');
   const joinLock = useRef(false);
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -191,6 +193,10 @@ export function ArenaScreen({
   const countdown = round?.startsAt
     ? Math.max(0, Math.ceil((round.startsAt - now) / 1000))
     : null;
+  const waitingSeconds = round?.status === 'open' && round.waitingExpiresAt
+    ? Math.max(0, Math.ceil((round.waitingExpiresAt - now) / 1000))
+    : null;
+  const waitingClock = waitingSeconds === null ? null : [Math.floor(waitingSeconds / 3600), Math.floor((waitingSeconds % 3600) / 60), waitingSeconds % 60].map((value) => String(value).padStart(2, '0')).join(':');
   const isSpinning = round?.status === 'spinning' || replaying;
   const displayStop = replaying
     ? (state.lastResult?.wheelStopDegrees ?? 0)
@@ -224,7 +230,7 @@ export function ArenaScreen({
   const join = async (requestedAmount?: number) => {
     const entryAmount = requestedAmount ?? Number(amount);
     if (joinLock.current || loading) return;
-    if (!Number.isSafeInteger(entryAmount) || entryAmount < 1_000) {
+    if (!isValidArenaEntryAmount(entryAmount)) {
       toast.error(t(lang, 'arenaMin'));
       return;
     }
@@ -251,7 +257,7 @@ export function ArenaScreen({
         toast.error(t(lang, errorKey));
         return;
       }
-      setAmount('1000');
+      setAmount('100');
       await refresh();
       toast.success(t(lang, 'arenaJoined'));
     } catch (error) {
@@ -329,7 +335,7 @@ export function ArenaScreen({
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-700"><Users size={18}/></span>
               <div><div className="text-sm font-extrabold">{t(lang, 'arenaRoundLabel')}</div><div className="mt-0.5 text-[10px] text-[#9a7659]">{t(lang, 'arenaPlayers')}: {displayedEntries.length}</div></div>
             </div>
-            <span className="rounded-full border border-emerald-700/15 bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-800">{replaying ? t(lang, 'arenaReplayPlaying') : round?.status === 'countdown' ? t(lang, 'arenaCountdown') : isSpinning ? t(lang, 'arenaSpinning') : t(lang, 'arenaReady')}</span>
+            <span className="rounded-full border border-emerald-700/15 bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-800">{replaying ? t(lang, 'arenaReplayPlaying') : round?.status === 'open' ? t(lang, 'arenaWaitingPlayer') : round?.status === 'countdown' ? t(lang, 'arenaCountdown') : isSpinning ? t(lang, 'arenaSpinning') : t(lang, 'arenaReady')}</span>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div className="rounded-xl border border-amber-900/5 bg-[#fff7e9]/85 p-2"><div className="text-[9px] leading-tight text-[#987354]">{t(lang, 'arenaPot')}</div><div className="mt-1 text-base font-black tabular-nums text-amber-800">{total.toLocaleString()}</div></div>
@@ -414,15 +420,18 @@ export function ArenaScreen({
             <div className="mb-1 grid h-7 w-7 place-items-center rounded-full border border-amber-700/20 bg-amber-100 text-amber-800">
               {isSpinning ? <Zap size={15}/> : <Users size={15}/>}
             </div>
-            <div className={replaying ? "text-center text-[10px] font-black leading-tight" : "text-center text-lg font-black tabular-nums leading-none"}>
+            <div className={replaying || round?.status === 'open' ? "text-center text-[10px] font-black leading-tight" : "text-center text-lg font-black tabular-nums leading-none"}>
               {replaying
                 ? t(lang, 'arenaReplayPlaying')
+                : round?.status === 'open'
+                ? t(lang, 'arenaWaitingPlayer')
                 : round?.status === 'countdown'
                 ? `00:${String(countdown ?? 0).padStart(2, '0')}`
                 : isSpinning
                   ? t(lang, 'arenaSpinning')
                   : t(lang, 'arenaReady')}
             </div>
+            {round?.status === 'open' && waitingClock && <div className="mt-1 text-[8px] font-bold text-[#8b613d]">{t(lang, 'arenaWaitingRefund')} {waitingClock}</div>}
             <div className="mt-2 flex items-center justify-center gap-1 text-[11px] font-bold leading-none text-[#8b613d]">
               <span>{displayedEntries.length}</span>
               <Users size={12} className="shrink-0 text-amber-300" />
@@ -480,7 +489,7 @@ export function ArenaScreen({
             <input
               type="number"
               inputMode="numeric"
-              min="1000"
+              min={MIN_ARENA_ENTRY}
               max={availableBalance}
               step="1"
               value={amount}
@@ -490,14 +499,14 @@ export function ArenaScreen({
             />
             <button
               onClick={() => void join(availableBalance)}
-              disabled={loading || !isVerified || ownEntry || isRoundClosed || availableBalance < 1000}
+              disabled={loading || !isVerified || ownEntry || isRoundClosed || availableBalance < MIN_ARENA_ENTRY}
               className="rounded-xl border border-amber-600 bg-gradient-to-b from-amber-400 to-orange-500 px-4 text-xs font-black text-[#3b210c] shadow-md disabled:opacity-40"
             >
               {t(lang, 'arenaMax')}
             </button>
           </div>
           <div className="mt-2 grid grid-cols-4 gap-2" aria-label={t(lang, 'arenaQuickAmounts')}>
-            {[1000, 2000, 5000, 10000].map((preset) => (
+            {[100, 500, 1000, 5000].map((preset) => (
               <button
                 key={preset}
                 type="button"
@@ -511,7 +520,7 @@ export function ArenaScreen({
             ))}
           </div>
           <button
-            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < 1000 || (Number(amount) > betBalance && Number(amount) > balance)}
+            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < MIN_ARENA_ENTRY || (Number(amount) > betBalance && Number(amount) > balance)}
             onClick={() => void join()}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#ff9f50] py-3 font-black text-[#24180f] disabled:opacity-40"
           >
