@@ -46,7 +46,7 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tournamentsOpen, setTournamentsOpen] = useState(false);
   const [shortsOpen, setShortsOpen] = useState(false);
-  const [openStoreProductId, setOpenStoreProductId] = useState<string | null>(null);
+  const [openStoreProductRequest, setOpenStoreProductRequest] = useState(0);
 
   // Keep every opened section mounted so returning to it is immediate.
   const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set<Tab>(['pump']));
@@ -57,7 +57,7 @@ export default function Home() {
 
   useEffect(() => {
     const openPlaneTipsStore = () => {
-      setOpenStoreProductId('plane_tips');
+      setOpenStoreProductRequest((current) => current + 1);
       navigateToTab('store');
     };
     window.addEventListener('open-plane-tips-store', openPlaneTipsStore);
@@ -122,7 +122,7 @@ export default function Home() {
         {visitedTabs.has('wallet') && <section className={tab === 'wallet' ? 'h-full' : 'hidden'}><WalletScreen /></section>}
         {visitedTabs.has('tasks') && <section className={tab === 'tasks' ? 'h-full' : 'hidden'}><TasksScreen initData={initData} isVerified={isVerified} /></section>}
         {visitedTabs.has('friends') && <section className={tab === 'friends' ? 'h-full' : 'hidden'}><FriendsScreen /></section>}
-        {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} openProductId={openStoreProductId} /></section>}
+        {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} openProductRequest={openStoreProductRequest} /></section>}
         {visitedTabs.has('arena') && <section className={tab === 'arena' ? 'h-full' : 'hidden'}><ArenaScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} /></section>}
         {visitedTabs.has('swap') && <section className={tab === 'swap' ? 'h-full' : 'hidden'}><SwapScreen initData={initData} isVerified={isVerified} /></section>}
       </main>
