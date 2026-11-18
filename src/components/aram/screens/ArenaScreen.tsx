@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Coins, History, Loader2, Users, Zap, ShoppingCart, Flame } from 'lucide-react';
 import { TonConnectUI } from '@tonconnect/ui';
 import { beginCell } from '@ton/core';
@@ -54,7 +54,8 @@ export function ArenaScreen({
   const lang = useGame((s) => s.lang);
   const [gameMode, setGameMode] = useState<'wheel' | 'crash'>('wheel');
   const [state, setState] = useState<ArenaState>(EMPTY_STATE);
-  const [amount, setAmount] = useState('100');
+  const [amount, setAmount] = useState('1000');
+  const joinLock = useRef(false);
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [history, setHistory] = useState<HistoryRound[]>([]);
@@ -216,10 +217,12 @@ export function ArenaScreen({
 
   const join = async (requestedAmount?: number) => {
     const entryAmount = requestedAmount ?? Number(amount);
-    if (!Number.isSafeInteger(entryAmount) || entryAmount < 100) {
+    if (joinLock.current || loading) return;
+    if (!Number.isSafeInteger(entryAmount) || entryAmount < 1_000) {
       toast.error(t(lang, 'arenaMin'));
       return;
     }
+    joinLock.current = true;
     setLoading(true);
     try {
       const response = await fetch('/api/arena', {
@@ -242,13 +245,14 @@ export function ArenaScreen({
         toast.error(t(lang, errorKey));
         return;
       }
-      setAmount('100');
+      setAmount('1000');
       await refresh();
       toast.success(t(lang, 'arenaJoined'));
     } catch (error) {
       console.error('arena_join_ui_failed', error);
       toast.error(t(lang, 'arenaError'));
     } finally {
+      joinLock.current = false;
       setLoading(false);
     }
   };
@@ -259,7 +263,7 @@ export function ArenaScreen({
     : 7;
 
   return (
-    <div className="h-full overflow-y-auto bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="h-full w-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-x-none bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="mx-auto mb-3 grid w-full max-w-md grid-cols-2 gap-2 rounded-2xl border border-amber-900/10 bg-white/70 p-1.5 shadow-sm">
         <button type="button" onClick={() => setGameMode('wheel')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'wheel' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
           <span>🎡</span>{lang === 'ar' ? 'عجلة الحظ' : lang === 'ru' ? 'Колесо удачи' : 'Lucky Wheel'}
@@ -328,7 +332,7 @@ export function ArenaScreen({
           </div>
         </section>
 
-        <div className="relative mx-auto my-7 aspect-square w-[min(84vw,390px)] [perspective:1000px]">
+        <div className="relative mx-auto my-7 aspect-square w-full max-w-[390px] min-w-0 overflow-visible [perspective:1000px]">
           {/* Floating pointer with a metallic highlight */}
           <motion.div
             animate={isSpinning ? { y: [0, 5, 0], scale: [1, 0.96, 1] } : { y: [0, -2, 0] }}
@@ -352,14 +356,14 @@ export function ArenaScreen({
                 ? { rotate: 2_880 + displayStop }
                 : state.lastResult && !round
                   ? { rotate: displayStop }
-                  : { rotate: [0, 360] }
+                  : { rotate: 0 }
             }
             transition={
               isSpinning
                 ? { duration: spinRemaining, ease: [0.08, 0.72, 0.12, 1] }
                 : state.lastResult && !round
                   ? { duration: 0.35, ease: 'easeOut' }
-                  : { duration: 42, repeat: Infinity, ease: 'linear' }
+                  : { duration: 0 }
             }
             className="absolute inset-[11px] overflow-hidden rounded-full border-[3px] border-[#f8dba5]/90 shadow-[inset_0_0_18px_rgba(107,57,15,.18),0_4px_12px_rgba(120,53,15,.2)]"
             style={{ background: wheelGradient, transformStyle: 'preserve-3d', backfaceVisibility: 'hidden' }}
@@ -470,7 +474,7 @@ export function ArenaScreen({
             <input
               type="number"
               inputMode="numeric"
-              min="100"
+              min="1000"
               max={availableBalance}
               step="1"
               value={amount}
@@ -480,14 +484,14 @@ export function ArenaScreen({
             />
             <button
               onClick={() => void join(availableBalance)}
-              disabled={loading || !isVerified || ownEntry || isRoundClosed || availableBalance < 100}
+              disabled={loading || !isVerified || ownEntry || isRoundClosed || availableBalance < 1000}
               className="rounded-xl border border-amber-600 bg-gradient-to-b from-amber-400 to-orange-500 px-4 text-xs font-black text-[#3b210c] shadow-md disabled:opacity-40"
             >
               {t(lang, 'arenaMax')}
             </button>
           </div>
           <div className="mt-2 grid grid-cols-4 gap-2" aria-label={t(lang, 'arenaQuickAmounts')}>
-            {[100, 200, 500, 1000].map((preset) => (
+            {[1000, 2000, 5000, 10000].map((preset) => (
               <button
                 key={preset}
                 type="button"
@@ -501,7 +505,7 @@ export function ArenaScreen({
             ))}
           </div>
           <button
-            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < 100 || (Number(amount) > betBalance && Number(amount) > balance)}
+            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < 1000 || (Number(amount) > betBalance && Number(amount) > balance)}
             onClick={() => void join()}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#ff9f50] py-3 font-black text-[#24180f] disabled:opacity-40"
           >
