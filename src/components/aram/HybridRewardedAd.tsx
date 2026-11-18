@@ -339,7 +339,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
         title="Monetag Rewarded Popup"
         className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-50/10 px-4 py-2 text-xs font-bold text-amber-100 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
         <ExternalLink className="h-3.5 w-3.5" />
-        {actionLabel} · Popup
+        {actionLabel}
       </button>}
       {rewardPurpose === 'coins' && <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-amber-900/60">
         <span>{cycle ? `${cycle.used}/30` : '…/30'}</span>
