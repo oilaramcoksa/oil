@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { claimMonetagActionReward } from '@/lib/monetag-reward';
 
 type MonetagWindow = Window & {
   show_12295910?: (options: {
@@ -48,6 +49,16 @@ export function MonetagInAppAds() {
           timeout: 5,
           everyPage: false,
         },
+      }).then(async (result: unknown) => {
+        const adResult = result as { reward_event_type?: string; variable2?: string } | undefined;
+        if (adResult?.reward_event_type === 'valued' && adResult.variable2 === undefined || (adResult?.reward_event_type === 'valued' && adResult.variable2)) {
+          const initData = w.Telegram?.WebApp?.initData ?? '';
+          const ymid = adResult.variable2 || '';
+          if (initData && ymid) {
+            const reward = await claimMonetagActionReward({ initData, ymid, purpose: 'automatic_in_app' });
+            window.dispatchEvent(new CustomEvent('armco-wallet-ad-reward', { detail: reward }));
+          }
+        }
       }).catch((error) => {
         console.warn('Monetag in-app interstitial setup failed', error);
         w.__armcoMonetagInAppStarted = false;
