@@ -224,7 +224,6 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#f28b4b]/35 to-transparent" />
           <motion.div
             className="absolute inset-y-0 left-0 w-[200%]"
-            animate={{ x: ['0%', '-50%'] }}
             animate={{ x: ['0%', '-50%'], y: round?.status === 'running' ? ['-2%', '8%', '-2%'] : ['0%', '0%'] }}
             transition={{ x: { duration: 38, repeat: Infinity, ease: 'linear' }, y: { duration: 7, repeat: Infinity, ease: 'easeInOut' } }}
           >
@@ -243,7 +242,6 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           </motion.div>
           <motion.div
             className="absolute inset-y-0 left-0 w-[200%]"
-            animate={{ x: ['0%', '-50%'] }}
             animate={{ x: ['0%', '-50%'], y: round?.status === 'running' ? ['0%', '13%', '0%'] : ['0%', '0%'] }}
             transition={{ x: { duration: 25, repeat: Infinity, ease: 'linear' }, y: { duration: 5.5, repeat: Infinity, ease: 'easeInOut' } }}
           >
