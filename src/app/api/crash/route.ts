@@ -93,7 +93,12 @@ export async function GET(req: NextRequest) {
   try {
     await ensureDatabaseSchema();
     const db = getTurso();
-    const round = await advanceRound(db);
+    let round = await advanceRound(db);
+    // Retry the transition if this request landed exactly on the deadline while
+    // another poll was committing. Never leave clients parked on an expired 0s countdown.
+    for (let retry = 0; retry < 2 && String(round.status) === 'countdown' && Number(round.betting_ends_at) <= Date.now(); retry += 1) {
+      round = await advanceRound(db);
+    }
     const roundId = String(round.id);
     const now = Date.now();
     const bets = await db.execute({
