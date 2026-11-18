@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowUpFromLine, Check, Clock, ShieldCheck, X, Minus, Plus } from 'lucide-react';
+import { ArrowUpFromLine, Check, Clock, ShieldCheck, X, Minus, Plus, Loader2 } from 'lucide-react';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
-import { showActionInterstitial } from '@/lib/action-ad';
 import {
   COINS_PER_USD,
   MIN_UNITS,
@@ -15,17 +14,6 @@ import {
   unitsToCoins,
   type WithdrawalStatus,
 } from '@/lib/withdraw';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-
 const STATUS_STYLE: Record<WithdrawalStatus, { key: string; cls: string; icon: React.ReactNode }> = {
   pending: { key: 'wdStatusPending', cls: 'bg-amber-100 text-amber-700', icon: <Clock className="w-3 h-3" /> },
   paid: { key: 'wdStatusPaid', cls: 'bg-emerald-100 text-emerald-700', icon: <Check className="w-3 h-3" /> },
@@ -47,10 +35,25 @@ export function WithdrawSection() {
   const [units, setUnits] = useState(MIN_UNITS);
   const [address, setAddress] = useState(savedAddress);
   const [touched, setTouched] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingFeePaymentId, setPendingFeePaymentId] = useState<string | null>(null);
+  const [tonConnector, setTonConnector] = useState<import('@tonconnect/ui').TonConnectUI | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [, setClockTick] = useState(0);
   const actionGateRef = useRef(false);
+
+  useEffect(() => {
+    let alive = true;
+    void import('@tonconnect/ui').then(({ TonConnectUI }) => {
+      if (!alive) return;
+      const connector = new TonConnectUI({
+        manifestUrl: new URL('/api/mining/activation/tonconnect-manifest.json', window.location.origin).toString(),
+        restoreConnection: true,
+      });
+      if (alive) setTonConnector(connector);
+    }).catch((error) => console.error('withdrawal_tonconnect_init_failed', error));
+    return () => { alive = false; };
+  }, []);
 
   // Refresh the cooldown display every second.
   useEffect(() => {
@@ -74,22 +77,74 @@ export function WithdrawSection() {
   const minimumCoins = MIN_UNITS * COINS_PER_USD;
   const progress = Math.min(100, (coins / minimumCoins) * 100);
   const missing = Math.max(0, minimumCoins - coins);
-  const canSubmit = unlocked && addressOk && cooldownRemainingMs <= 0 && !busy;
+  const hasPendingRequest = submitted || withdrawals.some((item) => item.status === 'pending');
+  const canSubmit = unlocked && addressOk && cooldownRemainingMs <= 0 && !busy && !hasPendingRequest;
+  const reviewText: Record<string, string> = {"ar":"تم تقديم طلب السحب وهو تحت المراجعة","en":"Withdrawal request submitted — under review","ru":"Заявка на вывод отправлена и проверяется","es":"Solicitud enviada; pendiente de revisión","pt":"Solicitação enviada; aguardando análise","fr":"Demande envoyée, en cours de vérification","de":"Auszahlungsantrag eingereicht – wird geprüft","tr":"Çekim talebi gönderildi, inceleniyor","zh":"提现申请已提交，正在审核","hi":"निकासी अनुरोध भेज दिया गया है और समीक्षा में है","id":"Permintaan penarikan dikirim dan sedang ditinjau","bn":"উত্তোলনের আবেদন জমা হয়েছে, পর্যালোচনাধীন","ja":"出金申請を送信しました。審査中です","ko":"출금 요청이 제출되어 검토 중입니다","ur":"رقم نکلوانے کی درخواست جمع ہو گئی ہے اور زیرِ جائزہ ہے"};
 
   async function submit() {
-    if (actionGateRef.current || busy) return;
+    if (actionGateRef.current || busy || !tonConnector) return;
     actionGateRef.current = true;
     setBusy(true);
-    await showActionInterstitial();
-    const res = await requestWithdrawal(safeUnits, address.trim());
-    setBusy(false);
-    actionGateRef.current = false;
-    setConfirmOpen(false);
-    if (res.ok) {
-      toast.success(t(lang, 'wdSubmitted'));
+    try {
+      const initData = window.Telegram?.WebApp?.initData ?? '';
+      if (!initData) throw new Error('telegram_auth_required');
+      if (!tonConnector.connected) {
+        await tonConnector.openModal();
+        if (!tonConnector.connected) throw new Error('ton_wallet_not_connected');
+      }
+      let paymentId = pendingFeePaymentId;
+      if (!paymentId) {
+        const intentResponse = await fetch('/api/withdrawal-fee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+          body: JSON.stringify({ units: safeUnits, tonAddress: address.trim() }),
+          cache: 'no-store',
+        });
+        const intentData = await intentResponse.json().catch(() => ({}));
+        if (!intentResponse.ok || !intentData.payment?.id) throw new Error(intentData.error ?? 'payment_intent_failed');
+        paymentId = String(intentData.payment.id);
+        setPendingFeePaymentId(paymentId);
+        const commentBytes = new TextEncoder().encode(String(intentData.payment.comment));
+        const bytes = new Uint8Array(4 + commentBytes.length);
+        new DataView(bytes.buffer).setUint32(0, 0, false);
+        bytes.set(commentBytes, 4);
+        let binary = '';
+        bytes.forEach((value) => { binary += String.fromCharCode(value); });
+        await tonConnector.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 600,
+          messages: [{ address: String(intentData.payment.destination), amount: String(intentData.payment.amountNanoton), payload: btoa(binary) }],
+        });
+      }
+      let confirmed = false;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const statusResponse = await fetch('/api/withdrawal-fee?id=' + encodeURIComponent(paymentId), {
+          headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store',
+        });
+        const statusData = await statusResponse.json().catch(() => ({}));
+        if (!statusResponse.ok) throw new Error(statusData.error ?? 'payment_verification_failed');
+        if (statusData.payment?.status === 'confirmed') { confirmed = true; break; }
+        if (statusData.payment?.status === 'expired' || statusData.payment?.status === 'rejected') throw new Error('payment_expired');
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      }
+      if (!confirmed) throw new Error('payment_verification_pending');
+      const result = await requestWithdrawal(safeUnits, address.trim(), paymentId);
+      if (!result.ok) throw new Error(result.error);
+      setPendingFeePaymentId(null);
+      setSubmitted(true);
       setUnits(MIN_UNITS);
-    } else {
-      toast.error(t(lang, `wdErr_${res.error}`) !== `wdErr_${res.error}` ? t(lang, `wdErr_${res.error}`) : t(lang, 'wdErr_server_error'));
+      await syncWithdrawals();
+      toast.success(reviewText[lang] ?? reviewText.en);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'server_error';
+      if (message === 'payment_verification_pending') {
+        toast.info(lang === 'ar' ? 'تم إرسال الدفع، جارٍ التحقق منه. اضغط سحب مجددًا لإكمال الطلب دون دفع مرة أخرى.' : 'Payment sent. Verification is pending; press Withdraw again to continue without paying again.');
+      } else {
+        const errorKey = 'wdErr_' + message;
+        toast.error(t(lang, errorKey) !== errorKey ? t(lang, errorKey) : message);
+      }
+    } finally {
+      setBusy(false);
+      actionGateRef.current = false;
     }
   }
 
@@ -193,11 +248,11 @@ export function WithdrawSection() {
 
           <button
             type="button"
-            disabled={!canSubmit}
-            onClick={() => setConfirmOpen(true)}
+            disabled={!canSubmit || !tonConnector}
+            onClick={submit}
             className="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-white text-sm font-black disabled:opacity-40 active:scale-[0.98] transition"
           >
-            {t(lang, 'wdRequest')} · ${safeUnits}
+            {busy ? <><Loader2 className="w-4 h-4 animate-spin inline mr-2" />{lang === 'ar' ? 'جارٍ تنفيذ السحب...' : 'Processing...'}</> : hasPendingRequest ? (reviewText[lang] ?? reviewText.en) : t(lang, 'wdRequest')}
           </button>
         </div>
       )}
@@ -236,37 +291,7 @@ export function WithdrawSection() {
         </div>
       )}
 
-      {/* confirmation */}
-      <AlertDialog open={confirmOpen} onOpenChange={(o) => !busy && setConfirmOpen(o)}>
-        <AlertDialogContent dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t(lang, 'wdConfirmTitle')}</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2">
-                <p>
-                  {t(lang, 'wdConfirmBody')
-                    .replace('{coins}', unitsToCoins(safeUnits).toLocaleString())
-                    .replace('{usd}', String(safeUnits))}
-                </p>
-                <p dir="ltr" className="font-mono text-xs break-all bg-muted rounded-md p-2">{address.trim()}</p>
-                <p className="text-xs">{t(lang, 'wdAddressHint')}</p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>{t(lang, 'cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={busy}
-              onClick={(e) => {
-                e.preventDefault();
-                submit();
-              }}
-            >
-              {busy ? t(lang, 'wdSending') : t(lang, 'wdConfirmBtn')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
     </motion.div>
   );
 }
