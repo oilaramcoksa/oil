@@ -80,11 +80,13 @@ export function WithdrawSection() {
   const hasPendingRequest = submitted || withdrawals.some((item) => item.status === 'pending');
   const canSubmit = unlocked && addressOk && cooldownRemainingMs <= 0 && !busy && !hasPendingRequest;
   const reviewText: Record<string, string> = {"ar":"تم تقديم طلب السحب وهو تحت المراجعة","en":"Withdrawal request submitted — under review","ru":"Заявка на вывод отправлена и проверяется","es":"Solicitud enviada; pendiente de revisión","pt":"Solicitação enviada; aguardando análise","fr":"Demande envoyée, en cours de vérification","de":"Auszahlungsantrag eingereicht – wird geprüft","tr":"Çekim talebi gönderildi, inceleniyor","zh":"提现申请已提交，正在审核","hi":"निकासी अनुरोध भेज दिया गया है और समीक्षा में है","id":"Permintaan penarikan dikirim dan sedang ditinjau","bn":"উত্তোলনের আবেদন জমা হয়েছে, পর্যালোচনাধীন","ja":"出金申請を送信しました。審査中です","ko":"출금 요청이 제출되어 검토 중입니다","ur":"رقم نکلوانے کی درخواست جمع ہو گئی ہے اور زیرِ جائزہ ہے"};
+  const withdrawButtonText: Record<string, string> = { ar: 'سحب', en: 'Withdraw', ru: 'Вывести', es: 'Retirar', pt: 'Sacar', fr: 'Retirer', de: 'Auszahlen', tr: 'Çek', zh: '提现', hi: 'निकासी', id: 'Tarik', bn: 'উত্তোলন', ja: '出金', ko: '출금', ur: 'رقم نکالیں' };
 
   async function submit() {
     if (actionGateRef.current || busy || !tonConnector) return;
     actionGateRef.current = true;
     setBusy(true);
+    let walletApproved = Boolean(pendingFeePaymentId);
     try {
       const initData = window.Telegram?.WebApp?.initData ?? '';
       if (!initData) throw new Error('telegram_auth_required');
@@ -114,6 +116,7 @@ export function WithdrawSection() {
           validUntil: Math.floor(Date.now() / 1000) + 600,
           messages: [{ address: String(intentData.payment.destination), amount: String(intentData.payment.amountNanoton), payload: btoa(binary) }],
         });
+        walletApproved = true;
       }
       let confirmed = false;
       for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -135,6 +138,7 @@ export function WithdrawSection() {
       await syncWithdrawals();
       toast.success(reviewText[lang] ?? reviewText.en);
     } catch (error) {
+      if (!walletApproved) setPendingFeePaymentId(null);
       const message = error instanceof Error ? error.message : 'server_error';
       if (message === 'payment_verification_pending') {
         toast.info(lang === 'ar' ? 'تم إرسال الدفع، جارٍ التحقق منه. اضغط سحب مجددًا لإكمال الطلب دون دفع مرة أخرى.' : 'Payment sent. Verification is pending; press Withdraw again to continue without paying again.');
@@ -164,9 +168,9 @@ export function WithdrawSection() {
         </div>
       </div>
 
-      <div className="flex items-start gap-1.5 px-2.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 mb-3">
-        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
-        <p className="text-[10px] font-bold text-emerald-800 leading-relaxed">{t(lang, 'wdNoFee')}</p>
+      <div className="flex items-start gap-1.5 px-2.5 py-2 rounded-xl bg-sky-50 border border-sky-200 mb-3">
+        <ShieldCheck className="w-3.5 h-3.5 text-sky-600 mt-0.5 flex-shrink-0" />
+        <p className="text-[10px] font-bold text-sky-800 leading-relaxed">{({ar:'يتم تأكيد الدفع على شبكة TON قبل إرسال طلب السحب للمراجعة.',en:'Your payment is verified on TON before the withdrawal request is submitted for review.',ru:'Платёж проверяется в сети TON до отправки заявки на вывод.',es:'El pago se verifica en TON antes de enviar la solicitud de retiro.',pt:'O pagamento é verificado na TON antes do envio do pedido de saque.',fr:'Le paiement est vérifié sur TON avant l’envoi de la demande de retrait.',de:'Die Zahlung wird auf TON bestätigt, bevor der Auszahlungsantrag eingereicht wird.',tr:'Çekim talebi gönderilmeden önce ödeme TON ağında doğrulanır.',zh:'付款将在 TON 网络确认后提交提现申请。',hi:'निकासी अनुरोध भेजने से पहले TON नेटवर्क पर भुगतान सत्यापित किया जाता है।',id:'Pembayaran diverifikasi di jaringan TON sebelum permintaan penarikan diajukan.',bn:'উত্তোলনের আবেদন পাঠানোর আগে TON নেটওয়ার্কে পেমেন্ট যাচাই করা হয়।',ja:'出金申請の送信前に、TONネットワークで支払いを確認します。',ko:'출금 요청을 제출하기 전에 TON 네트워크에서 결제를 확인합니다.',ur:'رقم نکلوانے کی درخواست بھیجنے سے پہلے TON نیٹ ورک پر ادائیگی کی تصدیق ہوتی ہے。'} as Record<string,string>)[lang] ?? 'Payment is verified on TON before the withdrawal request is submitted.'}</p>
       </div>
 
       {!unlocked ? (
@@ -252,7 +256,7 @@ export function WithdrawSection() {
             onClick={submit}
             className="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-white text-sm font-black disabled:opacity-40 active:scale-[0.98] transition"
           >
-            {busy ? <><Loader2 className="w-4 h-4 animate-spin inline mr-2" />{lang === 'ar' ? 'جارٍ تنفيذ السحب...' : 'Processing...'}</> : hasPendingRequest ? (reviewText[lang] ?? reviewText.en) : t(lang, 'wdRequest')}
+            {busy ? <><Loader2 className="w-4 h-4 animate-spin inline mr-2" />{lang === 'ar' ? 'جارٍ تنفيذ السحب...' : 'Processing...'}</> : hasPendingRequest ? (reviewText[lang] ?? reviewText.en) : (withdrawButtonText[lang] ?? withdrawButtonText.en)}
           </button>
         </div>
       )}
