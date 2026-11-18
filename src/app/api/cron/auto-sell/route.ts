@@ -55,28 +55,54 @@ export async function GET(req: NextRequest) {
         JOIN player_special_parts sp ON sp.telegram_id=p.telegram_id AND sp.part_id='auto_sell'
         LEFT JOIN player_product_controls pc
           ON pc.telegram_id=p.telegram_id AND pc.product_id='auto_sell' AND pc.product_type='part'
-        WHERE p.status='active' AND gs.cycle_ends_at IS NOT NULL
-          AND gs.cycle_ends_at<=?
-          AND sp.expires_at>gs.cycle_ends_at
+        WHERE p.status='active'
+          AND (p.fee_exempt=1 OR p.mining_fee_paid_at IS NOT NULL)
+          AND sp.expires_at IS NOT NULL AND sp.expires_at>?
+          AND (gs.cycle_ends_at IS NULL OR gs.cycle_ends_at<=?)
           AND COALESCE(pc.status,'active')='active'
         GROUP BY p.telegram_id,gs.cycle_ends_at
-        AND (p.fee_exempt=1 OR p.mining_fee_paid_at IS NOT NULL)
-        ORDER BY gs.cycle_ends_at ASC LIMIT 15`,
-      args: [now],
+        ORDER BY COALESCE(gs.cycle_ends_at,0) ASC LIMIT 50`,
+      args: [now, now],
     });
 
     let soldPlayers = 0;
     let advancedCycles = 0;
+    let startedCycles = 0;
     let failedPlayers = 0;
     const results: Array<{ telegramId: string; status: string; detail?: string }> = [];
 
     for (const row of due.rows) {
       const telegramId = String(row.telegram_id);
-      const cycleEndsAt = Number(row.cycle_ends_at);
+      let cycleEndsAt = Number(row.cycle_ends_at ?? 0);
       const expiresAt = Number(row.expires_at);
-      if (!Number.isSafeInteger(cycleEndsAt) || cycleEndsAt <= 0) continue;
+      if (!Number.isSafeInteger(expiresAt) || expiresAt <= now) continue;
 
       try {
+        // Auto-sell also starts a fresh mining cycle when the player has not
+        // opened the game and the previous cycle state is empty.
+        if (!Number.isSafeInteger(cycleEndsAt) || cycleEndsAt <= 0) {
+          const wallet = await db.execute({
+            sql: 'SELECT oil_balance FROM player_wallets WHERE telegram_id=?',
+            args: [telegramId],
+          });
+          const oilBalance = Number(wallet.rows[0]?.oil_balance ?? 0);
+          const startAt = oilBalance > 0 ? now - CYCLE_MS : now;
+          cycleEndsAt = oilBalance > 0 ? now - 1 : now + CYCLE_MS;
+          const initializedCycle = await db.execute({
+            sql: `UPDATE player_game_state
+              SET cycle_started_at=?,cycle_ends_at=?,last_tick_at=?,updated_at=CURRENT_TIMESTAMP
+              WHERE telegram_id=? AND cycle_ends_at IS NULL`,
+            args: [startAt, cycleEndsAt, startAt, telegramId],
+          });
+          if (Number(initializedCycle.rowsAffected) !== 1) continue;
+          if (oilBalance <= 0) {
+            startedCycles++;
+            results.push({ telegramId, status: 'cycle_started' });
+            continue;
+          }
+        }
+
+        if (cycleEndsAt > now) continue;
         const initData = internalInitData(telegramId, botToken);
         const tickResponse = await settleMining(internalRequest('/api/mining/action', initData, {
           action: 'tick',
@@ -138,6 +164,7 @@ export async function GET(req: NextRequest) {
       checked: due.rows.length,
       soldPlayers,
       advancedCycles,
+      startedCycles,
       failedPlayers,
       results,
     }, { headers: { 'Cache-Control': 'no-store' } });
