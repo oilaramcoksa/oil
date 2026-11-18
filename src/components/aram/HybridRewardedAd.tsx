@@ -100,7 +100,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
           cache: 'no-store',
         });
         data = await response.json().catch(() => ({})) as typeof data;
-        if (provider !== 'tads' || response.status !== 409 || data.error !== 'tads_view_not_verified' || attempt === delays.length - 1) break;
+        if (!((provider === 'tads' && data.error === 'tads_view_not_verified') || (provider === 'monetag' && data.error === 'monetag_postback_not_verified')) || response.status !== 409 || attempt === delays.length - 1) break;
       }
       if (!response?.ok || data.ok !== true || (rewardPurpose === 'coins' && (!Number.isSafeInteger(data.reward) || !Number.isSafeInteger(data.wallet?.coins)))) {
         throw new Error(data.error || 'ad_reward_failed');
@@ -200,7 +200,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
         return;
       }
       fallbackRef.current = true;
-      startTads();
+      startMonetag();
     };
     providerRef.current = 'adexium';
     taskIdRef.current = null;
