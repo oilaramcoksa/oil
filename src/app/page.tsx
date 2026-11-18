@@ -46,6 +46,7 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tournamentsOpen, setTournamentsOpen] = useState(false);
   const [shortsOpen, setShortsOpen] = useState(false);
+  const [openStoreProductId, setOpenStoreProductId] = useState<string | null>(null);
 
   // Keep every opened section mounted so returning to it is immediate.
   const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set<Tab>(['pump']));
@@ -53,6 +54,15 @@ export default function Home() {
     setVisitedTabs((current) => current.has(nextTab) ? current : new Set([...current, nextTab]));
     setTab(nextTab);
   };
+
+  useEffect(() => {
+    const openPlaneTipsStore = () => {
+      setOpenStoreProductId('plane_tips');
+      navigateToTab('store');
+    };
+    window.addEventListener('open-plane-tips-store', openPlaneTipsStore);
+    return () => window.removeEventListener('open-plane-tips-store', openPlaneTipsStore);
+  }, []);
 
   // Daily/weekly/monthly reset on mount
   useEffect(() => {
@@ -112,7 +122,7 @@ export default function Home() {
         {visitedTabs.has('wallet') && <section className={tab === 'wallet' ? 'h-full' : 'hidden'}><WalletScreen /></section>}
         {visitedTabs.has('tasks') && <section className={tab === 'tasks' ? 'h-full' : 'hidden'}><TasksScreen initData={initData} isVerified={isVerified} /></section>}
         {visitedTabs.has('friends') && <section className={tab === 'friends' ? 'h-full' : 'hidden'}><FriendsScreen /></section>}
-        {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} /></section>}
+        {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} openProductId={openStoreProductId} /></section>}
         {visitedTabs.has('arena') && <section className={tab === 'arena' ? 'h-full' : 'hidden'}><ArenaScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} /></section>}
         {visitedTabs.has('swap') && <section className={tab === 'swap' ? 'h-full' : 'hidden'}><SwapScreen initData={initData} isVerified={isVerified} /></section>}
       </main>
