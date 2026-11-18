@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 import { calculateArenaSettlement } from '@/lib/arena-settlement.mjs';
+import { broadcastGameInvite } from '@/lib/game-invite-notice';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -392,6 +393,8 @@ export async function POST(req: NextRequest) {
     const tx = await db.transaction('write');
     let roundId = '';
     let newBalance = 0;
+    let invitePlayerName = '';
+    let shouldBroadcastInvite = false;
 
     try {
       const active = await tx.execute({
@@ -414,6 +417,9 @@ export async function POST(req: NextRequest) {
           args: [roundId, committedSeed, sha256(committedSeed)],
         });
       }
+
+      const playerProfile = await tx.execute({ sql: "SELECT COALESCE(username,first_name,'Player') AS display_name FROM players WHERE telegram_id=?", args: [playerId] });
+      invitePlayerName = String(playerProfile.rows[0]?.display_name ?? 'Player');
 
       const alreadyJoined = await tx.execute({
         sql: 'SELECT id FROM arena_entries WHERE round_id=? AND telegram_id=?',
@@ -509,6 +515,14 @@ export async function POST(req: NextRequest) {
         args: [total, roundId],
       });
 
+      if (entryCount === 1) {
+        const notice = await tx.execute({
+          sql: "INSERT OR IGNORE INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'game_invite_broadcast',0,?,?)",
+          args: [randomUUID(), playerId, JSON.stringify({ game: 'arena', roundId }), `game_invite:arena:${roundId}`],
+        });
+        shouldBroadcastInvite = Number(notice.rowsAffected ?? 0) === 1;
+      }
+
       if (entryCount >= 2) {
         await tx.execute({
           sql: "UPDATE arena_rounds SET status='countdown', starts_at=? WHERE id=? AND status='open'",
@@ -520,6 +534,10 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       await tx.rollback();
       throw error;
+    }
+
+    if (shouldBroadcastInvite) {
+      await broadcastGameInvite(db, { game: 'arena', roundId, playerId, playerName: invitePlayerName });
     }
 
     return NextResponse.json({
