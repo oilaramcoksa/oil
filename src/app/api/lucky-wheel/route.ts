@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic';
 
 const PRIZES = [10, 5, 15, 25, 35, 45, 7, 20];
 const ADEXIUM_WIDGET_ID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
-const TADS_WIDGET_ID = 13283;
 const AD_TARGET = 3;
 const FREE_SPIN_MS = 24 * 60 * 60 * 1000;
 
@@ -79,20 +78,14 @@ export async function POST(req: NextRequest) {
     if (!player.rows.length) return fail('player_not_active', 403);
 
     if (body.action === 'ad') {
-      const provider = body.provider === 'adexium' ? 'adexium' : body.provider === 'tads' ? 'tads' : null;
-      if (!provider) return fail('invalid_ad_provider');
-      const expectedWidget = provider === 'adexium' ? ADEXIUM_WIDGET_ID : TADS_WIDGET_ID;
-      if (String(body.widgetId) !== String(expectedWidget)) return fail('invalid_widget');
-      if (provider === 'adexium') {
-        const taskId = typeof body.taskId === 'string' ? body.taskId : '';
-        if (!taskId) return fail('invalid_ad_task');
-        const check = await fetch(`https://bid.tgads.live/task/check/${encodeURIComponent(ADEXIUM_WIDGET_ID)}/${encodeURIComponent(taskId)}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-        if (!check.ok) return fail('ad_verification_unavailable', 503);
-        const verification = await check.json() as { done?: boolean };
-        if (verification.done !== true) return fail('ad_not_completed', 409);
-      } else if (typeof body.claimId !== 'string' || !/^[0-9a-f-]{20,80}$/i.test(body.claimId)) {
-        return fail('invalid_ad_claim');
-      }
+      if (body.provider !== 'adexium' || String(body.widgetId) !== ADEXIUM_WIDGET_ID) return fail('invalid_ad_provider');
+      const provider = 'adexium';
+      const taskId = typeof body.taskId === 'string' ? body.taskId : '';
+      if (!taskId) return fail('invalid_ad_task');
+      const check = await fetch(`https://bid.tgads.live/task/check/${encodeURIComponent(ADEXIUM_WIDGET_ID)}/${encodeURIComponent(taskId)}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      if (!check.ok) return fail('ad_verification_unavailable', 503);
+      const verification = await check.json() as { done?: boolean };
+      if (verification.done !== true) return fail('ad_not_completed', 409);
 
       const tx = await db.transaction('write');
       try {
@@ -104,7 +97,7 @@ export async function POST(req: NextRequest) {
         await tx.execute({ sql: 'UPDATE player_lucky_wheel SET ad_views=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [next, telegramId] });
         await tx.execute({
           sql: 'INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,\'lucky_wheel_ad\',0,?,?)',
-          args: [randomUUID(), telegramId, JSON.stringify({ provider, widgetId: expectedWidget, completedViews: next }), `lucky_wheel_ad:${telegramId}:${provider}:${String(body.taskId ?? body.claimId)}`],
+          args: [randomUUID(), telegramId, JSON.stringify({ provider, widgetId: ADEXIUM_WIDGET_ID, completedViews: next }), `lucky_wheel_ad:${telegramId}:${provider}:${taskId}`],
         });
         await tx.commit();
         return NextResponse.json({ ok: true, adViews: next, adsNeeded: Math.max(0, AD_TARGET - next) }, { headers: { 'Cache-Control': 'no-store' } });
