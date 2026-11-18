@@ -1,0 +1,161 @@
+import { randomInt, randomUUID } from 'node:crypto';
+import { NextRequest, NextResponse } from 'next/server';
+import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
+import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const PRIZES = [10, 5, 15, 25, 35, 45, 7, 20];
+const ADEXIUM_WIDGET_ID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
+const TADS_WIDGET_ID = 13283;
+const AD_TARGET = 3;
+const FREE_SPIN_MS = 24 * 60 * 60 * 1000;
+
+function fail(error: string, status = 400) {
+  return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
+}
+
+async function ensureLuckyWheelTables() {
+  const db = getTurso();
+  await db.execute(`CREATE TABLE IF NOT EXISTS player_lucky_wheel (
+    telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+    last_free_spin_at INTEGER,
+    ad_views INTEGER NOT NULL DEFAULT 0 CHECK(ad_views >= 0 AND ad_views <= 3),
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS lucky_wheel_spins (
+    id TEXT PRIMARY KEY,
+    telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+    prize INTEGER NOT NULL,
+    prize_index INTEGER NOT NULL,
+    spin_type TEXT NOT NULL CHECK(spin_type IN ('free','ads')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+}
+
+function stateOf(row: Record<string, unknown> | undefined, now = Date.now()) {
+  const lastFree = row?.last_free_spin_at == null ? null : Number(row.last_free_spin_at);
+  const freeAvailable = lastFree === null || now - lastFree >= FREE_SPIN_MS;
+  const adViews = Math.max(0, Math.min(3, Number(row?.ad_views ?? 0)));
+  return {
+    freeAvailable,
+    freeNextAt: lastFree === null ? null : lastFree + FREE_SPIN_MS,
+    adViews,
+    adsNeeded: Math.max(0, AD_TARGET - adViews),
+    extraSpinAvailable: adViews >= AD_TARGET,
+    prizes: PRIZES,
+  };
+}
+
+export async function GET(req: NextRequest) {
+  const user = verifiedPlayerFromRequest(req);
+  if (!user) return fail('telegram_auth_required', 401);
+  try {
+    await ensureDatabaseSchema();
+    await ensureLuckyWheelTables();
+    const db = getTurso();
+    await db.execute({ sql: 'INSERT OR IGNORE INTO player_lucky_wheel(telegram_id) VALUES(?)', args: [String(user.id)] });
+    const result = await db.execute({ sql: 'SELECT last_free_spin_at, ad_views FROM player_lucky_wheel WHERE telegram_id=?', args: [String(user.id)] });
+    return NextResponse.json(stateOf(result.rows[0] as Record<string, unknown> | undefined), { headers: { 'Cache-Control': 'no-store, private' } });
+  } catch (error) {
+    console.error('lucky_wheel_state_failed', error);
+    return fail('lucky_wheel_unavailable', 503);
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const user = verifiedPlayerFromRequest(req);
+  if (!user) return fail('telegram_auth_required', 401);
+  let body: { action?: unknown; provider?: unknown; widgetId?: unknown; taskId?: unknown; claimId?: unknown };
+  try { body = await req.json(); } catch { return fail('invalid_body'); }
+
+  try {
+    await ensureDatabaseSchema();
+    await ensureLuckyWheelTables();
+    const db = getTurso();
+    const telegramId = String(user.id);
+    const player = await db.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [telegramId] });
+    if (!player.rows.length) return fail('player_not_active', 403);
+
+    if (body.action === 'ad') {
+      const provider = body.provider === 'adexium' ? 'adexium' : body.provider === 'tads' ? 'tads' : null;
+      if (!provider) return fail('invalid_ad_provider');
+      const expectedWidget = provider === 'adexium' ? ADEXIUM_WIDGET_ID : TADS_WIDGET_ID;
+      if (String(body.widgetId) !== String(expectedWidget)) return fail('invalid_widget');
+      if (provider === 'adexium') {
+        const taskId = typeof body.taskId === 'string' ? body.taskId : '';
+        if (!taskId) return fail('invalid_ad_task');
+        const check = await fetch(`https://bid.tgads.live/task/check/${encodeURIComponent(ADEXIUM_WIDGET_ID)}/${encodeURIComponent(taskId)}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+        if (!check.ok) return fail('ad_verification_unavailable', 503);
+        const verification = await check.json() as { done?: boolean };
+        if (verification.done !== true) return fail('ad_not_completed', 409);
+      } else if (typeof body.claimId !== 'string' || !/^[0-9a-f-]{20,80}$/i.test(body.claimId)) {
+        return fail('invalid_ad_claim');
+      }
+
+      const tx = await db.transaction('write');
+      try {
+        await tx.execute({ sql: 'INSERT OR IGNORE INTO player_lucky_wheel(telegram_id) VALUES(?)', args: [telegramId] });
+        const current = await tx.execute({ sql: 'SELECT ad_views FROM player_lucky_wheel WHERE telegram_id=?', args: [telegramId] });
+        const views = Number(current.rows[0]?.ad_views ?? 0);
+        if (views >= AD_TARGET) { await tx.rollback(); return fail('three_ads_already_completed', 409); }
+        const next = views + 1;
+        await tx.execute({ sql: 'UPDATE player_lucky_wheel SET ad_views=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [next, telegramId] });
+        await tx.execute({
+          sql: 'INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,\'lucky_wheel_ad\',0,?,?)',
+          args: [randomUUID(), telegramId, JSON.stringify({ provider, widgetId: expectedWidget, completedViews: next }), `lucky_wheel_ad:${telegramId}:${provider}:${String(body.taskId ?? body.claimId)}`],
+        });
+        await tx.commit();
+        return NextResponse.json({ ok: true, adViews: next, adsNeeded: Math.max(0, AD_TARGET - next) }, { headers: { 'Cache-Control': 'no-store' } });
+      } catch (error) { await tx.rollback(); throw error; }
+    }
+
+    if (body.action !== 'spin') return fail('invalid_action');
+    const tx = await db.transaction('write');
+    try {
+      await tx.execute({ sql: 'INSERT OR IGNORE INTO player_lucky_wheel(telegram_id) VALUES(?)', args: [telegramId] });
+      const current = await tx.execute({ sql: 'SELECT last_free_spin_at,ad_views FROM player_lucky_wheel WHERE telegram_id=?', args: [telegramId] });
+      const row = current.rows[0] as Record<string, unknown>;
+      const now = Date.now();
+      const lastFree = row.last_free_spin_at == null ? null : Number(row.last_free_spin_at);
+      const freeAvailable = lastFree === null || now - lastFree >= FREE_SPIN_MS;
+      const adViews = Number(row.ad_views ?? 0);
+      let spinType: 'free' | 'ads';
+      if (freeAvailable) {
+        spinType = 'free';
+        await tx.execute({ sql: 'UPDATE player_lucky_wheel SET last_free_spin_at=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [now, telegramId] });
+      } else if (adViews >= AD_TARGET) {
+        spinType = 'ads';
+        await tx.execute({ sql: 'UPDATE player_lucky_wheel SET ad_views=0,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [telegramId] });
+      } else {
+        await tx.rollback();
+        return fail('spin_not_ready', 409);
+      }
+
+      const prizeIndex = randomInt(0, PRIZES.length);
+      const prize = PRIZES[prizeIndex];
+      const spinId = randomUUID();
+      const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
+      if (!wallet.rows.length) { await tx.rollback(); return fail('wallet_not_found', 404); }
+      const oldBalance = Number(wallet.rows[0].coins_balance);
+      const newBalance = oldBalance + prize;
+      if (!Number.isSafeInteger(oldBalance) || oldBalance < 0 || !Number.isSafeInteger(newBalance)) { await tx.rollback(); return fail('wallet_balance_invalid', 409); }
+      await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [newBalance, prize, telegramId] });
+      await tx.execute({ sql: 'INSERT INTO lucky_wheel_spins(id,telegram_id,prize,prize_index,spin_type) VALUES(?,?,?,?,?)', args: [spinId, telegramId, prize, prizeIndex, spinType] });
+      await tx.execute({
+        sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','lucky_wheel',?,?,'lucky_wheel',?,?,?)",
+        args: [randomUUID(), telegramId, prize, newBalance, spinId, `lucky_wheel:${spinId}`, JSON.stringify({ spinType, prizeIndex })],
+      });
+      await tx.execute({
+        sql: 'INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,\'lucky_wheel_win\',?,?,?)',
+        args: [randomUUID(), telegramId, prize, JSON.stringify({ spinType, prizeIndex, spinId }), `lucky_wheel_win:${spinId}`],
+      });
+      await tx.commit();
+      return NextResponse.json({ ok: true, prize, prizeIndex, spinType, balance: newBalance, spinId, state: { freeAvailable: spinType === 'free' ? false : freeAvailable, freeNextAt: spinType === 'free' ? now + FREE_SPIN_MS : lastFree === null ? null : lastFree + FREE_SPIN_MS, adViews: spinType === 'ads' ? 0 : adViews, adsNeeded: spinType === 'ads' ? 3 : Math.max(0, 3 - adViews), extraSpinAvailable: false } }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) { await tx.rollback(); throw error; }
+  } catch (error) {
+    console.error('lucky_wheel_action_failed', error);
+    return fail('lucky_wheel_unavailable', 503);
+  }
+}
