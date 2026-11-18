@@ -70,20 +70,22 @@ export function SettingsSheet({ open, onClose }: Props) {
                   <Globe className="w-4 h-4 text-amber-400" />
                   <span className="text-amber-100 font-bold text-xs uppercase">{t(lang, 'language')}</span>
                 </div>
-                <div className="space-y-1">
+                <div className="grid grid-cols-3 gap-2">
                   {LANGS.map((l) => (
                     <button
                       key={l.code}
+                      type="button"
+                      aria-pressed={lang === l.code}
                       onClick={() => { haptic('light'); setLang(l.code as Lang); }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm ${
+                      className={`relative flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 py-2 text-center transition-colors ${
                         lang === l.code
-                          ? 'bg-amber-500/20 text-amber-200'
-                          : 'text-amber-100/80 hover:bg-white/5'
+                          ? 'border-amber-400 bg-amber-500/20 text-amber-200 shadow-[0_0_12px_rgba(245,158,11,.12)]'
+                          : 'border-amber-100/10 bg-white/[0.03] text-amber-100/80 hover:border-amber-300/30 hover:bg-white/[0.07]'
                       }`}
                     >
-                      <span className="text-xl">{l.flag}</span>
-                      <span className="font-bold flex-1">{l.label}</span>
-                      {lang === l.code && <span className="w-2 h-2 rounded-full bg-amber-400" />}
+                      <span className="text-2xl leading-none">{l.flag}</span>
+                      <span className="w-full break-words text-[10px] font-bold leading-tight">{l.label}</span>
+                      {lang === l.code && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-400" />}
                     </button>
                   ))}
                 </div>
