@@ -47,7 +47,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const [serverOffset, setServerOffset] = useState(0);
   const [sound, setSound] = useState(soundEnabled);
   const [showExplosion, setShowExplosion] = useState(false);
-  const [parachuteEvents, setParachuteEvents] = useState<Array<{id:string;username:string}>>([]);
+  const [parachuteEvents, setParachuteEvents] = useState<Array<{id:string;username:string;x:number;y:number;dropDistance:number}>>([]);
   const seenCashouts = useRef<Set<string>>(new Set());
   const actionLock = useRef(false);
   const playedExplosionFor = useRef<string | null>(null);
@@ -134,10 +134,20 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     const events = fresh.map((bet) => {
       const id = `${bet.roundId}:${bet.telegramId}`;
       seenCashouts.current.add(id);
-      return { id, username: bet.username };
+      // Snapshot the aircraft position at the moment this cashout is first observed.
+      // For a delayed previous-round event, reconstruct the position from its accepted multiplier.
+      const isCurrentFlight = bet.roundId === state.round.id && state.round.status === 'running';
+      const progress = bet.cashoutMultiplier && bet.cashoutMultiplier > 1
+        ? Math.max(0, Math.min(0.985, (Math.log(Math.max(1, bet.cashoutMultiplier)) / Math.log(20) - 0.018) / 0.982))
+        : 0;
+      const point = isCurrentFlight ? flightPoint : (bet.cashoutMultiplier && bet.cashoutMultiplier > 1.03
+        ? getFlightPoint(progress)
+        : { x: 90 + Math.max(0, Math.min(125, ((bet.cashoutMultiplier ?? 1) - 1) * 1250)), y: 250 });
+      const y = point.y / 2.9;
+      return { id, username: bet.username, x: point.x / 12, y, dropDistance: Math.max(55, 92 - y * 2.65) };
     });
     setParachuteEvents((current) => [...current, ...events].slice(-10));
-    const timer = window.setTimeout(() => setParachuteEvents((current) => current.filter((event) => !events.some((item) => item.id === event.id))), 4300);
+    const timer = window.setTimeout(() => setParachuteEvents((current) => current.filter((event) => !events.some((item) => item.id === event.id))), 7600);
     return () => window.clearTimeout(timer);
   }, [state]);
   const maxSingleWallet = Math.max(state?.balance ?? 0, state?.betBalance ?? 0);
@@ -336,11 +346,18 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" style={{left:`${flightPoint.x/12}%`,top:`${flightPoint.y/2.9}%`}} initial={{x:0,y:0,scale:1,opacity:1}} animate={{x:Math.cos(i*Math.PI/7)*150,y:Math.sin(i*Math.PI/7)*105,scale:0,opacity:0}} transition={{duration:.85,ease:'easeOut'}}/>)}
           </motion.div>}
           <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" aria-live="polite">
-            {parachuteEvents.map((event, index) => (
-              <motion.div key={event.id} className="absolute left-[18%] top-[27%] flex flex-col items-center" initial={{ x: 0, y: 0, opacity: 0, scale: .7 }} animate={{ x: [0, 20 + index * 4, 42 + index * 5], y: [0, 78, 184], opacity: [0, 1, 1, 0], rotate: [0, -3, 3] }} transition={{ duration: 4, ease: 'easeOut', times: [0, .12, .82, 1] }}>
-                <svg width="44" height="34" viewBox="0 0 44 34" aria-hidden="true"><path d="M2 18C3 4 13 1 22 1S41 4 42 18Q22 27 2 18Z" fill="#f5c451" stroke="#fff0bd" strokeWidth="1.5"/><path d="M2 18L18 29M42 18L26 29M22 22L22 30" fill="none" stroke="#f8e8c8" strokeWidth="1.4"/></svg>
+            {parachuteEvents.map((event) => (
+              <motion.div
+                key={event.id}
+                className="absolute flex flex-col items-center"
+                style={{ left: `${event.x}%`, top: `${event.y}%`, transform: 'translate(-50%, -50%)' }}
+                initial={{ x: 0, y: 0, opacity: 0, scale: .72 }}
+                animate={{ x: [0, 5, -4, 5, 0], y: [0, event.dropDistance * .28, event.dropDistance * .62, event.dropDistance], opacity: [0, 1, 1, 1, 0], rotate: [0, -2, 2, -1, 0], scale: [.72, 1, 1, 1, .94] }}
+                transition={{ duration: 7.2, ease: 'linear', times: [0, .12, .48, .86, 1] }}
+              >
+                <svg width="48" height="36" viewBox="0 0 48 36" aria-hidden="true" className="drop-shadow-[0_2px_5px_rgba(0,0,0,.35)]"><path d="M2 19C3 5 14 1 24 1S45 5 46 19Q24 29 2 19Z" fill="#f5c451" stroke="#fff0bd" strokeWidth="1.6"/><path d="M2 19L19 32M46 19L29 32M24 25L24 34" fill="none" stroke="#f8e8c8" strokeWidth="1.5"/><path d="M10 13Q24 5 38 13" fill="none" stroke="#fff8dc" strokeWidth="1" opacity=".8"/></svg>
                 <span className="h-4 w-3 rounded-full bg-amber-100 shadow-sm"/>
-                <span className="mt-1 max-w-20 truncate rounded bg-slate-950/60 px-1.5 py-0.5 text-[8px] font-bold text-white">{event.username}</span>
+                <span className="mt-1 max-w-20 truncate rounded bg-slate-950/65 px-1.5 py-0.5 text-[8px] font-bold text-white">{event.username}</span>
               </motion.div>
             ))}
           </div>
