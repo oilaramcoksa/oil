@@ -10,6 +10,7 @@ export async function broadcastGameInvite(
   db: Client,
   input: { game: InviteGame; roundId: string; playerId: string; playerName: string },
 ) {
+  try {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!token || !appUrl) {
@@ -67,5 +68,8 @@ export async function broadcastGameInvite(
       }
     }));
     if (offset + 20 < ids.length) await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  } catch (error) {
+    console.error('game_invite_broadcast_failed', { game: input.game, roundId: input.roundId, error });
   }
 }
