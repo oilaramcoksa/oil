@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { claimMonetagActionReward } from '@/lib/monetag-reward';
+import { useGame } from '@/lib/store';
 
 type MonetagWindow = Window & {
   show_12295910?: (options: {
@@ -21,6 +22,7 @@ type MonetagWindow = Window & {
 };
 
 export function MonetagInAppAds() {
+  const syncServerWalletCoins = useGame((state) => state.syncServerWalletCoins);
   useEffect(() => {
     const w = window as MonetagWindow;
     let attempts = 0;
@@ -38,9 +40,10 @@ export function MonetagInAppAds() {
       }
       w.__armcoMonetagInAppStarted = true;
       window.clearInterval(timer);
+      const ymid = crypto.randomUUID();
       void showAd({
         type: 'inApp',
-        ymid: crypto.randomUUID(),
+        ymid,
         requestVar: 'automatic_in_app',
         inAppSettings: {
           frequency: 2,
@@ -51,12 +54,11 @@ export function MonetagInAppAds() {
         },
       }).then(async (result: unknown) => {
         const adResult = result as { reward_event_type?: string; variable2?: string } | undefined;
-        if (adResult?.reward_event_type === 'valued' && adResult.variable2 === undefined || (adResult?.reward_event_type === 'valued' && adResult.variable2)) {
+        if (adResult?.reward_event_type === 'valued' && (!adResult.variable2 || adResult.variable2 === ymid)) {
           const initData = w.Telegram?.WebApp?.initData ?? '';
-          const ymid = adResult.variable2 || '';
-          if (initData && ymid) {
+          if (initData) {
             const reward = await claimMonetagActionReward({ initData, ymid, purpose: 'automatic_in_app' });
-            window.dispatchEvent(new CustomEvent('armco-wallet-ad-reward', { detail: reward }));
+            syncServerWalletCoins(reward.walletCoins);
           }
         }
       }).catch((error) => {
@@ -65,7 +67,7 @@ export function MonetagInAppAds() {
       });
     }, 250);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [syncServerWalletCoins]);
 
   return null;
 }
