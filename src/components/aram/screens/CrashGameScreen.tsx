@@ -92,14 +92,14 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const liveMultiplier = round?.status === 'running' && round.startedAt
     ? Math.min(20, Math.floor((1 + Math.max(0, serverNow - round.startedAt) / 10_000) * 10) / 10)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
-  // Visual-only flight path. This never feeds the multiplier, crash result, or cashout API.
+  // Visual-only animation state. It never affects multiplier, crash outcome, or cashout.
   const flightElapsedMs = round?.status === 'running' && round.startedAt
     ? Math.max(0, serverNow - round.startedAt)
-    : round?.status === 'crashed'
-      ? Math.max(0, ((round.crashMultiplier ?? 1) - 1) * 10_000)
-      : 0;
+    : 0;
   const flightProgress = Math.min(0.96, flightElapsedMs / 10_000);
-  const flightPoint = getFlightPoint(flightProgress);
+  const breakSecondsLeft = round?.status === 'crashed' && round.crashedAt
+    ? Math.max(0, Math.ceil((round.crashedAt + 60_000 - serverNow) / 1000))
+    : 0;
   const recentCrash = Boolean(state?.previousRound?.crashedAt && serverNow - state.previousRound.crashedAt < 3_500);
   const ownBet = state?.bets.find((bet) => bet.telegramId === telegramUserId);
   const previousOwnBet = state?.previousRound?.bets.find((bet) => bet.telegramId === telegramUserId);
@@ -225,7 +225,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           <motion.div
             className="absolute inset-y-0 left-0 w-[200%]"
             animate={{ x: ['0%', '-50%'] }}
-            transition={{ duration: 38, repeat: Infinity, ease: 'linear' }}
+            animate={{ x: ['0%', '-50%'], y: round?.status === 'running' ? ['-2%', '8%', '-2%'] : ['0%', '0%'] }}
+            transition={{ x: { duration: 38, repeat: Infinity, ease: 'linear' }, y: { duration: 7, repeat: Infinity, ease: 'easeInOut' } }}
           >
             <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="h-full w-full">
               <g fill="#e8f4ff" opacity=".13">
@@ -243,7 +244,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           <motion.div
             className="absolute inset-y-0 left-0 w-[200%]"
             animate={{ x: ['0%', '-50%'] }}
-            transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
+            animate={{ x: ['0%', '-50%'], y: round?.status === 'running' ? ['0%', '13%', '0%'] : ['0%', '0%'] }}
+            transition={{ x: { duration: 25, repeat: Infinity, ease: 'linear' }, y: { duration: 5.5, repeat: Infinity, ease: 'easeInOut' } }}
           >
             <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="h-full w-full">
               <g fill="#fff" opacity=".42">
@@ -268,7 +270,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             <g fill="none" stroke="#f7faff" strokeWidth="1.7" strokeLinecap="round" opacity=".45"><path d="M475 116q7-6 14 0q7-6 14 0M510 132q5-4 10 0q5-4 10 0M1010 106q7-6 14 0q7-6 14 0"/></g>
           </motion.svg>
 
-          {(round?.status === 'running' || round?.status === 'crashed') && (
+          {round?.status === 'running' && (
             <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 z-[8] h-full w-full overflow-visible" aria-hidden="true">
               <defs>
                 <linearGradient id="armco-flight-trail" x1="0" y1="1" x2="1" y2="0">
@@ -281,20 +283,20 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
                   <stop offset="100%" stopColor="#ffb347" stopOpacity=".2"/>
                 </linearGradient>
               </defs>
-              <path d={`M90 250 Q${90 + 510 * flightProgress} ${250 - 60 * flightProgress} ${flightPoint.x} ${flightPoint.y} Z`} fill="url(#armco-flight-fill)" opacity=".72"/>
-              <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#ff7a18" strokeWidth="30" strokeLinecap="round" opacity=".18" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress} style={{filter:'blur(12px)'}}/>
+              <path d={`M90 250 Q510 165 930 80 L90 250 Z`} fill="url(#armco-flight-fill)" opacity=".72"/>
+              <path d="M90 250 Q510 165 930 80" fill="none" stroke="#ff7a18" strokeWidth="30" strokeLinecap="round" opacity=".18" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress} style={{filter:'blur(12px)'}}/>
               <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#ff8b24" strokeWidth="12" strokeLinecap="round" opacity=".38" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress} style={{filter:'blur(5px)'}}/>
               <path d="M90 250 Q600 190 1080 30" fill="none" stroke="url(#armco-flight-trail)" strokeWidth="5.5" strokeLinecap="round" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress}/>
               <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#fff3c4" strokeWidth="1.5" strokeLinecap="round" opacity=".9" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress}/>
               {round?.status === 'running' && Array.from({length:9},(_,i)=>(
-                <motion.circle key={i} cx={Math.max(92,flightPoint.x-(i+1)*13)} cy={Math.min(255,flightPoint.y+(i+1)*3.1)} r={2.5+(i%3)} fill={i%2?'#ffd36b':'#ff7a1a'} initial={{opacity:0}} animate={{opacity:[0,.9,0],r:[2,4,1],cx:[Math.max(92,flightPoint.x-(i+1)*13),Math.max(80,flightPoint.x-(i+1)*23)]}} transition={{duration:.65+(i%3)*.12,repeat:Infinity,delay:i*.055,ease:'easeOut'}}/>
+                <motion.circle key={i} cx={930-(i+1)*13} cy={80+(i+1)*2.7} r={2.5+(i%3)} fill={i%2?'#ffd36b':'#ff7a1a'} initial={{opacity:0}} animate={{opacity:[0,.9,0],r:[2,4,1],cx:[930-(i+1)*13,930-(i+1)*23]}} transition={{duration:.65+(i%3)*.12,repeat:Infinity,delay:i*.055,ease:'easeOut'}}/>
               ))}
             </svg>
           )}
           {round?.status !== 'crashed' && (
             <motion.div
-              className="pointer-events-none absolute z-20 w-[23%] max-w-[112px]"
-              style={{ left: `${flightPoint.x / 12}%`, top: `${flightPoint.y / 2.9}%`, x: '-50%', y: '-50%' }}
+              className="pointer-events-none absolute left-[77.5%] top-[27.5%] z-20 w-[23%] max-w-[112px]"
+              style={{ x: '-50%', y: '-50%' }}
               animate={round?.status === 'running'
                 ? { y: ['-50%', 'calc(-50% - 3px)', '-50%'], rotate: [-18, -16, -18], scale: [1, 1.025, 1] }
                 : { rotate: -18, scale: 1 }}
@@ -330,7 +332,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
         </div>
         <div className="mt-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-[10px] text-amber-100/70">
           <span className="flex items-center gap-1"><Clock3 size={13}/> {round?.status === 'countdown' ? (lang === 'ar' ? 'إغلاق الرهان بعد' : lang === 'ru' ? 'Приём ставок завершится через' : 'Betting closes in') : round?.status === 'running' ? (lang === 'ar' ? 'جولة مباشرة' : lang === 'ru' ? 'Раунд идёт' : 'Live round') : (lang === 'ar' ? 'استراحة الجولة' : lang === 'ru' ? 'Перерыв между раундами' : 'Round break')}</span>
-          <b className="text-amber-300">{round?.status === 'countdown' ? secondsLeft + 's' : round?.status === 'running' ? liveMultiplier.toFixed(2) + 'x' : (lang === 'ar' ? 'استراحة 60 ثانية' : lang === 'ru' ? 'Перерыв 60 сек.' : '60s break')}</b>
+          <b className="text-amber-300">{round?.status === 'countdown' ? secondsLeft + 's' : round?.status === 'running' ? liveMultiplier.toFixed(2) + 'x' : (lang === 'ar' ? 'استراحة ' + breakSecondsLeft + ' ثانية' : lang === 'ru' ? 'Перерыв ' + breakSecondsLeft + ' сек.' : breakSecondsLeft + 's break')}</b>
         </div>
       </section>
 
