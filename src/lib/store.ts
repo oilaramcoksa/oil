@@ -60,6 +60,7 @@ interface GameState {
   userId: string;
   userName: string;
   lang: Lang;
+  languagePreferenceSet: boolean;
   onboarded: boolean;
   acceptedDisclaimer: boolean;
 
@@ -111,6 +112,7 @@ interface GameState {
 
   // actions
   setLang: (l: Lang) => void;
+  setLangFromTelegram: (l: Lang) => void;
   completeOnboarding: () => void;
   acceptDisclaimer: () => void;
   toggleSound: () => void;
@@ -186,6 +188,7 @@ export const useGame = create<GameState>()(
       userId: 'guest_' + Math.random().toString(36).slice(2, 10),
       userName: 'Player',
       lang: 'ar',
+      languagePreferenceSet: false,
       onboarded: false,
       acceptedDisclaimer: false,
 
@@ -228,7 +231,8 @@ export const useGame = create<GameState>()(
       cycleEndsAt: null,
       lastTickAt: null,
 
-      setLang: (l) => set({ lang: l }),
+      setLang: (l) => set({ lang: l, languagePreferenceSet: true }),
+      setLangFromTelegram: (l) => { if (!get().languagePreferenceSet) set({ lang: l }); },
       completeOnboarding: () => set({ onboarded: true }),
       acceptDisclaimer: () => set({ acceptedDisclaimer: true }),
       toggleSound: () => set((s) => ({ sound: !s.sound })),
@@ -506,6 +510,7 @@ export const useGame = create<GameState>()(
         userId: s.userId,
         userName: s.userName,
         lang: s.lang,
+        languagePreferenceSet: s.languagePreferenceSet,
         onboarded: s.onboarded,
         acceptedDisclaimer: s.acceptedDisclaimer,
         oil: s.oil,
