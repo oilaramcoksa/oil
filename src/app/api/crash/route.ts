@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 import { makeCrashPoint, multiplierAt, crashPayout } from '@/lib/crash-game.mjs';
+import { broadcastGameInvite } from '@/lib/game-invite-notice';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -161,9 +162,12 @@ export async function POST(req: NextRequest) {
       const now = Date.now();
 
       if (body.action === 'bet') {
+        let shouldBroadcastInvite = false;
+        let invitePlayerName = '';
         if (String(activeRound.status) !== 'countdown' || Number(activeRound.betting_ends_at) <= now) throw new Error('betting_closed');
         const player = await tx.execute({ sql: "SELECT telegram_id,COALESCE(username,first_name,'Player') AS username FROM players WHERE telegram_id=? AND status='active'", args: [playerId] });
         if (!player.rows.length) throw new Error('player_not_found');
+        invitePlayerName = String(player.rows[0].username || 'Player');
         const existing = await tx.execute({ sql: 'SELECT id FROM crash_bets WHERE round_id=? AND telegram_id=?', args: [roundId, playerId] });
         if (existing.rows.length) throw new Error('already_joined');
         const betWallet = await tx.execute({ sql: 'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,0) ON CONFLICT(telegram_id) DO UPDATE SET updated_at=CURRENT_TIMESTAMP RETURNING balance', args: [playerId] });
@@ -187,7 +191,18 @@ export async function POST(req: NextRequest) {
           sql: "INSERT INTO crash_bets(id,round_id,telegram_id,username,amount,purchased_amount,wallet_amount,status) VALUES(?,?,?,?,?,?,?,'active')",
           args: [randomUUID(), roundId, playerId, String(player.rows[0].username || 'Player'), amount, purchasedAmount, walletAmount],
         });
+        const roundBets = await tx.execute({ sql: 'SELECT COUNT(*) AS total FROM crash_bets WHERE round_id=?', args: [roundId] });
+        if (Number(roundBets.rows[0]?.total ?? 0) === 1) {
+          const notice = await tx.execute({
+            sql: "INSERT OR IGNORE INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'game_invite_broadcast',0,?,?)",
+            args: [randomUUID(), playerId, JSON.stringify({ game: 'crash', roundId }), `game_invite:crash:${roundId}`],
+          });
+          shouldBroadcastInvite = Number(notice.rowsAffected ?? 0) === 1;
+        }
         await tx.commit();
+        if (shouldBroadcastInvite) {
+          await broadcastGameInvite(db, { game: 'crash', roundId, playerId, playerName: invitePlayerName });
+        }
         return NextResponse.json({ ok: true, action: 'bet' }, { headers: { 'Cache-Control': 'no-store' } });
       }
 
