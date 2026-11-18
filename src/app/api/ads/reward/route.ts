@@ -11,6 +11,7 @@ const REWARD_COINS = 100;
 const CYCLE_LIMIT = 30;
 const TADS_LIMIT = 30;
 const ADEXIUM_WIDGET_ID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
+const MONETAG_WIDGET_ID = 12295910;
 const CYCLE_HOURS = 12;
 const CYCLE_TABLE = 'ad_reward_cycles_v4';
 
@@ -48,6 +49,11 @@ async function ensureAdCycleTable() {
     received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, consumed_at TEXT
   )`);
   await db.execute('CREATE INDEX IF NOT EXISTS idx_tads_ad_events_claim ON tads_ad_webhook_events(telegram_id,widget_id,consumed_at,received_at)');
+  await db.execute(`CREATE TABLE IF NOT EXISTS monetag_ad_postbacks (
+    ymid TEXT PRIMARY KEY, telegram_id TEXT NOT NULL, zone_id TEXT NOT NULL,
+    event_type TEXT NOT NULL, reward_event_type TEXT NOT NULL,
+    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, consumed_at TEXT
+  )`);
   await db.execute(`CREATE TABLE IF NOT EXISTS ${CYCLE_TABLE} (
     telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
     views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 30),
@@ -125,16 +131,160 @@ export async function POST(req: NextRequest) {
 
   let body: { widgetId?: unknown; claimId?: unknown; provider?: unknown; taskId?: unknown };
   try { body = await req.json(); } catch { return fail('invalid_body'); }
-  if (body.provider !== 'adexium' && body.provider !== 'tads') return fail('invalid_ad_provider');
+  if (body.provider !== 'adexium' && body.provider !== 'tads' && body.provider !== 'monetag') return fail('invalid_ad_provider');
   const provider = body.provider;
   const adFormat = 'reward';
-  const expectedWidgetId = provider === 'adexium' ? ADEXIUM_WIDGET_ID : TADS_REWARDED_WIDGET_ID;
+  const expectedWidgetId = provider === 'adexium' ? ADEXIUM_WIDGET_ID : provider === 'tads' ? TADS_REWARDED_WIDGET_ID : MONETAG_WIDGET_ID;
   const rewardCoins = REWARD_COINS;
   if (String(body.widgetId) !== String(expectedWidgetId)) return fail('invalid_reward_widget', 400);
   const claimId = provider === 'adexium'
     ? (typeof body.taskId === 'string' ? body.taskId : '')
-    : (typeof body.claimId === 'string' ? body.claimId : '');
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId)) return fail('invalid_claim_id');
+    : provider === 'tads'
+      ? (typeof body.claimId === 'string' ? body.claimId : '')
+      : (typeof body.ymid === 'string' ? body.ymid : '');
+  const validClaimId = provider === 'monetag'
+    ? new RegExp(`^${String(user.id)}_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}import { randomUUID } from 'node:crypto';
+import { NextRequest, NextResponse } from 'next/server';
+import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
+import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const TADS_REWARDED_WIDGET_ID = 13283;
+const REWARD_COINS = 100;
+const CYCLE_LIMIT = 30;
+const TADS_LIMIT = 30;
+const ADEXIUM_WIDGET_ID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
+const MONETAG_WIDGET_ID = 12295910;
+const CYCLE_HOURS = 12;
+const CYCLE_TABLE = 'ad_reward_cycles_v4';
+
+function fail(error: string, status = 400) {
+  return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
+}
+
+async function ensureAdCycleTable() {
+  const db = getTurso();
+  await db.execute(`CREATE TABLE IF NOT EXISTS ad_reward_cycles (
+    telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+    views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 10),
+    cooldown_until TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS ad_reward_cycles_v2 (
+    telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+    views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 30),
+    adsgram_views INTEGER NOT NULL DEFAULT 0 CHECK(adsgram_views >= 0 AND adsgram_views <= 20),
+    tads_views INTEGER NOT NULL DEFAULT 0 CHECK(tads_views >= 0 AND tads_views <= 10),
+    cooldown_until TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS ad_reward_cycles_v3 (
+    telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+    views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 30),
+    tads_views INTEGER NOT NULL DEFAULT 0 CHECK(tads_views >= 0 AND tads_views <= 30),
+    cooldown_until TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS tads_ad_webhook_events (
+    id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL,
+    widget_id TEXT NOT NULL CHECK(widget_id IN ('13283','13284')),
+    event_type TEXT NOT NULL CHECK(event_type IN ('view','click')),
+    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, consumed_at TEXT
+  )`);
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_tads_ad_events_claim ON tads_ad_webhook_events(telegram_id,widget_id,consumed_at,received_at)');
+  await db.execute(`CREATE TABLE IF NOT EXISTS monetag_ad_postbacks (
+    ymid TEXT PRIMARY KEY, telegram_id TEXT NOT NULL, zone_id TEXT NOT NULL,
+    event_type TEXT NOT NULL, reward_event_type TEXT NOT NULL,
+    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, consumed_at TEXT
+  )`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS ${CYCLE_TABLE} (
+    telegram_id TEXT PRIMARY KEY REFERENCES players(telegram_id) ON DELETE CASCADE,
+    views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 30),
+    tads_views INTEGER NOT NULL DEFAULT 0 CHECK(tads_views >= 0 AND tads_views <= 30),
+    adexium_views INTEGER NOT NULL DEFAULT 0 CHECK(adexium_views >= 0 AND adexium_views <= 30),
+    cooldown_until TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await db.execute(`INSERT OR IGNORE INTO ${CYCLE_TABLE}
+    (telegram_id, views, tads_views, adexium_views, cooldown_until, updated_at)
+    SELECT telegram_id, MIN(views, 30), MIN(views, 30), 0, cooldown_until, updated_at FROM ad_reward_cycles_v3`);
+  await db.execute(`INSERT OR IGNORE INTO ${CYCLE_TABLE}
+    (telegram_id, views, tads_views, adexium_views, cooldown_until, updated_at)
+    SELECT telegram_id, MIN(views, 30), MIN(views, 30), 0, cooldown_until, updated_at FROM ad_reward_cycles_v2`);
+  await db.execute(`INSERT OR IGNORE INTO ${CYCLE_TABLE}
+    (telegram_id, views, tads_views, adexium_views, cooldown_until, updated_at)
+    SELECT telegram_id, MIN(views, 30), MIN(views, 30), 0, cooldown_until, updated_at FROM ad_reward_cycles`);
+}
+
+function cycleResponse(
+  used: number,
+  tadsUsed: number,
+  adexiumUsed: number,
+  cooldownUntilMs: number | null,
+) {
+  const locked = cooldownUntilMs !== null && cooldownUntilMs > Date.now();
+  return {
+    used: locked ? CYCLE_LIMIT : used,
+    limit: CYCLE_LIMIT,
+    remaining: locked ? 0 : Math.max(0, CYCLE_LIMIT - used),
+    cooldownUntil: locked ? cooldownUntilMs : null,
+    locked,
+    rewardPerAd: REWARD_COINS,
+    totalCycleReward: CYCLE_LIMIT * REWARD_COINS,
+    tads: { used: locked ? TADS_LIMIT : tadsUsed, limit: TADS_LIMIT, remaining: locked ? 0 : Math.max(0, TADS_LIMIT - tadsUsed) },
+    adexium: { used: locked ? CYCLE_LIMIT : adexiumUsed, limit: CYCLE_LIMIT, remaining: locked ? 0 : Math.max(0, CYCLE_LIMIT - adexiumUsed) },
+    nextProvider: used % 2 === 0 ? 'adexium' : 'tads',
+  };
+}
+
+export async function GET(req: NextRequest) {
+  const user = verifiedPlayerFromRequest(req);
+  if (!user) return fail('telegram_auth_required', 401);
+  try {
+    await ensureDatabaseSchema();
+    await ensureAdCycleTable();
+    const db = getTurso();
+    await db.execute({
+      sql: `UPDATE ${CYCLE_TABLE}
+        SET views=0, tads_views=0, adexium_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP
+        WHERE telegram_id=? AND cooldown_until IS NOT NULL AND datetime(cooldown_until) <= datetime('now')`,
+      args: [String(user.id)],
+    });
+    const result = await db.execute({
+      sql: `SELECT views, tads_views, adexium_views,
+        CASE WHEN cooldown_until IS NOT NULL AND datetime(cooldown_until) > datetime('now')
+        THEN CAST(strftime('%s', cooldown_until) AS INTEGER) * 1000 ELSE NULL END AS cooldown_until_ms
+        FROM ${CYCLE_TABLE} WHERE telegram_id=?`,
+      args: [String(user.id)],
+    });
+    const row = result.rows[0];
+    return NextResponse.json(cycleResponse(
+      Number(row?.views ?? 0), Number(row?.tads_views ?? 0), Number(row?.adexium_views ?? 0),
+      row?.cooldown_until_ms == null ? null : Number(row.cooldown_until_ms),
+    ), { headers: { 'Cache-Control': 'no-store, private' } });
+  } catch (error) {
+    console.error('tads_ad_progress_failed', error);
+    return fail('ad_reward_unavailable', 503);
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const user = verifiedPlayerFromRequest(req);
+  if (!user) return fail('telegram_auth_required', 401);
+
+  let body: { widgetId?: unknown; claimId?: unknown; provider?: unknown; taskId?: unknown };
+  try { body = await req.json(); } catch { return fail('invalid_body'); }
+  if (body.provider !== 'adexium' && body.provider !== 'tads' && body.provider !== 'monetag') return fail('invalid_ad_provider');
+  const provider = body.provider;
+  const adFormat = 'reward';
+  const expectedWidgetId = provider === 'adexium' ? ADEXIUM_WIDGET_ID : provider === 'tads' ? TADS_REWARDED_WIDGET_ID : MONETAG_WIDGET_ID;
+  const rewardCoins = REWARD_COINS;
+  if (String(body.widgetId) !== String(expectedWidgetId)) return fail('invalid_reward_widget', 400);
+, 'i').test(claimId)
+    : /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId);
+  if (!validClaimId) return fail('invalid_claim_id');
   if (provider === 'adexium') {
     try {
       const check = await fetch(`https://bid.tgads.live/task/check/${encodeURIComponent(ADEXIUM_WIDGET_ID)}/${encodeURIComponent(claimId)}`, {
@@ -197,6 +347,14 @@ export async function POST(req: NextRequest) {
         }, { headers: { 'Cache-Control': 'no-store' } });
       }
 
+      if (provider === 'monetag') {
+        const verified = await tx.execute({
+          sql: "SELECT ymid FROM monetag_ad_postbacks WHERE ymid=? AND telegram_id=? AND zone_id=? AND event_type='impression' AND reward_event_type='valued' AND consumed_at IS NULL LIMIT 1",
+          args: [claimId, telegramId, String(MONETAG_WIDGET_ID)],
+        });
+        if (!verified.rows.length) { await tx.rollback(); return fail('monetag_postback_not_verified', 409); }
+        await tx.execute({ sql: 'UPDATE monetag_ad_postbacks SET consumed_at=CURRENT_TIMESTAMP WHERE ymid=? AND consumed_at IS NULL', args: [claimId] });
+      }
       const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [telegramId] });
       if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
       await tx.execute({ sql: `INSERT OR IGNORE INTO ${CYCLE_TABLE}(telegram_id) VALUES (?)`, args: [telegramId] });
