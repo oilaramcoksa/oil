@@ -106,7 +106,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const flightPoint = flightElapsedMs < 650
     ? { x: 90 + runwayProgress * 125, y: 250 }
     : getFlightPoint(flightProgress);
-  const flightVisible = round?.status === 'running' || round?.status === 'crashed';
+  const flightVisible = round?.status === 'running';
   const trailPath = `M90 250 Q${90 + (600 - 90) * flightProgress} ${250 + (190 - 250) * flightProgress} ${flightPoint.x} ${flightPoint.y}`;
   const trailFill = `${trailPath} L90 250 Z`;
   const breakSecondsLeft = round?.status === 'crashed' && round.crashedAt
@@ -325,7 +325,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           {showExplosion && <motion.div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.05, times: [0, .18, 1] }}>
             <motion.img src="/flydawn.png" alt="" draggable={false} className="absolute w-[42%] max-w-[190px] object-contain drop-shadow-[0_0_32px_rgba(249,115,22,1)]" style={{left:`${flightPoint.x/12}%`,top:`${flightPoint.y/2.9}%`,transform:'translate(-50%,-50%)'}} initial={{scale:.9,opacity:0,rotate:-2}} animate={{scale:[.9,1.08,1.2],opacity:[0,1,0],rotate:[-2,1,5]}} transition={{duration:.72,times:[0,.12,1],ease:'easeOut'}}/>
             <motion.div className="absolute h-20 w-20 rounded-full bg-yellow-200/90 blur-md" style={{left:`${flightPoint.x/12}%`,top:`${flightPoint.y/2.9}%`,transform:'translate(-50%,-50%)'}} initial={{ scale: .15 }} animate={{ scale: [0.15, 3.6, 5.2], opacity: [1, .85, 0] }} transition={{ duration: .85, ease: 'easeOut' }}/>
-            {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute left-1/2 top-[36%] h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" initial={{ x: 0, y: 0, scale: 1, opacity: 1 }} animate={{ x: Math.cos(i*Math.PI/7)*150, y: Math.sin(i*Math.PI/7)*105, scale: 0, opacity: 0 }} transition={{ duration: .85, ease: 'easeOut' }}/>)}
+            {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" style={{left:`${flightPoint.x/12}%`,top:`${flightPoint.y/2.9}%`}} initial={{x:0,y:0,scale:1,opacity:1}} animate={{x:Math.cos(i*Math.PI/7)*150,y:Math.sin(i*Math.PI/7)*105,scale:0,opacity:0}} transition={{duration:.85,ease:'easeOut'}}/>)}
           </motion.div>}
           <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" aria-live="polite">
             {parachuteEvents.map((event, index) => (
