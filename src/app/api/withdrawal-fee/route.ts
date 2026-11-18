@@ -4,14 +4,16 @@ import { Address } from '@ton/core';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { getVerifiedTelegramUser } from '@/lib/telegram-auth';
 import { WALLETS } from '@/lib/wallets';
+import { COINS_PER_USD, isValidTonAddress } from '@/lib/withdraw';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const RECEIVER = process.env.TON_MINING_FEE_WALLET || WALLETS.find((wallet) => wallet.code === 'gram')?.address || '';
-const TONCENTER = (process.env.TONCENTER_API_URL || 'https://toncenter.com/api/v2').replace(/\\/$/, '');
+const TONCENTER = (process.env.TONCENTER_API_URL || 'https://toncenter.com/api/v2').replace(/\/$/, '');
 const FEE_NANOTON = '1000000000';
 const PAYMENT_WINDOW_MS = 30 * 60 * 1000;
+const WITHDRAWAL_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
 function error(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -45,10 +47,22 @@ export async function POST(req: NextRequest) {
   const units = Number(body.units);
   const tonAddress = typeof body.tonAddress === 'string' ? body.tonAddress.trim() : '';
   if (!Number.isSafeInteger(units) || units < 100 || units > 1000) return error('invalid_units');
-  if (!tonAddress || tonAddress.length > 128) return error('invalid_ton_address');
+  if (!isValidTonAddress(tonAddress)) return error('invalid_ton_address');
   try {
     await ensureDatabaseSchema();
     const db = getTurso();
+    const telegramId = String(user.id);
+    const [player, wallet, lastRequest] = await Promise.all([
+      db.execute({ sql: "SELECT status FROM players WHERE telegram_id=?", args: [telegramId] }),
+      db.execute({ sql: "SELECT coins_balance FROM player_wallets WHERE telegram_id=?", args: [telegramId] }),
+      db.execute({ sql: "SELECT created_at FROM (SELECT created_at FROM withdrawal_requests WHERE telegram_id=? UNION ALL SELECT created_at FROM usdt_withdrawal_requests WHERE telegram_id=?) ORDER BY created_at DESC LIMIT 1", args: [telegramId, telegramId] }),
+    ]);
+    if (!player.rows.length || player.rows[0].status !== 'active') return error('player_not_active', 403);
+    if (Number(wallet.rows[0]?.coins_balance ?? 0) < units * COINS_PER_USD) return error('insufficient_balance', 409);
+    const lastAt = timestamp(lastRequest.rows[0]?.created_at);
+    if (lastAt && lastAt + WITHDRAWAL_COOLDOWN_MS > Date.now()) {
+      return NextResponse.json({ error: 'withdrawal_cooldown', remainingMs: lastAt + WITHDRAWAL_COOLDOWN_MS - Date.now() }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
+    }
     const id = randomUUID();
     const comment = 'ARMCO WITHDRAWAL FEE ' + id;
     const expiresAt = Date.now() + PAYMENT_WINDOW_MS;
