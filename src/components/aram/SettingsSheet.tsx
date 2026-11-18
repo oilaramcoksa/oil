@@ -1,10 +1,12 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 import { useGame } from '@/lib/store';
+import { LuckyWheel } from '@/components/aram/LuckyWheel';
 import { t, LANGS, type Lang } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
-import { X, Globe, Volume2, Vibrate, Info, ChevronLeft, Droplet, Database } from 'lucide-react';
+import { X, Globe, Volume2, Vibrate, Info, ChevronLeft, Droplet, Database, Gift } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTelegram } from '@/hooks/use-telegram';
 
@@ -14,6 +16,7 @@ interface Props {
 }
 
 export function SettingsSheet({ open, onClose }: Props) {
+  const [luckyWheelOpen, setLuckyWheelOpen] = useState(false);
   const lang = useGame((s) => s.lang);
   const setLang = useGame((s) => s.setLang);
   const sound = useGame((s) => s.sound);
@@ -86,6 +89,11 @@ export function SettingsSheet({ open, onClose }: Props) {
                 </div>
               </div>
 
+              <button type="button" onClick={() => { haptic('light'); setLuckyWheelOpen(true); }} className="group relative w-full overflow-hidden rounded-2xl border border-amber-300/50 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 p-3 text-left text-[#321b08] shadow-lg transition hover:brightness-105 active:scale-[.99]">
+                <span className="absolute -right-3 -top-5 text-6xl opacity-20">🎁</span>
+                <span className="relative flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-white/25 shadow-inner"><Gift className="h-6 w-6" /></span><span className="min-w-0 flex-1"><span className="block text-sm font-black">{t(lang, 'luckyWheelTitle')}</span><span className="block text-[10px] font-bold opacity-75">{t(lang, 'luckyWheelSubtitle')}</span></span><span className="text-xl font-black">›</span></span>
+              </button>
+
               {/* Toggles */}
               <div className="aram-card-dark rounded-2xl p-3 space-y-2">
                 <div className="flex items-center justify-between">
@@ -126,6 +134,7 @@ export function SettingsSheet({ open, onClose }: Props) {
           </motion.div>
         </motion.div>
       )}
+      <LuckyWheel open={luckyWheelOpen} onClose={() => setLuckyWheelOpen(false)} />
     </AnimatePresence>
   );
 }
