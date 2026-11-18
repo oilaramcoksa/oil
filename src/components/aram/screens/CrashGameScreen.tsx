@@ -121,7 +121,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     return () => window.clearTimeout(timer);
   }, [state]);
   const maxSingleWallet = Math.max(state?.balance ?? 0, state?.betBalance ?? 0);
-  // The API remains the authority for Telegram verification and round timing; the UI only gates on an open betting phase and one entry per round.\n  const canBet = Boolean(round?.status === 'countdown' && !ownBet && !loading && initData);
+  // The API remains the authority for Telegram verification and round timing; the UI only gates on an open betting phase and one entry per round.
+  const canBet = Boolean(round?.status === 'countdown' && !ownBet && !loading && initData);
   const canCashout = Boolean(round?.status === 'running' && ownBet?.status === 'active' && !loading);
 
   const playTone = (frequency: number, duration = 0.12) => {
