@@ -73,11 +73,12 @@ export function LuckyWheel({ open, onClose }: { open: boolean; onClose: () => vo
     } finally { setLoading(false); }
   };
 
-  const onAdRewarded = useCallback(() => {
+  const onAdRewarded = useCallback((_reward: number, walletCoins: number) => {
+    syncServerWalletCoins(walletCoins);
     haptic('light');
     setMessage(t(lang, 'luckyWheelAdDone'));
     void loadState().catch(() => undefined);
-  }, [haptic, loadState, lang]);
+  }, [haptic, loadState, lang, syncServerWalletCoins]);
   const onAdError = useCallback(() => {
     setMessage(t(lang, 'luckyWheelTryLater'));
     void loadState().catch(() => undefined);
