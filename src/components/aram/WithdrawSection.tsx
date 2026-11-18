@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { ArrowUpFromLine, Check, Clock, ShieldCheck, X, Minus, Plus, Loader2 } from 'lucide-react';
 import { useGame } from '@/lib/store';
 import { t } from '@/lib/i18n';
+import { getTonConnectUI } from '@/lib/ton-connect';
 import {
   COINS_PER_USD,
   MIN_UNITS,
@@ -32,10 +33,11 @@ export function WithdrawSection() {
   const requestWithdrawal = useGame((s) => s.requestWithdrawal);
   const syncWithdrawals = useGame((s) => s.syncWithdrawals);
 
+  const feeStorageKey = typeof window !== 'undefined' ? 'armcooil:withdrawal-fee:' + String(window.Telegram?.WebApp?.initDataUnsafe?.user?.id ?? 'guest') : 'armcooil:withdrawal-fee:guest';
   const [units, setUnits] = useState(MIN_UNITS);
   const [address, setAddress] = useState(savedAddress);
   const [touched, setTouched] = useState(false);
-  const [pendingFeePaymentId, setPendingFeePaymentId] = useState<string | null>(null);
+  const [pendingFeePaymentId, setPendingFeePaymentId] = useState<string | null>(() => typeof window !== 'undefined' ? window.sessionStorage.getItem(feeStorageKey) : null);
   const [tonConnector, setTonConnector] = useState<import('@tonconnect/ui').TonConnectUI | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -44,16 +46,20 @@ export function WithdrawSection() {
 
   useEffect(() => {
     let alive = true;
-    void import('@tonconnect/ui').then(({ TonConnectUI }) => {
-      if (!alive) return;
-      const connector = new TonConnectUI({
-        manifestUrl: new URL('/api/mining/activation/tonconnect-manifest.json', window.location.origin).toString(),
-        restoreConnection: true,
-      });
+    void getTonConnectUI().then((connector) => {
       if (alive) setTonConnector(connector);
     }).catch((error) => console.error('withdrawal_tonconnect_init_failed', error));
     return () => { alive = false; };
   }, []);
+
+  useEffect(() => {
+    if (pendingFeePaymentId) window.sessionStorage.setItem(feeStorageKey, pendingFeePaymentId);
+    else window.sessionStorage.removeItem(feeStorageKey);
+  }, [pendingFeePaymentId, feeStorageKey]);
+
+  useEffect(() => {
+    if (withdrawals.length && !withdrawals.some((item) => item.status === 'pending')) setSubmitted(false);
+  }, [withdrawals]);
 
   // Refresh the cooldown display every second.
   useEffect(() => {
@@ -188,9 +194,15 @@ export function WithdrawSection() {
         </div>
       ) : cooldownRemainingMs > 0 ? (
         <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-center">
-          <div className="text-[11px] font-black text-sky-800">{t(lang, 'withdrawCooldown')}</div>
-          <div className="mt-1 text-2xl font-black tabular-nums tracking-wider text-sky-700">{formatCooldown(cooldownRemainingMs)}</div>
-          <div className="mt-1 text-[10px] font-bold text-sky-700/70">48 {lang === 'ar' ? 'ساعة بين كل طلب سحب' : lang === 'ru' ? 'часов между запросами на вывод' : 'hours between withdrawals'}</div>
+          {hasPendingRequest ? (
+            <div className="text-[11px] font-black text-emerald-800">{reviewText[lang] ?? reviewText.en}</div>
+          ) : (
+            <>
+              <div className="text-[11px] font-black text-sky-800">{t(lang, 'withdrawCooldown')}</div>
+              <div className="mt-1 text-2xl font-black tabular-nums tracking-wider text-sky-700">{formatCooldown(cooldownRemainingMs)}</div>
+              <div className="mt-1 text-[10px] font-bold text-sky-700/70">48 {lang === 'ar' ? 'ساعة بين كل طلب سحب' : lang === 'ru' ? 'часов между запросами на вывод' : 'hours between withdrawals'}</div>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -202,6 +214,7 @@ export function WithdrawSection() {
             <div className="flex items-center gap-2 mt-1">
               <button
                 type="button"
+                disabled={Boolean(pendingFeePaymentId)}
                 onClick={() => setUnits(Math.max(MIN_UNITS, safeUnits - 1))}
                 className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center active:scale-95"
               >
@@ -215,6 +228,7 @@ export function WithdrawSection() {
               </div>
               <button
                 type="button"
+                disabled={Boolean(pendingFeePaymentId)}
                 onClick={() => setUnits(Math.min(max, safeUnits + 1))}
                 className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center active:scale-95"
               >
@@ -222,6 +236,7 @@ export function WithdrawSection() {
               </button>
               <button
                 type="button"
+                disabled={Boolean(pendingFeePaymentId)}
                 onClick={() => setUnits(max)}
                 className="px-2.5 h-9 rounded-lg bg-amber-500 text-white text-[11px] font-black active:scale-95"
               >
@@ -236,6 +251,7 @@ export function WithdrawSection() {
             <input
               dir="ltr"
               value={address}
+              disabled={Boolean(pendingFeePaymentId)}
               onChange={(e) => setAddress(e.target.value)}
               onBlur={() => setTouched(true)}
               placeholder={t(lang, 'wdAddressPh')}
