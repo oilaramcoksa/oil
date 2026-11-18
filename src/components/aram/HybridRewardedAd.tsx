@@ -140,7 +140,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       if (pendingRef.current && providerRef.current === 'monetag' && !completedRef.current) {
         pendingRef.current = false; busyRef.current = false; setBusy(false); onError('no_ad_available');
       }
-    }, 20000);
+    }, 120000);
     try {
       if (!window.show_12295910) throw new Error('monetag_sdk_unavailable');
       const result = await window.show_12295910({ ymid: taskIdRef.current, requestVar: 'rewarded_coins' });
