@@ -191,12 +191,14 @@ export async function POST(req: NextRequest) {
       const oldBalance = Number(wallet.rows[0].coins_balance);
       const newBalance = oldBalance + prize;
       if (!Number.isSafeInteger(oldBalance) || oldBalance < 0 || !Number.isSafeInteger(newBalance)) { await tx.rollback(); return fail('wallet_balance_invalid', 409); }
-      await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [newBalance, prize, telegramId] });
-      await tx.execute({ sql: 'INSERT INTO lucky_wheel_spins(id,telegram_id,prize,prize_index,spin_type,request_id) VALUES(?,?,?,?,?,?)', args: [spinId, telegramId, prize, prizeIndex, spinType, requestId] });
+      // Insert the auditable reward first. The daily-cap trigger recognizes
+      // this exact ledger entry and exempts lucky-wheel prizes from the cap.
       await tx.execute({
         sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','lucky_wheel',?,?,'lucky_wheel',?,?,?)",
-        args: [randomUUID(), telegramId, prize, newBalance, spinId, `lucky_wheel:${spinId}`, JSON.stringify({ spinType, prizeIndex })],
+        args: [randomUUID(), telegramId, prize, newBalance, spinId, `lucky_wheel:${spinId}`, JSON.stringify({ spinType, prizeIndex, dailyCapExempt: true })],
       });
+      await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [newBalance, prize, telegramId] });
+      await tx.execute({ sql: 'INSERT INTO lucky_wheel_spins(id,telegram_id,prize,prize_index,spin_type,request_id) VALUES(?,?,?,?,?,?)', args: [spinId, telegramId, prize, prizeIndex, spinType, requestId] });
       await tx.execute({
         sql: 'INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,\'lucky_wheel_win\',?,?,?)',
         args: [randomUUID(), telegramId, prize, JSON.stringify({ spinType, prizeIndex, spinId }), `lucky_wheel_win:${spinId}`],
