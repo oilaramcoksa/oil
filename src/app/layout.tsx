@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { TadsProvider } from "@/components/aram/TadsProvider";
 import { MonetagInAppAds } from "@/components/aram/MonetagInAppAds";
 import Script from "next/script";
 
@@ -73,10 +72,8 @@ export default function RootLayout({
         <Script src="https://libtl.com/sdk.js" data-zone="12295910" data-sdk="show_12295910" strategy="afterInteractive" />
       </head>
       <body className="antialiased bg-background text-foreground aram-bg">
-        <TadsProvider>
-          <MonetagInAppAds />
-          {children}
-        </TadsProvider>
+        <MonetagInAppAds />
+        {children}
         <Toaster />
       </body>
     </html>
