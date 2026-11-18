@@ -44,7 +44,7 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
           if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
-          // Keep the instant-crash result visible during the normal 50-second break.
+          // Keep the instant-crash result visible during the normal 60-second break.
           // The next round is created by the crashed-state transition below.
         }
       } else if (status === 'running') {
@@ -55,12 +55,7 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
           if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
-          const nextId = randomUUID();
-          const nextSeed = randomBytes(32).toString('hex');
-          await tx.execute({
-            sql: "INSERT INTO crash_rounds(id,status,betting_ends_at,crash_multiplier,server_seed,seed_hash) VALUES(?,'countdown',?,?,?,?)",
-            args: [nextId, now + BETTING_MS, makeCrashPoint(nextSeed, nextId), nextSeed, hash(nextSeed)],
-          });
+          // Keep the crashed round visible for the full 60-second break before opening new bets.
         }
       } else if (status === 'crashed' && Number(round.crashed_at ?? now) + CRASH_WAIT_MS <= now) {
         const id = randomUUID();
@@ -222,12 +217,7 @@ export async function POST(req: NextRequest) {
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
           if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [roundId] });
-        const nextId = randomUUID();
-        const nextSeed = randomBytes(32).toString('hex');
-        await tx.execute({
-          sql: "INSERT INTO crash_rounds(id,status,betting_ends_at,crash_multiplier,server_seed,seed_hash) VALUES(?,'countdown',?,?,?,?)",
-          args: [nextId, now + BETTING_MS, makeCrashPoint(nextSeed, nextId), nextSeed, hash(nextSeed)],
-        });
+        // Keep the crashed round current until CRASH_WAIT_MS elapses.
         await tx.commit();
         return fail('round_crashed');
       }
