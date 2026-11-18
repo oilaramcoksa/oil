@@ -7,7 +7,7 @@ import { calculateArenaSettlement } from '@/lib/arena-settlement.mjs';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const MIN_ENTRY = 100;
+const MIN_ENTRY = 1_000;
 const COUNTDOWN_MS = 30_000;
 const SPIN_MS = 7_000;
 const HOUSE_SLICE = 0.25;
