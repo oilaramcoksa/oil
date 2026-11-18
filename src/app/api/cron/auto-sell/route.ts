@@ -58,11 +58,19 @@ export async function GET(req: NextRequest) {
         WHERE p.status='active'
           AND (p.fee_exempt=1 OR p.mining_fee_paid_at IS NOT NULL)
           AND sp.expires_at IS NOT NULL AND sp.expires_at>?
-          AND (gs.cycle_ends_at IS NULL OR gs.cycle_ends_at<=?)
+          AND (
+            (gs.cycle_ends_at IS NULL AND (
+              sp.expires_at>? OR EXISTS (
+                SELECT 1 FROM player_wallets w
+                WHERE w.telegram_id=p.telegram_id AND w.oil_balance>0
+              )
+            ))
+            OR (gs.cycle_ends_at IS NOT NULL AND gs.cycle_ends_at<=?)
+          )
           AND COALESCE(pc.status,'active')='active'
         GROUP BY p.telegram_id,gs.cycle_ends_at
         ORDER BY COALESCE(gs.cycle_ends_at,0) ASC LIMIT 50`,
-      args: [now, now],
+      args: [now, now + CYCLE_MS, now],
     });
 
     let soldPlayers = 0;
