@@ -2,11 +2,10 @@
 
 Main SDK zone: `12295910`
 
-The app loads the Monetag SDK once in `src/app/layout.tsx`. The three supported formats are enabled:
+The app loads the Monetag SDK once in `src/app/layout.tsx`. The app uses Monetag as its only advertising provider:
 
-1. Rewarded Interstitial — user-initiated reward ad.
-2. Rewarded Popup — a separate user-click action that opens the popup format.
-3. In-App Interstitial — automatic format configured globally in the Telegram Mini App.
+1. Rewarded Interstitial for task rewards and gameplay actions.
+2. In-App Interstitial for automatic placements inside the Mini App.
 
 ## Server-side postback setup
 
@@ -18,15 +17,17 @@ In Monetag SSP, open the main SDK zone settings and configure this Postback URL,
 
 `https://YOUR_APP_DOMAIN/api/ads/monetag/postback?secret=YOUR_SECRET&ymid={ymid}&zone_id={zone_id}&sub_zone_id={sub_zone_id}&event_type={event_type}&reward_event_type={reward_event_type}&request_var={request_var}&telegram_id={telegram_id}&estimated_price={estimated_price}`
 
-Use HTTPS and do not add a redirect. One postback URL on the main zone covers all three formats. Monetag distinguishes the delivered format using `sub_zone_id` and `request_var`.
+Use HTTPS and do not add a redirect. One postback URL on the main zone covers the Monetag formats used by the app. Monetag distinguishes the delivered format using `sub_zone_id` and `request_var`.
 
 ## Reward security
 
-- Rewarded Interstitial and Rewarded Popup send a unique UUID as `ymid`.
+- Each rewarded view sends a unique UUID as `ymid`.
 - The frontend Promise is used for UI feedback only.
 - Wallet credit is granted only after the server receives a matching Monetag postback for the authenticated Telegram player, main zone `12295910`, `event_type=impression`, and `reward_event_type=valued`.
 - Each `ymid` can be consumed only once. Monetag postback retries do not grant duplicate rewards.
-- In-App Interstitial is automatic and does not grant coins. It is configured with frequency 2, capping 0.1 hours, interval 30 seconds, timeout 5 seconds, and `everyPage=false`.
+- Every valued Monetag view grants exactly 20 coins, including task, sale, mining-start, lucky-wheel, and in-app placements.
+- Sale and mining-start actions continue if Monetag has no ad inventory, but no reward is granted without a verified valued postback.
+- In-App Interstitial is configured with frequency 2, capping 0.1 hours, interval 30 seconds, timeout 5 seconds, and `everyPage=false`.
 
 ## Deployment checklist
 
