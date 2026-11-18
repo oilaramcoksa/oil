@@ -15,7 +15,7 @@ type Props = {
   rewardPurpose?: 'coins' | 'lucky_wheel';
 };
 
-export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loadingLabel, onRewarded, rewardPurpose = 'coins' }: Props) {
+export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loadingLabel, onRewarded, onError, rewardPurpose = 'coins' }: Props) {
   const [busy, setBusy] = useState(false);
   const [cycle, setCycle] = useState<{ used: number; remaining: number; cooldownUntil: number | null } | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -59,6 +59,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     } catch (error) {
       console.warn('Monetag rewarded ad failed', error);
       const message = error instanceof Error ? error.message : 'monetag_ad_failed';
+      onError(message);
       if (message === 'ad_cycle_cooldown' || message === 'ad_cycle_limit_reached') await loadCycle().catch(() => undefined);
     } finally {
       setBusy(false);
