@@ -315,6 +315,9 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             {tipLoading ? <Loader2 className="mx-auto h-4 w-4 animate-spin"/> : t(lang, 'planeTipsUse')}
           </button>
         </div>
+        <button type="button" onClick={() => window.dispatchEvent(new Event('open-plane-tips-store'))} className="mt-2 min-h-10 w-full rounded-xl border border-amber-300/40 bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-2 text-xs font-black text-[#3c210c] shadow-md transition active:scale-[.98]">
+          {t(lang, 'planeTipsBuy')}
+        </button>
         {tipResult && (
           <div className={`mt-3 rounded-xl border p-3 text-sm font-black ${tipResult.advice === 'no_entry' ? 'border-rose-300/40 bg-rose-500/15 text-rose-100' : tipResult.advice === 'high_risk' ? 'border-amber-300/40 bg-amber-500/15 text-amber-100' : 'border-emerald-300/40 bg-emerald-500/15 text-emerald-100'}`}>
             {t(lang, tipResult.advice === 'no_entry' ? 'planeTipsRiskNoEntry' : tipResult.advice === 'high_risk' ? 'planeTipsRiskHigh' : 'planeTipsRiskBetter')}
