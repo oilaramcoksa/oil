@@ -37,7 +37,8 @@ export function WithdrawSection() {
   const [units, setUnits] = useState(MIN_UNITS);
   const [address, setAddress] = useState(savedAddress);
   const [touched, setTouched] = useState(false);
-  const [pendingFeePaymentId, setPendingFeePaymentId] = useState<string | null>(() => typeof window !== 'undefined' ? window.sessionStorage.getItem(feeStorageKey) : null);
+  const [pendingFeePaymentId, setPendingFeePaymentId] = useState<string | null>(null);
+  const [feeStorageReady, setFeeStorageReady] = useState(false);
   const [tonConnector, setTonConnector] = useState<import('@tonconnect/ui').TonConnectUI | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -53,9 +54,16 @@ export function WithdrawSection() {
   }, []);
 
   useEffect(() => {
+    const storedPaymentId = window.sessionStorage.getItem(feeStorageKey);
+    if (storedPaymentId) setPendingFeePaymentId(storedPaymentId);
+    setFeeStorageReady(true);
+  }, [feeStorageKey]);
+
+  useEffect(() => {
+    if (!feeStorageReady) return;
     if (pendingFeePaymentId) window.sessionStorage.setItem(feeStorageKey, pendingFeePaymentId);
     else window.sessionStorage.removeItem(feeStorageKey);
-  }, [pendingFeePaymentId, feeStorageKey]);
+  }, [pendingFeePaymentId, feeStorageKey, feeStorageReady]);
 
   useEffect(() => {
     if (withdrawals.length && !withdrawals.some((item) => item.status === 'pending')) setSubmitted(false);
