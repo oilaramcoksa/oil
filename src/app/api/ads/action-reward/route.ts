@@ -27,19 +27,22 @@ export async function POST(req: NextRequest) {
   try {
     await ensureDatabaseSchema();
     const db = getTurso();
+    await db.execute(`CREATE TABLE IF NOT EXISTS monetag_ad_postbacks (
+      ymid TEXT PRIMARY KEY, telegram_id TEXT NOT NULL, zone_id TEXT NOT NULL,
+      event_type TEXT NOT NULL, reward_event_type TEXT NOT NULL,
+      received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, consumed_at TEXT
+    )`);
+    await db.execute(`CREATE TABLE IF NOT EXISTS monetag_action_ad_claims (
+      id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+      ymid TEXT NOT NULL UNIQUE, purpose TEXT NOT NULL, reward_coins INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
     const telegramId = String(user.id);
     const tx = await db.transaction('write');
     try {
       const already = await tx.execute({
         sql: 'SELECT reward_coins FROM monetag_action_ad_claims WHERE telegram_id=? AND ymid=?',
         args: [telegramId, ymid],
-      }).catch(async () => {
-        await tx.execute(`CREATE TABLE IF NOT EXISTS monetag_action_ad_claims (
-          id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
-          ymid TEXT NOT NULL UNIQUE, purpose TEXT NOT NULL, reward_coins INTEGER NOT NULL,
-          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )`);
-        return tx.execute({ sql: 'SELECT reward_coins FROM monetag_action_ad_claims WHERE telegram_id=? AND ymid=?', args: [telegramId, ymid] });
       });
       if (already.rows.length) {
         const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
