@@ -157,7 +157,8 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
   }, [clearTimer, initData, onError, postReward, rewardPurpose]);
 
   const startMonetagPopup = useCallback(() => {
-    if (rewardPurpose !== 'coins' || busyRef.current || !isVerified || !initData || !window.show_12295910) {
+    const showAd = window.show_12295910;
+    if (rewardPurpose !== 'coins' || busyRef.current || !isVerified || !initData || !showAd) {
       onError('no_ad_available');
       return;
     }
@@ -166,7 +167,8 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     completedRef.current = false;
     providerRef.current = 'monetag';
     fallbackRef.current = false;
-    taskIdRef.current = crypto.randomUUID();
+    const ymid = crypto.randomUUID();
+    taskIdRef.current = ymid;
     setBusy(true);
     clearTimer();
     timeoutRef.current = setTimeout(() => {
@@ -178,13 +180,13 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       }
     }, 120000);
     // Must be invoked synchronously from this button click to avoid popup blocking.
-    void window.show_12295910({ type: 'pop', ymid: taskIdRef.current, requestVar: 'rewarded_popup' })
+    void showAd({ type: 'pop', ymid, requestVar: 'rewarded_popup' })
       .then((result) => {
         if (!pendingRef.current || providerRef.current !== 'monetag' || completedRef.current) return;
-        if (result?.reward_event_type !== 'valued' || (result.variable2 && result.variable2 !== taskIdRef.current)) {
+        if (result?.reward_event_type !== 'valued' || (result.variable2 && result.variable2 !== ymid)) {
           throw new Error('monetag_ad_not_valued');
         }
-        void postReward('monetag', taskIdRef.current ?? undefined);
+        void postReward('monetag', ymid);
       })
       .catch((error) => {
         if (!pendingRef.current || providerRef.current !== 'monetag' || completedRef.current) return;
