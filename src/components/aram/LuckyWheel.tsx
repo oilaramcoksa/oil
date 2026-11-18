@@ -15,6 +15,7 @@ const COLORS = ['#f04438','#2997e8','#45b44d','#ff9800','#9c27b0','#08b8cb','#e9
 
 export function LuckyWheel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const lang = useGame((s) => s.lang);
+  const syncServerWalletCoins = useGame((s) => s.syncServerWalletCoins);
   const { initData, isVerified, haptic, notify } = useTelegram();
   const [state, setState] = useState<WheelState | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,6 +59,7 @@ export function LuckyWheel({ open, onClose }: { open: boolean; onClose: () => vo
       if (!response.ok || data.ok !== true) throw new Error(data.error || 'spin_failed');
       const prizeResult: SpinResult = { prize: Number(data.prize), prizeIndex: Number(data.prizeIndex), spinType: data.spinType, balance: Number(data.balance) };
       setResult(prizeResult);
+      syncServerWalletCoins(prizeResult.balance);
       setState((current) => current ? { ...current, ...(data.state || {}), freeAvailable: Boolean(data.state?.freeAvailable), freeNextAt: data.state?.freeNextAt ?? current.freeNextAt, adViews: Number(data.state?.adViews ?? 0), adsNeeded: Number(data.state?.adsNeeded ?? 3), extraSpinAvailable: false } : current);
       setRotation((current) => current + 360 * 7 + ((360 - ((current % 360 + prizeResult.prizeIndex * 45) % 360)) % 360));
       setSpinning(true);
