@@ -69,6 +69,7 @@ export default function RootLayout({
         {/* Telegram WebApp SDK */}
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
         <Script src="https://cdn.tgads.space/assets/js/adexium-widget.min.js" strategy="afterInteractive" />
+        <Script src="https://libtl.com/sdk.js" data-zone="12295910" data-sdk="show_12295910" strategy="afterInteractive" />
       </head>
       <body className="antialiased bg-background text-foreground aram-bg">
         <TadsProvider>{children}</TadsProvider>
