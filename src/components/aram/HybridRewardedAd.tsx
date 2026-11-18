@@ -32,9 +32,10 @@ type Props = {
   loadingLabel: string;
   onRewarded: (reward: number, walletCoins: number) => void;
   onError: (error: string) => void;
+  rewardPurpose?: 'coins' | 'lucky_wheel';
 };
 
-export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loadingLabel, onRewarded, onError }: Props) {
+export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loadingLabel, onRewarded, onError, rewardPurpose = 'coins' }: Props) {
   const [busy, setBusy] = useState(false);
   const [nextProvider, setNextProvider] = useState<Provider>('adexium');
   const [cycle, setCycle] = useState<{ used: number; remaining: number; cooldownUntil: number | null } | null>(null);
@@ -76,26 +77,26 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     completedRef.current = true;
     clearTimer();
     try {
-      const response = await fetch('/api/ads/reward', {
+      const response = await fetch(rewardPurpose === 'lucky_wheel' ? '/api/lucky-wheel' : '/api/ads/reward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
-        body: JSON.stringify(provider === 'adexium'
-          ? { provider, widgetId: ADEXIUM_WID, taskId }
-          : { provider, widgetId: TADS_WID, claimId: crypto.randomUUID() }),
+        body: JSON.stringify(rewardPurpose === 'lucky_wheel'
+          ? (provider === 'adexium' ? { action: 'ad', provider, widgetId: ADEXIUM_WID, taskId } : { action: 'ad', provider, widgetId: TADS_WID, claimId: crypto.randomUUID() })
+          : (provider === 'adexium' ? { provider, widgetId: ADEXIUM_WID, taskId } : { provider, widgetId: TADS_WID, claimId: crypto.randomUUID() })),
         cache: 'no-store',
       });
       const data = await response.json().catch(() => ({})) as {
-        ok?: boolean; reward?: number; wallet?: { coins?: number }; error?: string;
+        ok?: boolean; reward?: number; wallet?: { coins?: number }; error?: string; adViews?: number;
         cycle?: { used?: number; remaining?: number; cooldownUntil?: number | null; nextProvider?: Provider };
       };
-      if (!response.ok || data.ok !== true || !Number.isSafeInteger(data.reward) || !Number.isSafeInteger(data.wallet?.coins)) {
+      if (!response.ok || data.ok !== true || (rewardPurpose === 'coins' && (!Number.isSafeInteger(data.reward) || !Number.isSafeInteger(data.wallet?.coins)))) {
         throw new Error(data.error || 'ad_reward_failed');
       }
       if (data.cycle) {
         setCycle({ used: Number(data.cycle.used ?? 0), remaining: Number(data.cycle.remaining ?? 0), cooldownUntil: data.cycle.cooldownUntil ?? null });
         if (data.cycle.nextProvider) setNextProvider(data.cycle.nextProvider);
       }
-      onRewarded(Number(data.reward), Number(data.wallet?.coins));
+      onRewarded(Number(data.reward ?? 0), Number(data.wallet?.coins ?? 0));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'ad_reward_failed';
       onError(message);
@@ -105,7 +106,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       setBusy(false);
       void loadCycle().catch(() => undefined);
     }
-  }, [clearTimer, initData, loadCycle, onError, onRewarded]);
+  }, [clearTimer, initData, loadCycle, onError, onRewarded, rewardPurpose]);
 
   const handleTadsReward = useCallback(() => {
     if (pendingRef.current && providerRef.current === 'tads') void postReward('tads');
