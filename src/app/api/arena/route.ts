@@ -275,6 +275,7 @@ export async function GET(req: NextRequest) {
     const db = getTurso();
     await settleDueRounds(db);
 
+    const now = Date.now();
     const playerId = String(identity.id);
     await db.execute({
       sql: 'UPDATE players SET username=COALESCE(?, username), first_name=COALESCE(?, first_name), last_name=COALESCE(?, last_name), photo_url=COALESCE(?, photo_url) WHERE telegram_id=?',
