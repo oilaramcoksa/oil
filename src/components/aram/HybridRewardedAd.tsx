@@ -151,7 +151,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     const failover = () => {
       if (!pendingRef.current) return;
       clearTimer();
-      if (fallbackRef.current) {
+      if (fallbackRef.current || rewardPurpose === 'lucky_wheel') {
         pendingRef.current = false;
         busyRef.current = false;
         setBusy(false);
@@ -225,22 +225,22 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       console.warn('Adexium failed; falling back to TADS', error);
       failover();
     }
-  }, [clearTimer, onError, postReward, startTads]);
+  }, [clearTimer, onError, postReward, rewardPurpose, startTads]);
 
   useEffect(() => { switchToAdexiumRef.current = () => { void startAdexium(); }; }, [startAdexium]);
 
   const start = useCallback(async () => {
-    if (busyRef.current || !isVerified || !initData || (cycle?.cooldownUntil && cycle.cooldownUntil > Date.now())) return;
+    if (busyRef.current || !isVerified || !initData || (rewardPurpose === 'coins' && cycle?.cooldownUntil && cycle.cooldownUntil > Date.now())) return;
     busyRef.current = true;
     pendingRef.current = true;
     completedRef.current = false;
     fallbackRef.current = false;
     setBusy(true);
-    let chosen: Provider = nextProvider;
-    try { chosen = (await loadCycle()) ?? nextProvider; } catch { /* retain last known order */ }
+    let chosen: Provider = rewardPurpose === 'lucky_wheel' ? 'adexium' : nextProvider;
+    if (rewardPurpose === 'coins') { try { chosen = (await loadCycle()) ?? nextProvider; } catch { /* retain last known order */ } }
     if (chosen === 'adexium') await startAdexium();
     else startTads();
-  }, [cycle?.cooldownUntil, initData, isVerified, loadCycle, nextProvider, startAdexium, startTads]);
+  }, [cycle?.cooldownUntil, initData, isVerified, loadCycle, nextProvider, rewardPurpose, startAdexium, startTads]);
 
   const locked = Boolean(cycle?.cooldownUntil && cycle.cooldownUntil > now);
   const left = locked ? Math.max(0, cycle!.cooldownUntil! - now) : 0;
@@ -250,15 +250,15 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
 
   return (
     <div className="w-full">
-      <button type="button" onClick={start} disabled={!isVerified || !initData || busy || locked || cycle?.remaining === 0}
+      <button type="button" onClick={start} disabled={!isVerified || !initData || busy || (rewardPurpose === 'coins' && (locked || cycle?.remaining === 0))}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-gradient-to-r from-[#33213b] to-[#563126] px-4 py-3 text-sm font-black text-amber-50 shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60">
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : locked ? <ShieldCheck className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
-        {locked ? countdown : busy ? loadingLabel : actionLabel || title}
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : rewardPurpose === 'coins' && locked ? <ShieldCheck className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+        {rewardPurpose === 'coins' && locked ? countdown : busy ? loadingLabel : actionLabel || title}
       </button>
-      <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-amber-900/60">
+      {rewardPurpose === 'coins' && <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-amber-900/60">
         <span>{cycle ? `${cycle.used}/30` : '…/30'}</span>
         <span>{cycle ? `المتبقي: ${cycle.remaining}` : title}</span>
-      </div>
+      </div>}
     </div>
   );
 }
