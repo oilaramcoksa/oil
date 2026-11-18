@@ -10,7 +10,7 @@ const ADEXIUM_WID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
 const TADS_WID = 13283;
 const REWARD = 100;
 
-type Provider = 'adexium' | 'tads';
+type Provider = 'adexium' | 'tads' | 'monetag';
 type AdexiumAd = { id?: string };
 type AdexiumInstance = {
   requestRewardedAd: (format: 'interstitial') => void;
@@ -21,6 +21,7 @@ type AdexiumInstance = {
 };
 declare global {
   interface Window {
+    show_12295910?: (options?: { type?: 'end' | 'start' | 'preload' | 'pop' | 'inApp'; ymid?: string; requestVar?: string }) => Promise<{ reward_event_type?: 'valued' | 'non_valued'; event_type?: string; zone_id?: number; telegram_id?: string } | undefined>;
     AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => AdexiumInstance;
   }
 }
@@ -48,6 +49,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
   const fallbackRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const switchToAdexiumRef = useRef<() => void>(() => undefined);
+  const switchToMonetagRef = useRef<() => void>(() => undefined);
   const providerRef = useRef<Provider>('adexium');
   const busyRef = useRef(false);
 
@@ -81,7 +83,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     const endpoint = rewardPurpose === 'lucky_wheel' ? '/api/lucky-wheel' : '/api/ads/reward';
     const payload = rewardPurpose === 'lucky_wheel'
       ? (provider === 'adexium' ? { action: 'ad', provider, widgetId: ADEXIUM_WID, taskId } : { action: 'ad', provider, widgetId: TADS_WID, claimId })
-      : (provider === 'adexium' ? { provider, widgetId: ADEXIUM_WID, taskId } : { provider, widgetId: TADS_WID, claimId });
+      : (provider === 'adexium' ? { provider, widgetId: ADEXIUM_WID, taskId } : provider === 'tads' ? { provider, widgetId: TADS_WID, claimId } : { provider, widgetId: 12295910, ymid: taskId });
     try {
       let response: Response | null = null;
       let data: {
@@ -127,7 +129,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     clearTimer();
     if (!fallbackRef.current) {
       fallbackRef.current = true;
-      switchToAdexiumRef.current();
+      switchToMonetagRef.current();
     } else {
       pendingRef.current = false;
       busyRef.current = false;
@@ -135,6 +137,31 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       onError('no_ad_available');
     }
   }, [clearTimer, onError]);
+
+  const startMonetag = useCallback(async () => {
+    if (rewardPurpose !== 'coins') { pendingRef.current = false; busyRef.current = false; setBusy(false); onError('no_ad_available'); return; }
+    providerRef.current = 'monetag';
+    taskIdRef.current = `${initData ? 'tg' : 'web'}_${crypto.randomUUID()}`;
+    clearTimer();
+    timeoutRef.current = setTimeout(() => {
+      if (pendingRef.current && providerRef.current === 'monetag' && !completedRef.current) {
+        pendingRef.current = false; busyRef.current = false; setBusy(false); onError('no_ad_available');
+      }
+    }, 20000);
+    try {
+      if (!window.show_12295910) throw new Error('monetag_sdk_unavailable');
+      const result = await window.show_12295910({ ymid: taskIdRef.current, requestVar: 'rewarded_coins' });
+      if (providerRef.current !== 'monetag' || !pendingRef.current || completedRef.current) return;
+      if (result?.reward_event_type !== 'valued') throw new Error('monetag_ad_not_valued');
+      void postReward('monetag', taskIdRef.current);
+    } catch (error) {
+      console.warn('Monetag rewarded ad failed', error);
+      if (pendingRef.current && providerRef.current === 'monetag' && !completedRef.current) {
+        clearTimer(); pendingRef.current = false; busyRef.current = false; setBusy(false);
+        onError(error instanceof Error ? error.message : 'monetag_ad_failed');
+      }
+    }
+  }, [clearTimer, initData, onError, postReward, rewardPurpose]);
 
   const startTads = useCallback(() => {
     providerRef.current = 'tads';
@@ -144,7 +171,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       if (!completedRef.current && pendingRef.current && providerRef.current === 'tads') {
         if (!fallbackRef.current) {
           fallbackRef.current = true;
-          switchToAdexiumRef.current();
+          switchToMonetagRef.current();
         } else {
           pendingRef.current = false;
           busyRef.current = false;
@@ -246,7 +273,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     }
   }, [clearTimer, onError, postReward, rewardPurpose, startTads]);
 
-  useEffect(() => { switchToAdexiumRef.current = () => { void startAdexium(); }; }, [startAdexium]);
+  useEffect(() => { switchToAdexiumRef.current = () => { void startAdexium(); }; switchToMonetagRef.current = () => { void startMonetag(); }; }, [startAdexium, startMonetag]);
 
   const start = useCallback(async () => {
     if (busyRef.current || !isVerified || !initData || (rewardPurpose === 'coins' && cycle?.cooldownUntil && cycle.cooldownUntil > Date.now())) return;
