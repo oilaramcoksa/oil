@@ -77,20 +77,30 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     if (!pendingRef.current || completedRef.current) return;
     completedRef.current = true;
     clearTimer();
+    const claimId = provider === 'tads' ? crypto.randomUUID() : taskId;
+    const endpoint = rewardPurpose === 'lucky_wheel' ? '/api/lucky-wheel' : '/api/ads/reward';
+    const payload = rewardPurpose === 'lucky_wheel'
+      ? (provider === 'adexium' ? { action: 'ad', provider, widgetId: ADEXIUM_WID, taskId } : { action: 'ad', provider, widgetId: TADS_WID, claimId })
+      : (provider === 'adexium' ? { provider, widgetId: ADEXIUM_WID, taskId } : { provider, widgetId: TADS_WID, claimId });
     try {
-      const response = await fetch(rewardPurpose === 'lucky_wheel' ? '/api/lucky-wheel' : '/api/ads/reward', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
-        body: JSON.stringify(rewardPurpose === 'lucky_wheel'
-          ? (provider === 'adexium' ? { action: 'ad', provider, widgetId: ADEXIUM_WID, taskId } : { action: 'ad', provider, widgetId: TADS_WID, claimId: crypto.randomUUID() })
-          : (provider === 'adexium' ? { provider, widgetId: ADEXIUM_WID, taskId } : { provider, widgetId: TADS_WID, claimId: crypto.randomUUID() })),
-        cache: 'no-store',
-      });
-      const data = await response.json().catch(() => ({})) as {
+      let response: Response | null = null;
+      let data: {
         ok?: boolean; reward?: number; wallet?: { coins?: number }; error?: string; adViews?: number;
         cycle?: { used?: number; remaining?: number; cooldownUntil?: number | null; nextProvider?: Provider };
-      };
-      if (!response.ok || data.ok !== true || (rewardPurpose === 'coins' && (!Number.isSafeInteger(data.reward) || !Number.isSafeInteger(data.wallet?.coins)))) {
+      } = {};
+      const delays = [0, 1000, 1800, 3000, 4500, 6000];
+      for (let attempt = 0; attempt < delays.length; attempt += 1) {
+        if (delays[attempt]) await new Promise((resolve) => window.setTimeout(resolve, delays[attempt]));
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+          body: JSON.stringify(payload),
+          cache: 'no-store',
+        });
+        data = await response.json().catch(() => ({})) as typeof data;
+        if (provider !== 'tads' || response.status !== 409 || data.error !== 'tads_view_not_verified' || attempt === delays.length - 1) break;
+      }
+      if (!response?.ok || data.ok !== true || (rewardPurpose === 'coins' && (!Number.isSafeInteger(data.reward) || !Number.isSafeInteger(data.wallet?.coins)))) {
         throw new Error(data.error || 'ad_reward_failed');
       }
       if (data.cycle) {
@@ -108,7 +118,6 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       void loadCycle().catch(() => undefined);
     }
   }, [clearTimer, initData, loadCycle, onError, onRewarded, rewardPurpose]);
-
   const handleTadsReward = useCallback(() => {
     if (pendingRef.current && providerRef.current === 'tads') void postReward('tads');
   }, [postReward]);
@@ -169,7 +178,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
     providerRef.current = 'adexium';
     taskIdRef.current = null;
     try {
-      let script = document.querySelector<HTMLScriptElement>('script[data-adexium-sdk="true"]');
+      let script = document.querySelector<HTMLScriptElement>('script[data-adexium-sdk="true"], script[src*="adexium-widget.min.js"]');
       if (!window.AdexiumWidget) {
         if (!script) {
           script = document.createElement('script');
