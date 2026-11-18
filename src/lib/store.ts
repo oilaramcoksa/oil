@@ -135,7 +135,7 @@ interface GameState {
   resetMonthlyIfNeeded: () => void;
   openLuckyBox: () => { reward: number } | null;
 
-  requestWithdrawal: (units: number, tonAddress: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  requestWithdrawal: (units: number, tonAddress: string, feePaymentId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   syncWithdrawals: () => Promise<void>;
   syncAdminState: (initData: string) => Promise<void>;
 }
@@ -406,14 +406,14 @@ export const useGame = create<GameState>()(
 
       // Create a withdrawal request. The server validates it first; only on
       // success are the coins locked (deducted). No fee is ever charged.
-      requestWithdrawal: async (units, tonAddress) => {
+      requestWithdrawal: async (units, tonAddress, feePaymentId) => {
         const s = get();
         const coins = units * COINS_PER_USD;
         try {
           const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
           if (!initData) return { ok: false, error: 'telegram_auth_required' };
           const idempotencyKey = window.crypto.randomUUID();
-          const requestBody = JSON.stringify({ units, tonAddress, idempotencyKey });
+          const requestBody = JSON.stringify({ units, tonAddress, idempotencyKey, feePaymentId });
           let res: Response | undefined;
           // Retry once with the same key if the connection drops after the
           // server may already have committed the withdrawal.
