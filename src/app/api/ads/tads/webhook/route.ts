@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       sql: 'INSERT INTO tads_ad_webhook_events(id,telegram_id,widget_id,event_type) VALUES(?,?,?,?)',
       args: [randomUUID(), telegramId, widgetId, eventType],
     });
-    await db.execute("DELETE FROM tads_ad_webhook_events WHERE received_at < datetime('now','-2 days') AND consumed_at IS NOT NULL");
+    await db.execute("DELETE FROM tads_ad_webhook_events WHERE received_at < datetime('now','-2 days')");
     return NextResponse.json({ ok: true, event: eventType }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('tads_webhook_receive_failed', error);
