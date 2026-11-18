@@ -20,6 +20,7 @@ type PlaneRecommendation = { advice: 'no_entry' | 'high_risk' | 'potential_entry
 type CrashState = {
   round: CrashRound; bets: CrashBet[]; balance: number; betBalance: number;
   previousRound: { id: string; crashMultiplier: number; crashedAt: number; seedHash: string; revealedSeed: string; bets: Omit<CrashBet,'photoUrl'>[] } | null;
+  recentRounds: Array<{ id: string; crashMultiplier: number; crashedAt: number }>;
   serverTime: number;
 };
 const EMPTY: CrashState | null = null;
@@ -233,6 +234,17 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             </svg>
           </motion.div>
           <div className="absolute inset-0 opacity-20" style={{backgroundImage:'radial-gradient(#fff 0.7px,transparent 0.7px)',backgroundSize:'34px 34px'}} />
+          <div className="absolute inset-x-2 top-2 z-30 flex items-center gap-1.5" dir="ltr" aria-label={t(lang, 'crashRecentRounds')}>
+            <span className="shrink-0 rounded-md bg-slate-950/65 px-1.5 py-1 text-[9px] font-bold text-amber-100">{t(lang, 'crashRecentRounds')}</span>
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-1">
+              {(state?.recentRounds ?? []).slice(0, 10).map((item) => {
+                const value = Number(item.crashMultiplier);
+                const color = value < 2 ? 'border-rose-300/70 bg-rose-600 text-white' : value < 3 ? 'border-amber-200/80 bg-amber-400 text-[#3b2507]' : 'border-emerald-200/70 bg-emerald-600 text-white';
+                return <span key={item.id} title={value.toFixed(2) + 'x'} className={`min-w-0 flex-1 rounded-md border px-0.5 py-1 text-center text-[9px] font-black leading-none shadow-sm ${color}`}>{value.toFixed(2)}x</span>;
+              })}
+              {(!state?.recentRounds?.length) && <span className="flex-1 text-center text-[9px] text-white/65">—</span>}
+            </div>
+          </div>
           <motion.svg viewBox="0 0 1200 290" className="pointer-events-none absolute inset-0 z-[6] h-full w-full" animate={{ x: ['-1%', '1%', '-1%'], y: [0, -2, 0] }} transition={{ duration: 23, repeat: Infinity, ease: 'easeInOut' }} aria-hidden="true">
             <g fill="none" stroke="#172b45" strokeWidth="2.1" strokeLinecap="round" opacity=".36"><path d="M145 70q8-7 16 0q8-7 16 0M190 88q6-5 12 0q6-5 12 0M735 58q8-7 16 0q8-7 16 0M790 82q6-5 12 0q6-5 12 0"/></g>
             <g fill="none" stroke="#f7faff" strokeWidth="1.7" strokeLinecap="round" opacity=".45"><path d="M475 116q7-6 14 0q7-6 14 0M510 132q5-4 10 0q5-4 10 0M1010 106q7-6 14 0q7-6 14 0"/></g>
@@ -264,7 +276,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             </div>
           )}
           <motion.div
-            className="absolute left-1/2 top-[36%] z-20 w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2"
+            className="absolute left-1/2 top-[30%] z-20 w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2"
             animate={recentCrash || round?.status === 'crashed'
               ? { y: [0, -8, 18], rotate: [0, 8, 22], scale: [1, 1.08, .72], opacity: [1, 1, 0] }
               : round?.status === 'running'
