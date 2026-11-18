@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Loader2, Play, ShieldCheck } from 'lucide-react';
+import { ExternalLink, Loader2, Play, ShieldCheck } from 'lucide-react';
 import { TadsWidget, renderTadsWidget } from 'react-tads-widget';
 
 
@@ -21,7 +21,7 @@ type AdexiumInstance = {
 };
 declare global {
   interface Window {
-    show_12295910?: (options?: { type?: 'end' | 'start' | 'preload' | 'pop' | 'inApp'; ymid?: string; requestVar?: string }) => Promise<{ reward_event_type?: 'valued' | 'non_valued'; event_type?: string; zone_id?: number; telegram_id?: string } | undefined>;
+    show_12295910?: (options?: string | { type?: 'end' | 'start' | 'preload' | 'pop' | 'inApp'; ymid?: string; requestVar?: string; inAppSettings?: { frequency: number; capping: number; interval: number; timeout: number; everyPage?: boolean } }) => Promise<{ reward_event_type?: 'valued' | 'non_valued'; event_type?: string; zone_id?: number; telegram_id?: string; variable2?: string } | undefined>;
     AdexiumWidget?: new (options: { wid: string; adFormat: 'interstitial'; debug?: boolean }) => AdexiumInstance;
   }
 }
@@ -155,6 +155,46 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       }
     }
   }, [clearTimer, initData, onError, postReward, rewardPurpose]);
+
+  const startMonetagPopup = useCallback(() => {
+    if (rewardPurpose !== 'coins' || busyRef.current || !isVerified || !initData || !window.show_12295910) {
+      onError('no_ad_available');
+      return;
+    }
+    busyRef.current = true;
+    pendingRef.current = true;
+    completedRef.current = false;
+    providerRef.current = 'monetag';
+    fallbackRef.current = false;
+    taskIdRef.current = crypto.randomUUID();
+    setBusy(true);
+    clearTimer();
+    timeoutRef.current = setTimeout(() => {
+      if (pendingRef.current && providerRef.current === 'monetag' && !completedRef.current) {
+        pendingRef.current = false;
+        busyRef.current = false;
+        setBusy(false);
+        onError('ad_playback_timeout');
+      }
+    }, 120000);
+    // Must be invoked synchronously from this button click to avoid popup blocking.
+    void window.show_12295910({ type: 'pop', ymid: taskIdRef.current, requestVar: 'rewarded_popup' })
+      .then((result) => {
+        if (!pendingRef.current || providerRef.current !== 'monetag' || completedRef.current) return;
+        if (result?.reward_event_type !== 'valued' || (result.variable2 && result.variable2 !== taskIdRef.current)) {
+          throw new Error('monetag_ad_not_valued');
+        }
+        void postReward('monetag', taskIdRef.current ?? undefined);
+      })
+      .catch((error) => {
+        if (!pendingRef.current || providerRef.current !== 'monetag' || completedRef.current) return;
+        clearTimer();
+        pendingRef.current = false;
+        busyRef.current = false;
+        setBusy(false);
+        onError(error instanceof Error ? error.message : 'monetag_popup_failed');
+      });
+  }, [clearTimer, initData, isVerified, onError, postReward, rewardPurpose]);
 
   const startTads = useCallback(() => {
     providerRef.current = 'tads';
@@ -295,6 +335,12 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : rewardPurpose === 'coins' && locked ? <ShieldCheck className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
         {rewardPurpose === 'coins' && locked ? countdown : busy ? loadingLabel : actionLabel || title}
       </button>
+      {rewardPurpose === 'coins' && <button type="button" onClick={startMonetagPopup} disabled={!isVerified || !initData || busy || (locked || cycle?.remaining === 0)}
+        title="Monetag Rewarded Popup"
+        className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-50/10 px-4 py-2 text-xs font-bold text-amber-100 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
+        <ExternalLink className="h-3.5 w-3.5" />
+        {actionLabel} · Popup
+      </button>}
       {rewardPurpose === 'coins' && <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-amber-900/60">
         <span>{cycle ? `${cycle.used}/30` : '…/30'}</span>
         <span>{cycle ? `المتبقي: ${cycle.remaining}` : title}</span>
