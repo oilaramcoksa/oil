@@ -106,7 +106,7 @@ export function LuckyWheel({ open, onClose }: { open: boolean; onClose: () => vo
                     const left = 50 + 30 * Math.sin(radians);
                     const top = 50 - 30 * Math.cos(radians);
                     return (
-                      <div key={value} className="absolute z-[2] flex h-10 w-12 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-xl bg-black/10 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,.8)]" style={{ left: `${left}%`, top: `${top}%`, transform: `translate(-50%,-50%) rotate(${-angle}deg)` }}>
+                      <div key={value} className="absolute z-[2] flex h-10 w-12 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-xl bg-black/10 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,.8)]" style={{ left: `${left}%`, top: `${top}%`, transform: `translate(-50%,-50%) rotate(${-rotation}deg)`, transition: spinning ? 'transform 10s cubic-bezier(.12,.78,.08,1)' : 'none' }}>
                         <span className="text-[22px] font-black leading-none tabular-nums">{value}</span>
                         <span className="mt-0.5 text-[14px] leading-none">🪙</span>
                       </div>
