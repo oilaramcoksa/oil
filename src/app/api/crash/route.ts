@@ -94,10 +94,11 @@ export async function GET(req: NextRequest) {
             WHERE b.round_id=? ORDER BY b.created_at,b.telegram_id`,
       args: [roundId],
     });
-    const [wallet, purchased, previous] = await Promise.all([
+    const [wallet, purchased, previous, recentRounds] = await Promise.all([
       db.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [String(identity.id)] }),
       db.execute({ sql: 'SELECT balance FROM bet_token_balances WHERE telegram_id=?', args: [String(identity.id)] }),
       db.execute({ sql: "SELECT id,status,crash_multiplier,crashed_at,seed_hash,server_seed FROM crash_rounds WHERE status='crashed' ORDER BY created_at DESC,rowid DESC LIMIT 1" }),
+      db.execute({ sql: "SELECT id,crash_multiplier,crashed_at FROM crash_rounds WHERE status='crashed' ORDER BY created_at DESC,rowid DESC LIMIT 10" }),
     ]);
     const status = String(round.status);
     const startedAt = round.started_at == null ? null : Number(round.started_at);
@@ -126,6 +127,7 @@ export async function GET(req: NextRequest) {
       })),
       balance: Number(wallet.rows[0]?.coins_balance ?? 0),
       betBalance: Number(purchased.rows[0]?.balance ?? 0),
+      recentRounds: recentRounds.rows.map((row) => ({ id: String(row.id), crashMultiplier: Number(row.crash_multiplier), crashedAt: Number(row.crashed_at ?? now) })),
       previousRound: previousRound ? {
         id: String(previousRound.id), crashMultiplier: Number(previousRound.crash_multiplier), crashedAt: Number(previousRound.crashed_at ?? now),
         seedHash: String(previousRound.seed_hash), revealedSeed: String(previousRound.server_seed), bets: previousBets,
