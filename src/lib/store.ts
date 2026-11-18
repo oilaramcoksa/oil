@@ -412,7 +412,7 @@ export const useGame = create<GameState>()(
         try {
           const initData = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
           if (!initData) return { ok: false, error: 'telegram_auth_required' };
-          const idempotencyKey = window.crypto.randomUUID();
+          const idempotencyKey = feePaymentId;
           const requestBody = JSON.stringify({ units, tonAddress, idempotencyKey, feePaymentId });
           let res: Response | undefined;
           // Retry once with the same key if the connection drops after the
