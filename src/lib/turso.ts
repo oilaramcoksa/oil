@@ -434,6 +434,32 @@ const MIGRATIONS: Array<{ version: number; statements: string[] }> = [
       'CREATE INDEX IF NOT EXISTS idx_bet_token_transactions_player ON bet_token_transactions(telegram_id, created_at)',
     ],
   }
+  ,{
+    version: 16,
+    statements: [
+      `CREATE TABLE arena_entries_v16 (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL REFERENCES arena_rounds(id),
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id),
+        amount INTEGER NOT NULL CHECK(amount >= 100),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        purchased_amount INTEGER NOT NULL DEFAULT 0 CHECK(purchased_amount >= 0),
+        wallet_amount INTEGER NOT NULL DEFAULT 0 CHECK(wallet_amount >= 0),
+        UNIQUE(round_id, telegram_id),
+        CHECK(purchased_amount + wallet_amount = amount)
+      )`,
+      `INSERT INTO arena_entries_v16(id,round_id,telegram_id,amount,created_at,purchased_amount,wallet_amount)
+        SELECT id,round_id,telegram_id,amount,created_at,
+          CASE WHEN purchased_amount BETWEEN 0 AND amount THEN purchased_amount ELSE 0 END,
+          amount - CASE WHEN purchased_amount BETWEEN 0 AND amount THEN purchased_amount ELSE 0 END
+        FROM arena_entries`,
+      'DROP TABLE arena_entries',
+      'ALTER TABLE arena_entries_v16 RENAME TO arena_entries',
+      'CREATE INDEX IF NOT EXISTS idx_arena_round_status ON arena_rounds(status, created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_arena_entries_round ON arena_entries(round_id, created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_arena_entries_player ON arena_entries(telegram_id, created_at)',
+    ],
+  }
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {
