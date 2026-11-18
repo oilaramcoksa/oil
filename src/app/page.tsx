@@ -81,6 +81,16 @@ export default function Home() {
     }
   }, [user, setLang]);
 
+  // Open the requested game directly from a Telegram invite link.
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    if (requestedTab === 'arena' || requestedTab === 'crash') {
+      setVisitedTabs((current) => current.has('arena') ? current : new Set([...current, 'arena']));
+      setTab('arena');
+      if (requestedTab === 'crash') window.setTimeout(() => window.dispatchEvent(new Event('open-crash-game')), 0);
+    }
+  }, []);
+
   // Handle referral start_param (auto-add inviter as a "referral")
   useEffect(() => {
     if (startParam && startParam.startsWith('ref_')) {
