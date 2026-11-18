@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { TadsWidget } from 'react-tads-widget';
 import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
 
-export function StoreScreen({ initData, isVerified }: { initData: string; isVerified: boolean }) {
+export function StoreScreen({ initData, isVerified, openProductId = null }: { initData: string; isVerified: boolean; openProductId?: string | null }) {
   const lang = useGame((s) => s.lang);
   const upgrades = useGame((s) => s.upgrades);
   const { haptic, notify } = useTelegram();
@@ -201,6 +201,16 @@ export function StoreScreen({ initData, isVerified }: { initData: string; isVeri
     { id: 'arena_tokens_10000', nameKey: 'arenaBuyTokensStore', label: t(lang, 'arenaBuyTokensStore'), description: t(lang, 'arenaBuyTokenDescription'), price: 1, multiplier: '10,000', image: '/images/shop/luck.png', descriptionKey: 'arenaBuyTokenDescription' },
     { id: 'plane_tips', nameKey: 'planeTipsPart', label: t(lang, 'planeTipsPart'), description: t(lang, 'planeTipsDescription'), price: 5, multiplier: t(lang, 'planeTipsUses'), image: '/brain.png', descriptionKey: 'planeTipsDescription' },
   ];
+
+  useEffect(() => {
+    if (!openProductId) return;
+    const product = shopParts.find((part) => part.id === openProductId);
+    if (product) {
+      setSelectedPart(product);
+      setPartFailed(false);
+      setPartVerifying(false);
+    }
+  }, [openProductId, lang]);
 
   const buyPart = async () => {
     if (!selectedPart || partVerifying) return;
