@@ -368,6 +368,11 @@ export function ArenaScreen({
           </div>
         </section>
 
+        {round?.status === 'open' && (
+          <div className="mx-auto mb-3 max-w-md rounded-xl border border-amber-300/70 bg-amber-50/90 px-3 py-2 text-center text-[11px] font-bold leading-relaxed text-amber-900 shadow-sm">
+            {t(lang, 'arenaWaitingNoExpiry')}
+          </div>
+        )}
         <div className="relative mx-auto my-7 aspect-square w-full max-w-[390px] min-w-0 overflow-visible [perspective:1000px]">
           {/* Floating pointer with a metallic highlight */}
           <motion.div
@@ -444,18 +449,8 @@ export function ArenaScreen({
             <div className="mb-1 grid h-7 w-7 place-items-center rounded-full border border-amber-700/20 bg-amber-100 text-amber-800">
               {isSpinning ? <Zap size={15}/> : <Users size={15}/>}
             </div>
-            <div className={replaying || round?.status === 'open' ? "text-center text-[10px] font-black leading-tight" : "text-center text-lg font-black tabular-nums leading-none"}>
-              {replaying
-                ? t(lang, 'arenaReplayPlaying')
-                : round?.status === 'open'
-                ? t(lang, 'arenaWaitingPlayer')
-                : round?.status === 'countdown'
-                ? `00:${String(countdown ?? 0).padStart(2, '0')}`
-                : isSpinning
-                  ? t(lang, 'arenaSpinning')
-                  : t(lang, 'arenaReady')}
-            </div>
-            {round?.status === 'open' && <div className="mt-1 text-[8px] font-bold text-[#8b613d]">{t(lang, 'arenaWaitingNoExpiry')}</div>}
+            {round?.status === 'countdown' && <div className="text-center text-lg font-black tabular-nums leading-none">{String(countdown ?? 0).padStart(2, '0')}</div>}
+            {isSpinning && <div className="text-center text-lg font-black"><Zap size={18} className="mx-auto animate-pulse" /></div>}
             <div className="mt-2 flex items-center justify-center gap-1 text-[11px] font-bold leading-none text-[#8b613d]">
               <span>{displayedEntries.length}</span>
               <Users size={12} className="shrink-0 text-amber-300" />
