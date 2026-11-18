@@ -23,6 +23,7 @@ import { useTelegram } from '@/hooks/use-telegram';
 import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
 import { toast } from 'sonner';
 import { MiningFeeGate } from '@/components/aram/MiningFeeGate';
+import { watchMonetagRewardedAd } from '@/lib/monetag-reward';
 
 interface Props {
   onGoToStore: () => void;
@@ -52,6 +53,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const [shortsVisible, setShortsVisible] = useState(false);
   const [floats, setFloats] = useState<{ id: number; v: number }[]>([]);
   const fidRef = useRef(0);
+  const actionAdBusyRef = useRef(false);
 
   // Contest visibility is controlled centrally by the admin API.
   useEffect(() => {
@@ -153,20 +155,14 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
     return () => { active = false; };
   }, [initData, refreshMining]);
 
-  const handleTap = () => {
-    if (!feeActivated) {
-      setFeeGateOpen(true);
-      return;
-    }
-    // Once a 12-hour cycle ends, the accumulated oil must be sold before another cycle can start.
-    if (!active && oil > 0) return;
+  const performTap = () => {
     haptic('light');
     void refreshMining('tap').then((r) => {
       if (r.cycleStarted) notify('success');
       if (Number(r.oilAdded ?? 0) > 0) {
         const id = ++fidRef.current;
         setFloats((f) => [...f, { id, v: Number(r.oilAdded) }]);
-        setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 1000);
+        setTimeout(() => setFloats((x) => x.filter((item) => item.id !== id)), 1000);
       } else if (Number(r.oil ?? 0) >= Number(r.capacity ?? cap)) {
         haptic('heavy');
       }
@@ -178,14 +174,52 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
     });
   };
 
+  const rewardActionAd = async (purpose: 'sell_action' | 'mining_start') => {
+    const result = await watchMonetagRewardedAd({
+      initData,
+      requestVar: purpose,
+      endpoint: '/api/ads/action-reward',
+      body: (ymid) => ({ ymid, purpose }),
+    });
+    applyServerAdReward(result.reward, result.walletCoins);
+    toast.success(`+${result.reward} ${t(lang, 'coins')}`);
+  };
+
+  const handleTap = () => {
+    if (!feeActivated) {
+      setFeeGateOpen(true);
+      return;
+    }
+    if (!active && oil > 0) return;
+    // Only the first tap that starts a fresh mining cycle is preceded by an ad.
+    if (!active && oil <= 0) {
+      if (actionAdBusyRef.current) return;
+      actionAdBusyRef.current = true;
+      void rewardActionAd('mining_start')
+        .catch((error) => console.info('monetag_mining_ad_unavailable', error))
+        .finally(() => {
+          actionAdBusyRef.current = false;
+          performTap();
+        });
+      return;
+    }
+    performTap();
+  };
+
   const handleSell = () => {
     if (!feeActivated) {
       setFeeGateOpen(true);
       return;
     }
-    if (active || oil <= 0) return;
+    if (active || oil <= 0 || actionAdBusyRef.current) return;
+    actionAdBusyRef.current = true;
     haptic('medium');
-    setSellOpen(true);
+    void rewardActionAd('sell_action')
+      .catch((error) => console.info('monetag_sell_ad_unavailable', error))
+      .finally(() => {
+        actionAdBusyRef.current = false;
+        setSellOpen(true);
+      });
   };
 
   const handleAdRewarded = useCallback((reward: number, walletCoins: number) => {
