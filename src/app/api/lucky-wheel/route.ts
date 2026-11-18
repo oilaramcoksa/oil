@@ -42,8 +42,12 @@ async function ensureLuckyWheelTables() {
     prize INTEGER NOT NULL,
     prize_index INTEGER NOT NULL,
     spin_type TEXT NOT NULL CHECK(spin_type IN ('free','ads')),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    request_id TEXT
   )`);
+  const spinColumns = await db.execute('PRAGMA table_info(lucky_wheel_spins)');
+  if (!spinColumns.rows.some((row) => row.name === 'request_id')) await db.execute('ALTER TABLE lucky_wheel_spins ADD COLUMN request_id TEXT');
+  await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_lucky_wheel_spin_request ON lucky_wheel_spins(telegram_id,request_id)');
 }
 
 function stateOf(row: Record<string, unknown> | undefined, now = Date.now()) {
@@ -79,7 +83,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = verifiedPlayerFromRequest(req);
   if (!user) return fail('telegram_auth_required', 401);
-  let body: { action?: unknown; provider?: unknown; widgetId?: unknown; taskId?: unknown; claimId?: unknown };
+  let body: { action?: unknown; provider?: unknown; widgetId?: unknown; taskId?: unknown; claimId?: unknown; requestId?: unknown };
   try { body = await req.json(); } catch { return fail('invalid_body'); }
 
   try {
@@ -142,11 +146,27 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.action !== 'spin') return fail('invalid_action');
+    const requestId = typeof body.requestId === 'string' ? body.requestId : '';
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) return fail('invalid_spin_request');
     const tx = await db.transaction('write');
     try {
       await tx.execute({ sql: 'INSERT OR IGNORE INTO player_lucky_wheel(telegram_id) VALUES(?)', args: [telegramId] });
       const current = await tx.execute({ sql: 'SELECT last_free_spin_at,ad_views FROM player_lucky_wheel WHERE telegram_id=?', args: [telegramId] });
       const row = current.rows[0] as Record<string, unknown>;
+      const previousSpin = await tx.execute({
+        sql: 'SELECT id,prize,prize_index,spin_type FROM lucky_wheel_spins WHERE telegram_id=? AND request_id=?',
+        args: [telegramId, requestId],
+      });
+      if (previousSpin.rows.length) {
+        const previous = previousSpin.rows[0];
+        const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
+        await tx.commit();
+        return NextResponse.json({
+          ok: true, duplicate: true, prize: Number(previous.prize), prizeIndex: Number(previous.prize_index),
+          spinType: String(previous.spin_type), balance: Number(wallet.rows[0]?.coins_balance ?? 0),
+          spinId: String(previous.id), state: stateOf(row),
+        }, { headers: { 'Cache-Control': 'no-store' } });
+      }
       const now = Date.now();
       const lastFree = row.last_free_spin_at == null ? null : Number(row.last_free_spin_at);
       const freeAvailable = lastFree === null || now - lastFree >= FREE_SPIN_MS;
@@ -172,7 +192,7 @@ export async function POST(req: NextRequest) {
       const newBalance = oldBalance + prize;
       if (!Number.isSafeInteger(oldBalance) || oldBalance < 0 || !Number.isSafeInteger(newBalance)) { await tx.rollback(); return fail('wallet_balance_invalid', 409); }
       await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [newBalance, prize, telegramId] });
-      await tx.execute({ sql: 'INSERT INTO lucky_wheel_spins(id,telegram_id,prize,prize_index,spin_type) VALUES(?,?,?,?,?)', args: [spinId, telegramId, prize, prizeIndex, spinType] });
+      await tx.execute({ sql: 'INSERT INTO lucky_wheel_spins(id,telegram_id,prize,prize_index,spin_type,request_id) VALUES(?,?,?,?,?,?)', args: [spinId, telegramId, prize, prizeIndex, spinType, requestId] });
       await tx.execute({
         sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','lucky_wheel',?,?,'lucky_wheel',?,?,?)",
         args: [randomUUID(), telegramId, prize, newBalance, spinId, `lucky_wheel:${spinId}`, JSON.stringify({ spinType, prizeIndex })],
@@ -185,6 +205,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, prize, prizeIndex, spinType, balance: newBalance, spinId, state: { freeAvailable: spinType === 'free' ? false : freeAvailable, freeNextAt: spinType === 'free' ? now + FREE_SPIN_MS : lastFree === null ? null : lastFree + FREE_SPIN_MS, adViews: spinType === 'ads' ? 0 : adViews, adsNeeded: spinType === 'ads' ? 3 : Math.max(0, 3 - adViews), extraSpinAvailable: false } }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
     } catch (error) { await tx.rollback(); throw error; }
   } catch (error) {
+    if (error instanceof Error && error.message.includes('daily_coin_limit_reached')) return fail('daily_coin_limit_reached', 429);
     console.error('lucky_wheel_action_failed', error);
     return fail('lucky_wheel_unavailable', 503);
   }
