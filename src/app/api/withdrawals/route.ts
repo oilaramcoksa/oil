@@ -62,9 +62,11 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return jsonError('invalid_body', 400); }
   const units = Number(body.units);
   const tonAddress = typeof body.tonAddress === 'string' ? body.tonAddress.trim() : '';
-  const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';\n  const feePaymentId = typeof body.feePaymentId === 'string' ? body.feePaymentId.trim() : '';
+  const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';
+  const feePaymentId = typeof body.feePaymentId === 'string' ? body.feePaymentId.trim() : '';
   if (!Number.isSafeInteger(units) || units < MIN_UNITS || units > MAX_UNITS_PER_REQUEST) return jsonError('invalid_units', 400);
-  if (!isValidTonAddress(tonAddress)) return jsonError('invalid_ton_address', 400);\n  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(feePaymentId)) return jsonError('withdrawal_fee_required', 402);
+  if (!isValidTonAddress(tonAddress)) return jsonError('invalid_ton_address', 400);
+  if (!/^[0-9a-f]/{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(feePaymentId)) return jsonError('withdrawal_fee_required', 402);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) return jsonError('invalid_idempotency_key', 400);
   const coins = units * COINS_PER_USD;
   const telegramId = String(user.id);
