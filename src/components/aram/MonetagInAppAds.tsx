@@ -30,13 +30,14 @@ export function MonetagInAppAds() {
         return;
       }
       // Monetag's TMA SDK needs the app to be opened as a real Telegram Mini App.
-      if (!w.Telegram?.WebApp?.initData || typeof w.show_12295910 !== 'function') {
+      const showAd = w.show_12295910;
+      if (!w.Telegram?.WebApp?.initData || typeof showAd !== 'function') {
         if (attempts >= 80) window.clearInterval(timer);
         return;
       }
       w.__armcoMonetagInAppStarted = true;
       window.clearInterval(timer);
-      void w.show_12295910({
+      void showAd({
         type: 'inApp',
         ymid: crypto.randomUUID(),
         requestVar: 'automatic_in_app',
