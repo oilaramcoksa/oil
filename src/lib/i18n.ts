@@ -12,6 +12,9 @@ export const LANGS: { code: Lang; label: string; flag: string; dir: 'rtl' | 'ltr
 type Dict = Record<string, string>;
 
 const ar: Dict = {
+  arenaWaitingPlayer: "بانتظار لاعب آخر للانضمام",
+  arenaWaitingRefund: "الإلغاء وإرجاع الرهانات خلال",
+  arenaMin: "الحد الأدنى 100 عملة",
   luckyWheelTitle: "حظك اليوم",
   luckyWheelSubtitle: "لف العجلة واربح عملات مجانية",
   luckyWheelHeader: "اختبر حظك اليوم!",
@@ -611,6 +614,9 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
 };
 
 const en: Dict = {
+  arenaWaitingPlayer: "Waiting for another player to join",
+  arenaWaitingRefund: "Round cancellation and refunds in",
+  arenaMin: "Minimum 100 coins",
   luckyWheelTitle: "Your Daily Luck",
   luckyWheelSubtitle: "Spin the wheel and win free coins",
   luckyWheelHeader: "Test your luck today!",
@@ -1198,6 +1204,9 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
 };
 
 const ru: Dict = {
+  arenaWaitingPlayer: "Ожидание второго игрока",
+  arenaWaitingRefund: "Отмена раунда и возврат ставок через",
+  arenaMin: "Минимум 100 монет",
   luckyWheelTitle: "Удача дня",
   luckyWheelSubtitle: "Крутите колесо и выигрывайте монеты",
   luckyWheelHeader: "Испытай удачу сегодня!",
