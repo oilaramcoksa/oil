@@ -2,10 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Plane, Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle, Camera, ExternalLink, CheckCircle, XOctagon, MoreHorizontal, Download } from 'lucide-react';
+import { PACKAGES } from '@/lib/wallets';
 
 type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'crash' | 'audit';
 type Player = {telegram_id:string;username?:string|null;first_name?:string|null;last_name?:string|null;status:string;coins:number;oil:number;base_oil_per_tap:number;fee_exempt:number;mining_fee_paid_at?:string|null};
 type Row = Record<string, unknown>;
+const ADMIN_SHOP_PARTS = [
+  {id:'plane_tips',name:'قطعة توصيات الطائرة'}, {id:'oil_pump',name:'قطعة مضخة النفط'},
+  {id:'fuel_station',name:'قطعة محطة الوقود'}, {id:'oil_truck',name:'قطعة شاحنة النفط'},
+  {id:'new_background',name:'الخلفية الجديدة'}, {id:'vip_badge',name:'شارة VIP'},
+  {id:'wheel_expansion',name:'توسعة عجلة الحظ'}, {id:'arena_tokens_10000',name:'10,000 عملة للساحة'},
+];
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
 
 const money = (v: unknown) => Number(v ?? 0).toLocaleString('en-US');
@@ -41,6 +48,8 @@ export default function AdminPage() {
   const [amount,setAmount] = useState(''); // Bulk broadcast coin distribution amount.
   const [coinAmount,setCoinAmount] = useState('');
   const [oilAmount,setOilAmount] = useState('');
+  const [grantProductId,setGrantProductId] = useState('fast_oil');
+  const [grantProductQuantity,setGrantProductQuantity] = useState('1');
   const [referralPickerOpen,setReferralPickerOpen] = useState(false);
   const [referralSearch,setReferralSearch] = useState('');
   const [referralCandidates,setReferralCandidates] = useState<Player[]>([]);
@@ -268,6 +277,20 @@ export default function AdminPage() {
       {actionDialog.action==='player'&&selected&&<div className="mt-3 space-y-4 border-t border-slate-200 pt-4">
 <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 space-y-2"><h4 className="font-black text-amber-900">إضافة عملات إلى المحفظة</h4><input value={coinAmount} onChange={e=>setCoinAmount(e.target.value)} type="number" min="1" step="1" placeholder="عدد العملات" className="w-full rounded-xl border border-amber-200 bg-white p-3 text-slate-800"/><button disabled={!Number.isSafeInteger(Number(coinAmount))||Number(coinAmount)<=0||busy} onClick={()=>act({action:'grant_coins',telegramId:selected.telegram_id,amount:Number(coinAmount),reason:reason||'مكافأة من الإدارة'})} className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 p-3 font-bold text-white disabled:opacity-40">تأكيد إضافة العملات</button></section>
 <section className="rounded-2xl border border-sky-200 bg-sky-50 p-3 space-y-2"><h4 className="font-black text-sky-900">إضافة نفط إلى المحفظة</h4><input value={oilAmount} onChange={e=>setOilAmount(e.target.value)} type="number" min="1" step="1" placeholder="كمية النفط" className="w-full rounded-xl border border-sky-200 bg-white p-3 text-slate-800"/><button disabled={!Number.isSafeInteger(Number(oilAmount))||Number(oilAmount)<=0||busy} onClick={()=>act({action:'grant_oil',telegramId:selected.telegram_id,amount:Number(oilAmount),reason:reason||'مكافأة نفط من الإدارة'})} className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-cyan-600 p-3 font-bold text-white disabled:opacity-40">تأكيد إضافة النفط</button></section>
+<section className="rounded-2xl border border-purple-200 bg-purple-50 p-3 space-y-2">
+  <h4 className="font-black text-purple-900">🎁 منح منتج مجاني من المتجر</h4>
+  <p className="text-xs leading-5 text-purple-800">اختر أي قطعة أو باقة تسريع وسيتم تفعيلها مباشرة في حساب اللاعب دون دفع TON.</p>
+  <select value={grantProductId} onChange={e=>setGrantProductId(e.target.value)} className="w-full rounded-xl border border-purple-200 bg-white p-3 text-slate-800">
+    <optgroup label="باقات التسريع">
+      {PACKAGES.map(p=><option key={p.id} value={p.id}>{p.id==='fast_oil'?'Fast Oil':p.id==='king_oil'?'King Oil':'Super Oil'}</option>)}
+    </optgroup>
+    <optgroup label="قطع المتجر">
+      {ADMIN_SHOP_PARTS.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+    </optgroup>
+  </select>
+  <input value={grantProductQuantity} onChange={e=>setGrantProductQuantity(e.target.value)} type="number" min="1" max="100" step="1" disabled={PACKAGES.some(p=>p.id===grantProductId)} placeholder="الكمية" className="w-full rounded-xl border border-purple-200 bg-white p-3 text-slate-800 disabled:opacity-50"/>
+  <button disabled={busy||!Number.isSafeInteger(Number(grantProductQuantity))||Number(grantProductQuantity)<1||Number(grantProductQuantity)>100} onClick={()=>{if(window.confirm('تأكيد منح '+(ADMIN_SHOP_PARTS.find(p=>p.id===grantProductId)?.name??(grantProductId==='fast_oil'?'باقة Fast Oil':grantProductId==='king_oil'?'باقة King Oil':'باقة Super Oil'))+' مجانًا للاعب '+displayName(selected)+'؟'))act({action:'grant_product',telegramId:selected.telegram_id,productId:grantProductId,quantity:PACKAGES.some(p=>p.id===grantProductId)?1:Number(grantProductQuantity),reason:reason||'هدية مجانية من الإدارة'});}} className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 p-3 font-black text-white disabled:opacity-40">منح المنتج مجانًا</button>
+</section>
 <section className="rounded-2xl border border-rose-200 bg-rose-50 p-3 space-y-2"><h4 className="font-black text-rose-900">حالة الحساب</h4><button onClick={()=>act({action:selected.status==='active'?'ban':'unban',telegramId:selected.telegram_id,reason:reason||'قرار الإدارة'})} className="w-full rounded-xl bg-rose-600 p-3 font-bold text-white">{selected.status==='active'?'حظر اللاعب':'رفع الحظر'}</button></section>
 <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 space-y-2"><h4 className="font-black text-emerald-900">رسوم التعدين</h4><button onClick={()=>act({action:'set_mining_fee_exemption',telegramId:selected.telegram_id,exempt:selected.fee_exempt?'0':'1',reason:reason||'تعديل إعفاء رسوم التعدين من الإدارة'})} className="w-full rounded-xl bg-emerald-600 p-3 font-bold text-white">{selected.fee_exempt?'إلغاء إعفاء رسوم التعدين':'إعفاء اللاعب من رسوم التعدين'}</button><p className="text-xs text-emerald-800">{selected.mining_fee_paid_at?'هذا الحساب دفع رسوم التفعيل بالفعل.':'الحساب لم يسجل دفع رسوم التفعيل بعد.'}</p></section>
 <section className="rounded-2xl border border-violet-200 bg-violet-50 p-3 space-y-2"><h4 className="font-black text-violet-900">سرعة التعدين الأساسية لكل ضغطة</h4><input value={speed} onChange={e=>setSpeed(e.target.value)} type="number" min="1" step="1" className="w-full rounded-xl border border-violet-200 bg-white p-3 text-slate-800"/><button disabled={!Number.isSafeInteger(Number(speed))||Number(speed)<1||busy} onClick={()=>act({action:'set_speed',telegramId:selected.telegram_id,speed:Number(speed),reason:reason||'تعديل سرعة من الإدارة'})} className="w-full rounded-xl bg-violet-600 p-3 font-bold text-white disabled:opacity-40">حفظ السرعة</button></section>
