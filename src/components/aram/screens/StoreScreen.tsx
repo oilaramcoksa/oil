@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { TadsWidget } from 'react-tads-widget';
 import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
 
-export function StoreScreen({ initData, isVerified, openProductId = null }: { initData: string; isVerified: boolean; openProductId?: string | null }) {
+export function StoreScreen({ initData, isVerified, openProductRequest = 0 }: { initData: string; isVerified: boolean; openProductRequest?: number }) {
   const lang = useGame((s) => s.lang);
   const upgrades = useGame((s) => s.upgrades);
   const { haptic, notify } = useTelegram();
@@ -203,14 +203,14 @@ export function StoreScreen({ initData, isVerified, openProductId = null }: { in
   ];
 
   useEffect(() => {
-    if (!openProductId) return;
-    const product = shopParts.find((part) => part.id === openProductId);
+    if (!openProductRequest) return;
+    const product = shopParts.find((part) => part.id === 'plane_tips');
     if (product) {
       setSelectedPart(product);
       setPartFailed(false);
       setPartVerifying(false);
     }
-  }, [openProductId, lang]);
+  }, [openProductRequest, lang]);
 
   const buyPart = async () => {
     if (!selectedPart || partVerifying) return;
