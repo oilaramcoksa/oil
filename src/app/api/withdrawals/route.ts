@@ -66,7 +66,17 @@ export async function POST(req: NextRequest) {
   const feePaymentId = typeof body.feePaymentId === 'string' ? body.feePaymentId.trim() : '';
   if (!Number.isSafeInteger(units) || units < MIN_UNITS || units > MAX_UNITS_PER_REQUEST) return jsonError('invalid_units', 400);
   if (!isValidTonAddress(tonAddress)) return jsonError('invalid_ton_address', 400);
-  const uuidPattern = new RegExp('^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+  const isUuid = (value: string) => {
+    const parts = value.split("-");
+    if (parts.length !== 5 || parts[0].length !== 8 || parts[1].length !== 4 || parts[2].length !== 4 || parts[3].length !== 4 || parts[4].length !== 12) return false;
+    const hex = (part: string) => [...part].every((char) => {
+      const code = char.toLowerCase().charCodeAt(0);
+      return (code >= 48 && code <= 57) || (code >= 97 && code <= 102);
+    });
+    return parts.every(hex) && value[14] === "4" && ["8", "9", "a", "b"].includes(value[19].toLowerCase());
+  };
+  if (!isUuid(feePaymentId)) return jsonError("withdrawal_fee_required", 402);
+  if (!isUuid(idempotencyKey)) return jsonError("invalid_idempotency_key", 400);
   const coins = units * COINS_PER_USD;
   const telegramId = String(user.id);
 
