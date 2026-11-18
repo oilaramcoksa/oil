@@ -221,15 +221,15 @@ export async function POST(req: NextRequest) {
             CASE
               WHEN (SELECT COUNT(DISTINCT part_id) FROM (
                 SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
-                UNION SELECT part_id FROM player_special_parts WHERE telegram_id=?
-                  AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
+                UNION SELECT part_id FROM player_special_parts WHERE telegram_id=? AND part_id<>'auto_sell'
+                    AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
               ))>=6 THEN 2000
               WHEN EXISTS (SELECT 1 FROM player_upgrades WHERE telegram_id=?
                 AND status='active' AND expires_at>CURRENT_TIMESTAMP
                 AND package_id IN ('fast_oil','king_oil','super_oil'))
                 AND (SELECT COUNT(DISTINCT part_id) FROM (
                   SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
-                  UNION SELECT part_id FROM player_special_parts WHERE telegram_id=?
+                  UNION SELECT part_id FROM player_special_parts WHERE telegram_id=? AND part_id<>'auto_sell'
                     AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
                 ))>=1 THEN 1500
               ELSE 1000 END AS daily_limit FROM (SELECT 1)`,
