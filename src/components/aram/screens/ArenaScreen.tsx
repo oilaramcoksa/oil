@@ -439,9 +439,9 @@ export function ArenaScreen({
           </div>
         </div>
 
-        {state.lastResult && !round && !replaying && (
+        {state.lastResult && !replaying && (
           <section className="mb-3 rounded-2xl border border-emerald-300/70 bg-gradient-to-r from-emerald-50 to-amber-50 p-4 text-center text-[#245b45] shadow-md">
-            <div className="text-lg font-black">🏆 {t(lang, 'arenaWinnerAnnounced')}</div>
+            <div className="text-lg font-black">🏆 {t(lang, 'arenaLastRoundResult')}</div>
             <div className="mt-1 text-sm font-extrabold">
               {state.lastResult.winnerType === 'house'
                 ? t(lang, 'arenaAdminSlice')
