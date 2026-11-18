@@ -26,7 +26,7 @@ type CrashState = {
 const EMPTY: CrashState | null = null;
 const fmt = (n: number) => Math.max(0, Math.floor(n)).toLocaleString('en-US');
 const getFlightPoint = (progress: number) => {
-  const t = Math.max(0, Math.min(0.96, progress));
+  const t = Math.max(0, Math.min(0.985, progress));
   const inverse = 1 - t;
   return {
     x: inverse * inverse * 90 + 2 * inverse * t * 600 + t * t * 1080,
@@ -92,11 +92,23 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const liveMultiplier = round?.status === 'running' && round.startedAt
     ? Math.min(20, Math.floor((1 + Math.max(0, serverNow - round.startedAt) / 10_000) * 10) / 10)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
-  // Visual-only animation state. It never affects multiplier, crash outcome, or cashout.
+  // Presentation follows the authoritative multiplier; it never changes the game result.
+  // A short runway roll precedes the climb. Even an instant 1.00x crash stays on the runway.
   const flightElapsedMs = round?.status === 'running' && round.startedAt
     ? Math.max(0, serverNow - round.startedAt)
-    : 0;
-  const flightProgress = Math.min(0.96, flightElapsedMs / 10_000);
+    : round?.status === 'crashed' && round.crashMultiplier != null
+      ? Math.max(0, (round.crashMultiplier - 1) * 10_000)
+      : 0;
+  const runwayProgress = Math.min(1, flightElapsedMs / 650);
+  const flightProgress = round?.status === 'crashed' && (round.crashMultiplier ?? 1) <= 1
+    ? 0
+    : Math.max(0, Math.min(0.985, (Math.log(Math.max(1, liveMultiplier)) / Math.log(20) - 0.018) / 0.982));
+  const flightPoint = flightElapsedMs < 650
+    ? { x: 90 + runwayProgress * 125, y: 250 }
+    : getFlightPoint(flightProgress);
+  const flightVisible = round?.status === 'running' || round?.status === 'crashed';
+  const trailPath = `M90 250 Q${90 + (600 - 90) * flightProgress} ${250 + (190 - 250) * flightProgress} ${flightPoint.x} ${flightPoint.y}`;
+  const trailFill = `${trailPath} L90 250 Z`;
   const breakSecondsLeft = round?.status === 'crashed' && round.crashedAt
     ? Math.max(0, Math.ceil((round.crashedAt + 60_000 - serverNow) / 1000))
     : 0;
@@ -225,8 +237,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#f28b4b]/35 to-transparent" />
           <motion.div
             className="absolute inset-y-0 left-0 w-[200%]"
-            animate={{ x: ['0%', '-50%'], y: round?.status === 'running' ? ['-2%', '8%', '-2%'] : ['0%', '0%'] }}
-            transition={{ x: { duration: 38, repeat: Infinity, ease: 'linear' }, y: { duration: 7, repeat: Infinity, ease: 'easeInOut' } }}
+            animate={{ x: ['0%', '-50%'], y: round?.status === 'running' ? `${flightProgress * 24}%` : '0%' }}
+            transition={{ x: { duration: 38, repeat: Infinity, ease: 'linear' }, y: { duration: .3, ease: 'easeOut' } }}
           >
             <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="h-full w-full">
               <g fill="#e8f4ff" opacity=".13">
@@ -243,8 +255,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
           </motion.div>
           <motion.div
             className="absolute inset-y-0 left-0 w-[200%]"
-            animate={{ x: ['0%', '-50%'], y: round?.status === 'running' ? ['0%', '13%', '0%'] : ['0%', '0%'] }}
-            transition={{ x: { duration: 25, repeat: Infinity, ease: 'linear' }, y: { duration: 5.5, repeat: Infinity, ease: 'easeInOut' } }}
+            animate={{ x: ['0%', '-50%'], y: round?.status === 'running' ? `${flightProgress * 38}%` : '0%' }}
+            transition={{ x: { duration: 25, repeat: Infinity, ease: 'linear' }, y: { duration: .34, ease: 'easeOut' } }}
           >
             <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="h-full w-full">
               <g fill="#fff" opacity=".42">
@@ -269,46 +281,50 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             <g fill="none" stroke="#f7faff" strokeWidth="1.7" strokeLinecap="round" opacity=".45"><path d="M475 116q7-6 14 0q7-6 14 0M510 132q5-4 10 0q5-4 10 0M1010 106q7-6 14 0q7-6 14 0"/></g>
           </motion.svg>
 
-          {round?.status === 'running' && (
+          {flightVisible && (
             <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 z-[8] h-full w-full overflow-visible" aria-hidden="true">
               <defs>
                 <linearGradient id="armco-flight-trail" x1="0" y1="1" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#ff6a16" stopOpacity=".45"/>
-                  <stop offset="55%" stopColor="#ff8b22" stopOpacity=".95"/>
-                  <stop offset="100%" stopColor="#fff2a8" stopOpacity="1"/>
+                  <stop offset="0%" stopColor="#ff6a16" stopOpacity=".35"/>
+                  <stop offset="58%" stopColor="#ff8b22" stopOpacity=".95"/>
+                  <stop offset="100%" stopColor="#fff5bd" stopOpacity="1"/>
                 </linearGradient>
-                <linearGradient id="armco-flight-fill" x1="0" y1="1" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#f97316" stopOpacity=".02"/>
-                  <stop offset="100%" stopColor="#ffb347" stopOpacity=".2"/>
+                <linearGradient id="armco-flight-fill" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#ff7a18" stopOpacity=".02"/>
+                  <stop offset="100%" stopColor="#ff9b32" stopOpacity=".30"/>
                 </linearGradient>
               </defs>
-              <path d={`M90 250 Q510 165 930 80 L90 250 Z`} fill="url(#armco-flight-fill)" opacity=".72"/>
-              <path d="M90 250 Q510 165 930 80" fill="none" stroke="#ff7a18" strokeWidth="30" strokeLinecap="round" opacity=".18" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress} style={{filter:'blur(12px)'}}/>
-              <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#ff8b24" strokeWidth="12" strokeLinecap="round" opacity=".38" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress} style={{filter:'blur(5px)'}}/>
-              <path d="M90 250 Q600 190 1080 30" fill="none" stroke="url(#armco-flight-trail)" strokeWidth="5.5" strokeLinecap="round" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress}/>
-              <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#fff3c4" strokeWidth="1.5" strokeLinecap="round" opacity=".9" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress}/>
-              {round?.status === 'running' && Array.from({length:9},(_,i)=>(
-                <motion.circle key={i} cx={930-(i+1)*13} cy={80+(i+1)*2.7} r={2.5+(i%3)} fill={i%2?'#ffd36b':'#ff7a1a'} initial={{opacity:0}} animate={{opacity:[0,.9,0],r:[2,4,1],cx:[930-(i+1)*13,930-(i+1)*23]}} transition={{duration:.65+(i%3)*.12,repeat:Infinity,delay:i*.055,ease:'easeOut'}}/>
+              {flightElapsedMs >= 650 && <path d={trailFill} fill="url(#armco-flight-fill)" opacity=".95"/>}
+              <path d={flightElapsedMs < 650 ? `M90 250 L${flightPoint.x} 250` : trailPath}
+                fill="none" stroke="#ff7a18" strokeWidth="25" strokeLinecap="round" opacity=".24" style={{filter:'blur(10px)'}}/>
+              <path d={flightElapsedMs < 650 ? `M90 250 L${flightPoint.x} 250` : trailPath}
+                fill="none" stroke="url(#armco-flight-trail)" strokeWidth="6" strokeLinecap="round"/>
+              <path d={flightElapsedMs < 650 ? `M90 250 L${flightPoint.x} 250` : trailPath}
+                fill="none" stroke="#fff1c2" strokeWidth="1.5" strokeLinecap="round" opacity=".9"/>
+              {round?.status === 'running' && Array.from({length:12},(_,i)=>(
+                <motion.circle key={i} cx={flightPoint.x-10-i*5} cy={flightPoint.y+4+i*1.5} r={2+(i%3)} fill={i%2?'#ffd36b':'#ff7a1a'}
+                  initial={{opacity:0}} animate={{opacity:[0,.95,0],x:[0,-22-i*2],y:[0,5+i]}}
+                  transition={{duration:.42+(i%3)*.12,repeat:Infinity,delay:i*.035,ease:'easeOut'}}/>
               ))}
             </svg>
           )}
           {round?.status !== 'crashed' && (
-            <motion.div
-              className="pointer-events-none absolute left-[77.5%] top-[27.5%] z-20 w-[23%] max-w-[112px]"
-              style={{ x: '-50%', y: '-50%' }}
-              animate={round?.status === 'running'
-                ? { y: ['-50%', 'calc(-50% - 3px)', '-50%'], rotate: [-18, -16, -18], scale: [1, 1.025, 1] }
-                : { rotate: -18, scale: 1 }}
-              transition={round?.status === 'running' ? { duration: .62, repeat: Infinity, ease: 'easeInOut' } : { duration: .3 }}
-            >
-              <img src="/fly.png" alt="ARMCOFLY aircraft" draggable={false} className="block h-auto w-full select-none object-contain drop-shadow-[0_8px_9px_rgba(0,0,0,.5)]" />
-              {round?.status === 'running' && <motion.span className="absolute -left-3 top-1/2 h-2 w-8 -translate-y-1/2 rounded-full bg-orange-300/90 blur-md" animate={{ opacity:[.45,1,.45],scaleX:[.7,1.2,.7] }} transition={{duration:.35,repeat:Infinity}}/>}
-            </motion.div>
+            <div className="pointer-events-none absolute z-20 w-[23%] max-w-[112px]"
+              style={{left:`${flightPoint.x/12}%`,top:`${flightPoint.y/2.9}%`,transform:'translate(-50%,-50%) rotate(-18deg)'}}>
+              <img src="/fly.png" alt="ARMCOFLY aircraft" draggable={false} className="block h-auto w-full select-none object-contain drop-shadow-[0_8px_9px_rgba(0,0,0,.5)]"/>
+              {round?.status === 'running' && <>
+                <motion.span className="absolute -left-5 top-[58%] h-2 w-10 -translate-y-1/2 rounded-full bg-orange-300/90 blur-md"
+                  animate={{opacity:[.45,1,.45],scaleX:[.7,1.35,.7]}} transition={{duration:.28,repeat:Infinity}}/>
+                {Array.from({length:5},(_,i)=><motion.i key={i} className="absolute -left-2 top-[55%] h-1.5 w-1.5 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,.95)]"
+                  animate={{x:[-2,-24-i*5],y:[0,5+i*2],opacity:[1,.8,0],scale:[1,.7,0]}}
+                  transition={{duration:.38+i*.05,repeat:Infinity,delay:i*.07,ease:'easeOut'}}/>)}
+              </>}
+            </div>
           )}
-          {round?.status === 'running' && <motion.div className="absolute left-1/2 top-[46%] z-10 h-36 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/10 blur-2xl" animate={{ scale: [1, 1.15, 1], opacity: [.35, .65, .35] }} transition={{ duration: 1.4, repeat: Infinity }} />}
+          {round?.status === 'running' && <motion.div className="absolute left-1/2 top-[46%] z-10 h-36 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/10 blur-2xl" animate={{scale:[1,1.15,1],opacity:[.35,.65,.35]}} transition={{duration:1.4,repeat:Infinity}}/>}
           {showExplosion && <motion.div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.05, times: [0, .18, 1] }}>
-            <motion.img src="/flydawn.png" alt="" draggable={false} className="absolute left-1/2 top-[36%] w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_0_32px_rgba(249,115,22,1)]" initial={{ scale: .9, opacity: 0, rotate: -2 }} animate={{ scale: [ .9, 1.08, 1.2 ], opacity: [ 0, 1, 0 ], rotate: [-2, 1, 5] }} transition={{ duration: .72, times: [0, .12, 1], ease: 'easeOut' }}/>
-            <motion.div className="absolute left-1/2 top-[36%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-200/90 blur-md" initial={{ scale: .15 }} animate={{ scale: [0.15, 3.6, 5.2], opacity: [1, .85, 0] }} transition={{ duration: .85, ease: 'easeOut' }}/>
+            <motion.img src="/flydawn.png" alt="" draggable={false} className="absolute w-[42%] max-w-[190px] object-contain drop-shadow-[0_0_32px_rgba(249,115,22,1)]" style={{left:`${flightPoint.x/12}%`,top:`${flightPoint.y/2.9}%`,transform:'translate(-50%,-50%)'}} initial={{scale:.9,opacity:0,rotate:-2}} animate={{scale:[.9,1.08,1.2],opacity:[0,1,0],rotate:[-2,1,5]}} transition={{duration:.72,times:[0,.12,1],ease:'easeOut'}}/>
+            <motion.div className="absolute h-20 w-20 rounded-full bg-yellow-200/90 blur-md" style={{left:`${flightPoint.x/12}%`,top:`${flightPoint.y/2.9}%`,transform:'translate(-50%,-50%)'}} initial={{ scale: .15 }} animate={{ scale: [0.15, 3.6, 5.2], opacity: [1, .85, 0] }} transition={{ duration: .85, ease: 'easeOut' }}/>
             {Array.from({length:14},(_,i)=><motion.i key={i} className="absolute left-1/2 top-[36%] h-2 w-2 rounded-full bg-gradient-to-br from-yellow-100 to-orange-500 shadow-[0_0_12px_rgba(251,146,60,.9)]" initial={{ x: 0, y: 0, scale: 1, opacity: 1 }} animate={{ x: Math.cos(i*Math.PI/7)*150, y: Math.sin(i*Math.PI/7)*105, scale: 0, opacity: 0 }} transition={{ duration: .85, ease: 'easeOut' }}/>)}
           </motion.div>}
           <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" aria-live="polite">
