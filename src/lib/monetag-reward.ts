@@ -38,7 +38,7 @@ export async function claimMonetagActionReward(args: {
 export async function watchMonetagRewardedAd(args: {
   initData: string;
   requestVar: string;
-  endpoint: '/api/ads/reward' | '/api/ads/action-reward';
+  endpoint: '/api/ads/reward' | '/api/ads/action-reward' | '/api/lucky-wheel';
   body: (ymid: string) => Record<string, unknown>;
 }): Promise<{ reward: number; walletCoins: number }> {
   if (typeof window === 'undefined' || typeof window.show_12295910 !== 'function') throw new Error('monetag_sdk_unavailable');
