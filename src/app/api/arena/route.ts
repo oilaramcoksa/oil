@@ -58,7 +58,7 @@ function sha256(value: string) {
 function chooseOutcome(entries: ArenaEntryRow[], total: number, roundId: string, seed: string) {
   // Version 1 is deterministic: the seed commitment is stored before the round accepts entries.
   const draw = BigInt('0x' + sha256('aramco-arena-v1:' + roundId + ':' + seed).slice(0, 16)) % 1_000_000_000_000n;
-  const houseThreshold = 250_000_000_000n;
+  const houseThreshold = BigInt(Math.round(HOUSE_SLICE * 1_000_000_000_000));
   if (draw < houseThreshold) return { seed, winnerType: 'house' as const, winnerId: null, stopDegrees: 45 };
   const playerDraw = Number(draw - houseThreshold) / Number(1_000_000_000_000n - houseThreshold);
   const target = playerDraw * total;
