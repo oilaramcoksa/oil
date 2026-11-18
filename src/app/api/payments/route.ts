@@ -7,7 +7,7 @@ import { PACKAGES, WALLETS, UPGRADE_DURATION_MS } from '@/lib/wallets';
 import { publishPaymentNotice } from '@/lib/telegram-payment-notice';
 
 const SHOP_PARTS = [
-  { id: 'plane_tips', priceTon: 5 }, { id: 'oil_pump', priceTon: 2 }, { id: 'fuel_station', priceTon: 1.5 },
+  { id: 'plane_tips', priceTon: 5 }, { id: 'auto_sell', priceTon: 5 }, { id: 'oil_pump', priceTon: 2 }, { id: 'fuel_station', priceTon: 1.5 },
   { id: 'oil_truck', priceTon: 1 }, { id: 'new_background', priceTon: 1 },
   { id: 'vip_badge', priceTon: 5 }, { id: 'wheel_expansion', priceTon: 1 }, { id: 'arena_tokens_10000', priceTon: 1 },
 ] as const;
@@ -70,7 +70,7 @@ async function activatePurchase(id: string, telegramId: string, txHash: string) 
           payment_id TEXT NOT NULL UNIQUE, usage_count INTEGER NOT NULL DEFAULT 0 CHECK(usage_count >= 0), PRIMARY KEY(telegram_id,part_id,payment_id)
         )`);
         const now=Date.now();
-        await tx.execute({sql:'INSERT INTO player_special_parts(telegram_id,part_id,purchased_at,expires_at,payment_id,usage_count) VALUES(?,?,?,?,?,0)',args:[telegramId,productId,now,productId==='wheel_expansion'?now+72*60*60*1000:null,id]});
+        await tx.execute({sql:'INSERT INTO player_special_parts(telegram_id,part_id,purchased_at,expires_at,payment_id,usage_count) VALUES(?,?,?,?,?,0)',args:[telegramId,productId,now,productId==='wheel_expansion'?now+72*60*60*1000:productId==='auto_sell'?now+30*24*60*60*1000:null,id]});
       }
     } else {
       if (!PACKAGES.some(p=>p.id===productId)) { await tx.rollback(); return false; }
