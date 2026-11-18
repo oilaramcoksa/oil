@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
-import { calculateArenaSettlement } from '@/lib/arena-settlement.mjs';
+import { calculateArenaSettlement, isValidArenaEntryAmount } from '@/lib/arena-settlement.mjs';
 import { broadcastGameInvite } from '@/lib/game-invite-notice';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const MIN_ENTRY = 1_000;
 const COUNTDOWN_MS = 30_000;
 const SPIN_MS = 7_000;
 const HOUSE_SLICE = 0.25;
@@ -29,8 +28,7 @@ function jsonError(error: string, status = 400) {
 }
 
 function validAmount(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) &&
-    value >= MIN_ENTRY;
+  return isValidArenaEntryAmount(value);
 }
 
 async function readEntries(db: ReturnType<typeof getTurso>, roundId: string): Promise<ArenaEntryRow[]> {
@@ -299,15 +297,11 @@ export async function GET(req: NextRequest) {
     const betBalance = Number(betWalletResult.rows[0]?.balance ?? 0);
     const activeRound = activeResult.rows[0];
 
-    // Return only this player's most recent completed round, never another
-    // player's unrelated global result. This remains available while a new
-    // round is active and while the player was offline at settlement time.
+    // Everyone sees the latest completed round so the winner is announced to spectators too.
     const personalPrevious = await db.execute({
       sql: `SELECT r.* FROM arena_rounds r
-            INNER JOIN arena_entries e ON e.round_id = r.id
-            WHERE e.telegram_id = ? AND r.status = 'completed'
+            WHERE r.status = 'completed'
             ORDER BY r.completed_at DESC LIMIT 1`,
-      args: [playerId],
     });
     const personalRow = personalPrevious.rows[0];
     let personalLastResult: { id: string; winnerType: string; winnerTelegramId: string | null; totalEntries: number; wheelStopDegrees: number; completedAt: string | null; seedCommitment: string | null; outcomeSeed: string | null; algorithmVersion: number; resultProofHash: string | null; entries: ReturnType<typeof toPublicEntry>[] } | null = null;
@@ -330,10 +324,15 @@ export async function GET(req: NextRequest) {
 
     if (activeRound) {
       const entries = await readEntries(db, String(activeRound.id));
+      const createdAtMs = activeRound.created_at == null ? now : Date.parse(String(activeRound.created_at).replace(' ', 'T') + 'Z');
+      const waitingExpiresAt = String(activeRound.status) === 'open'
+        ? (Number.isFinite(createdAtMs) ? createdAtMs : now) + WAITING_REFUND_MS
+        : null;
       return NextResponse.json({
         round: {
           id: String(activeRound.id),
           status: String(activeRound.status),
+          waitingExpiresAt,
           startsAt: activeRound.starts_at == null ? null : Number(activeRound.starts_at),
           spinStartedAt: activeRound.spin_started_at == null ? null : Number(activeRound.spin_started_at),
           totalEntries: Number(activeRound.total_entries),
