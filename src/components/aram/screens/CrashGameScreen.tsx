@@ -89,6 +89,18 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const round = state?.round;
   const serverNow = now + serverOffset;
   const secondsLeft = round?.status === 'countdown' ? Math.max(0, Math.ceil((round.bettingEndsAt - serverNow) / 1000)) : 0;
+  // At the exact deadline, force the authoritative server transition immediately.
+  // This avoids a frozen-looking 0s state if the regular 500ms poll lands on the boundary.
+  useEffect(() => {
+    if (!isVerified || round?.status !== 'countdown' || secondsLeft > 0) return;
+    let alive = true;
+    const nudge = () => {
+      if (alive) void refresh().catch((error) => console.error('crash_countdown_transition_failed', error));
+    };
+    nudge();
+    const timer = window.setInterval(nudge, 150);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, [isVerified, round?.id, round?.status, secondsLeft, refresh]);
   const liveMultiplier = round?.status === 'running' && round.startedAt
     ? Math.min(20, Math.floor((1 + Math.max(0, serverNow - round.startedAt) / 10_000) * 10) / 10)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
@@ -152,7 +164,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   }, [state]);
   const maxSingleWallet = Math.max(state?.balance ?? 0, state?.betBalance ?? 0);
   // The API remains the authority for Telegram verification and round timing; the UI only gates on an open betting phase and one entry per round.
-  const canBet = Boolean(round?.status === 'countdown' && !ownBet && !loading && initData);
+  const canBet = Boolean(round?.status === 'countdown' && secondsLeft > 0 && !ownBet && !loading && initData);
   const canCashout = Boolean(round?.status === 'running' && ownBet?.status === 'active' && !loading);
 
   const playTone = (frequency: number, duration = 0.12) => {
@@ -366,13 +378,13 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
               {recentCrash || round?.status === 'crashed' ? (round?.crashMultiplier !== null && round?.crashMultiplier !== undefined && round.crashMultiplier <= 1 ? (lang === 'ar' ? 'تعذّر الإقلاع!' : lang === 'ru' ? 'ЗАДЕРЖКА ВЫЛЕТА!' : 'WEATHER DELAY!') : (lang === 'ar' ? 'انفجار!' : lang === 'ru' ? 'КРУШЕНИЕ!' : 'CRASHED!')) : liveMultiplier.toFixed(2) + 'x'}
             </div>
             <div className="mt-1 text-[10px] font-bold text-amber-100/65">
-              {round?.status === 'countdown' ? (lang === 'ar' ? 'الرهان مفتوح · الإقلاع بعد' : lang === 'ru' ? 'Ставки открыты · взлёт через' : 'Bets open · takeoff in') + ' ' + secondsLeft + 's' : round?.status === 'running' ? (lang === 'ar' ? 'الطائرة في الجو' : lang === 'ru' ? 'Самолёт в полёте' : 'Plane is flying') : round?.crashMultiplier !== null && round?.crashMultiplier !== undefined && round.crashMultiplier <= 1 ? (lang === 'ar' ? 'انفجرت قبل الإقلاع بسبب سوء الأحوال الجوية' : lang === 'ru' ? 'Вылет отменён до взлёта из-за плохой погоды' : 'Flight cancelled before takeoff due to bad weather') : (lang === 'ar' ? 'انفجرت عند ' : lang === 'ru' ? 'Крушение при ' : 'Crashed at ') + (round?.crashMultiplier?.toFixed(2) ?? '—') + 'x'}
+              {round?.status === 'countdown' ? (secondsLeft === 0 ? (lang === 'ar' ? 'جارٍ إقلاع الطائرة...' : lang === 'ru' ? 'Подготовка к взлёту...' : 'Preparing for takeoff...') : (lang === 'ar' ? 'الرهان مفتوح · الإقلاع بعد' : lang === 'ru' ? 'Ставки открыты · взлёт через' : 'Bets open · takeoff in') + ' ' + secondsLeft + 's') : round?.status === 'running' ? (lang === 'ar' ? 'الطائرة في الجو' : lang === 'ru' ? 'Самолёт в полёте' : 'Plane is flying') : round?.crashMultiplier !== null && round?.crashMultiplier !== undefined && round.crashMultiplier <= 1 ? (lang === 'ar' ? 'انفجرت قبل الإقلاع بسبب سوء الأحوال الجوية' : lang === 'ru' ? 'Вылет отменён до взлёта из-за плохой погоды' : 'Flight cancelled before takeoff due to bad weather') : (lang === 'ar' ? 'انفجرت عند ' : lang === 'ru' ? 'Крушение при ' : 'Crashed at ') + (round?.crashMultiplier?.toFixed(2) ?? '—') + 'x'}
             </div>
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-[10px] text-amber-100/70">
           <span className="flex items-center gap-1"><Clock3 size={13}/> {round?.status === 'countdown' ? (lang === 'ar' ? 'آخر وقت لقبول الرهان' : lang === 'ru' ? 'До закрытия ставок' : 'Betting closes in') : round?.status === 'running' ? (lang === 'ar' ? 'جولة مباشرة' : lang === 'ru' ? 'Раунд идёт' : 'Live round') : (lang === 'ar' ? 'استراحة الجولة' : lang === 'ru' ? 'Перерыв между раундами' : 'Round break')}</span>
-          <b className="text-amber-300">{round?.status === 'countdown' ? secondsLeft + 's' : round?.status === 'running' ? liveMultiplier.toFixed(2) + 'x' : (lang === 'ar' ? 'استراحة ' + breakSecondsLeft + ' ثانية' : lang === 'ru' ? 'Перерыв ' + breakSecondsLeft + ' сек.' : breakSecondsLeft + 's break')}</b>
+          <b className="text-amber-300">{round?.status === 'countdown' ? (secondsLeft === 0 ? (lang === 'ar' ? 'جارٍ الإقلاع' : lang === 'ru' ? 'Взлёт…' : 'Launching…') : secondsLeft + 's') : round?.status === 'running' ? liveMultiplier.toFixed(2) + 'x' : (lang === 'ar' ? 'استراحة ' + breakSecondsLeft + ' ثانية' : lang === 'ru' ? 'Перерыв ' + breakSecondsLeft + ' сек.' : breakSecondsLeft + 's break')}</b>
         </div>
       </section>
 
