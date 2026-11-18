@@ -25,6 +25,14 @@ type CrashState = {
 };
 const EMPTY: CrashState | null = null;
 const fmt = (n: number) => Math.max(0, Math.floor(n)).toLocaleString('en-US');
+const getFlightPoint = (progress: number) => {
+  const t = Math.max(0, Math.min(0.96, progress));
+  const inverse = 1 - t;
+  return {
+    x: inverse * inverse * 90 + 2 * inverse * t * 600 + t * t * 1080,
+    y: inverse * inverse * 250 + 2 * inverse * t * 190 + t * t * 30,
+  };
+};
 
 export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTokens, buyingTokens }: { initData: string; isVerified: boolean; telegramUserId: string; onBuyTokens: () => void; buyingTokens: boolean }) {
   const lang = useGame((s) => s.lang);
@@ -84,6 +92,14 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const liveMultiplier = round?.status === 'running' && round.startedAt
     ? Math.min(20, Math.floor((1 + Math.max(0, serverNow - round.startedAt) / 10_000) * 10) / 10)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
+  // Visual-only flight path. This never feeds the multiplier, crash result, or cashout API.
+  const flightElapsedMs = round?.status === 'running' && round.startedAt
+    ? Math.max(0, serverNow - round.startedAt)
+    : round?.status === 'crashed'
+      ? Math.max(0, ((round.crashMultiplier ?? 1) - 1) * 10_000)
+      : 0;
+  const flightProgress = Math.min(0.96, flightElapsedMs / 10_000);
+  const flightPoint = getFlightPoint(flightProgress);
   const recentCrash = Boolean(state?.previousRound?.crashedAt && serverNow - state.previousRound.crashedAt < 3_500);
   const ownBet = state?.bets.find((bet) => bet.telegramId === telegramUserId);
   const previousOwnBet = state?.previousRound?.bets.find((bet) => bet.telegramId === telegramUserId);
@@ -252,42 +268,42 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             <g fill="none" stroke="#f7faff" strokeWidth="1.7" strokeLinecap="round" opacity=".45"><path d="M475 116q7-6 14 0q7-6 14 0M510 132q5-4 10 0q5-4 10 0M1010 106q7-6 14 0q7-6 14 0"/></g>
           </motion.svg>
 
-          {round?.status === 'running' && (
-            <div className="pointer-events-none absolute left-[15%] top-[43%] z-10 h-16 w-[19%] -translate-y-1/2">
-              <motion.div
-                className="absolute left-0 top-1/2 h-7 w-full -translate-y-1/2 rounded-full blur-lg"
-                style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,75,0,.12) 18%, rgba(255,119,0,.82) 58%, rgba(255,220,90,.95) 88%, transparent 100%)', transformOrigin: 'right center' }}
-                animate={{ scaleX: [0.72, 1.08, 0.86], scaleY: [0.7, 1.15, 0.82], opacity: [.55, 1, .68] }}
-                transition={{ duration: .42, repeat: Infinity, ease: 'easeInOut' }}
-              />
-              <motion.div
-                className="absolute left-[5%] top-1/2 h-3 w-[90%] -translate-y-1/2 rounded-full blur-md"
-                style={{ background: 'linear-gradient(90deg, transparent, #f97316 35%, #facc15 78%, #fff2a8)' }}
-                animate={{ scaleX: [.75, 1, .82], skewX: [-8, 5, -4], opacity: [.65, 1, .72] }}
-                transition={{ duration: .28, repeat: Infinity, ease: 'easeInOut' }}
-              />
-              {Array.from({ length: 5 }, (_, i) => (
-                <motion.i
-                  key={i}
-                  className="absolute top-1/2 h-1.5 w-2 rounded-full bg-orange-300 shadow-[0_0_14px_5px_rgba(249,115,22,.8)]"
-                  style={{ left: `${5 + i * 17}%`, filter: 'blur(2px)' }}
-                  animate={{ x: [-2, -16 - (i % 3) * 5], y: [0, (i % 2 ? -1 : 1) * (4 + i)], opacity: [1, .15, 0], scale: [1, .7, .1] }}
-                  transition={{ duration: .42 + (i % 3) * .12, repeat: Infinity, delay: i * .055, ease: 'easeOut' }}
-                />
+          {(round?.status === 'running' || round?.status === 'crashed') && (
+            <svg viewBox="0 0 1200 290" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 z-[8] h-full w-full overflow-visible" aria-hidden="true">
+              <defs>
+                <linearGradient id="armco-flight-trail" x1="0" y1="1" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#ff6a16" stopOpacity=".45"/>
+                  <stop offset="55%" stopColor="#ff8b22" stopOpacity=".95"/>
+                  <stop offset="100%" stopColor="#fff2a8" stopOpacity="1"/>
+                </linearGradient>
+                <linearGradient id="armco-flight-fill" x1="0" y1="1" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#f97316" stopOpacity=".02"/>
+                  <stop offset="100%" stopColor="#ffb347" stopOpacity=".2"/>
+                </linearGradient>
+              </defs>
+              <path d="M90 250 Q600 190 1080 30 L1080 290 L90 290 Z" fill="url(#armco-flight-fill)" opacity=".72"/>
+              <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#ff7a18" strokeWidth="30" strokeLinecap="round" opacity=".18" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress} style={{filter:'blur(12px)'}}/>
+              <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#ff8b24" strokeWidth="12" strokeLinecap="round" opacity=".38" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress} style={{filter:'blur(5px)'}}/>
+              <path d="M90 250 Q600 190 1080 30" fill="none" stroke="url(#armco-flight-trail)" strokeWidth="5.5" strokeLinecap="round" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress}/>
+              <path d="M90 250 Q600 190 1080 30" fill="none" stroke="#fff3c4" strokeWidth="1.5" strokeLinecap="round" opacity=".9" pathLength="1" strokeDasharray="1" strokeDashoffset={1-flightProgress}/>
+              {round?.status === 'running' && Array.from({length:9},(_,i)=>(
+                <motion.circle key={i} cx={Math.max(92,flightPoint.x-(i+1)*13)} cy={Math.min(255,flightPoint.y+(i+1)*3.1)} r={2.5+(i%3)} fill={i%2?'#ffd36b':'#ff7a1a'} initial={{opacity:0}} animate={{opacity:[0,.9,0],r:[2,4,1],cx:[Math.max(92,flightPoint.x-(i+1)*13),Math.max(80,flightPoint.x-(i+1)*23)]}} transition={{duration:.65+(i%3)*.12,repeat:Infinity,delay:i*.055,ease:'easeOut'}}/>
               ))}
-            </div>
+            </svg>
           )}
-          <motion.div
-            className="absolute left-1/2 top-[30%] z-20 w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2"
-            animate={recentCrash || round?.status === 'crashed'
-              ? { y: [0, -8, 18], rotate: [0, 8, 22], scale: [1, 1.08, .72], opacity: [1, 1, 0] }
-              : round?.status === 'running'
-                ? { y: [0, -3, 0], rotate: [-2, -1, -2], scale: [1, 1.012, 1] }
-                : { y: [0, -2, 0], rotate: -2, scale: 1, opacity: 1 }}
-            transition={round?.status === 'running' ? { duration: .8, repeat: Infinity, ease: 'easeInOut' } : { duration: .75, ease: 'easeOut' }}
-          >
-            <img src="/fly.png" alt="ARMCOFLY aircraft" draggable={false} className="block h-auto w-full select-none object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,.55)]" />
-          </motion.div>
+          {round?.status !== 'crashed' && (
+            <motion.div
+              className="pointer-events-none absolute z-20 w-[23%] max-w-[112px]"
+              style={{ left: `${flightPoint.x / 12}%`, top: `${flightPoint.y / 2.9}%`, x: '-50%', y: '-50%' }}
+              animate={round?.status === 'running'
+                ? { y: ['-50%', 'calc(-50% - 3px)', '-50%'], rotate: [-18, -16, -18], scale: [1, 1.025, 1] }
+                : { rotate: -18, scale: 1 }}
+              transition={round?.status === 'running' ? { duration: .62, repeat: Infinity, ease: 'easeInOut' } : { duration: .3 }}
+            >
+              <img src="/fly.png" alt="ARMCOFLY aircraft" draggable={false} className="block h-auto w-full select-none object-contain drop-shadow-[0_8px_9px_rgba(0,0,0,.5)]" />
+              {round?.status === 'running' && <motion.span className="absolute -left-3 top-1/2 h-2 w-8 -translate-y-1/2 rounded-full bg-orange-300/90 blur-md" animate={{ opacity:[.45,1,.45],scaleX:[.7,1.2,.7] }} transition={{duration:.35,repeat:Infinity}}/>}
+            </motion.div>
+          )}
           {round?.status === 'running' && <motion.div className="absolute left-1/2 top-[46%] z-10 h-36 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300/10 blur-2xl" animate={{ scale: [1, 1.15, 1], opacity: [.35, .65, .35] }} transition={{ duration: 1.4, repeat: Infinity }} />}
           {showExplosion && <motion.div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.05, times: [0, .18, 1] }}>
             <motion.img src="/flydawn.png" alt="" draggable={false} className="absolute left-1/2 top-[36%] w-[42%] max-w-[190px] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_0_32px_rgba(249,115,22,1)]" initial={{ scale: .9, opacity: 0, rotate: -2 }} animate={{ scale: [ .9, 1.08, 1.2 ], opacity: [ 0, 1, 0 ], rotate: [-2, 1, 5] }} transition={{ duration: .72, times: [0, .12, 1], ease: 'easeOut' }}/>
