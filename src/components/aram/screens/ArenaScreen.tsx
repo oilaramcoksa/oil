@@ -54,6 +54,7 @@ export function ArenaScreen({
   const lang = useGame((s) => s.lang);
   const [gameMode, setGameMode] = useState<'wheel' | 'crash'>('wheel');
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'crash') setGameMode('crash');
     const openCrash = () => setGameMode('crash');
     window.addEventListener('open-crash-game', openCrash);
     return () => window.removeEventListener('open-crash-game', openCrash);
