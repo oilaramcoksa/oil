@@ -9,7 +9,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const BETTING_MS = 60_000;
-const CRASH_WAIT_MS = 60_000;
 const MIN_BET = 100;
 
 function fail(error: string, status = 400) {
@@ -44,8 +43,14 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
           if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
-          // Keep the instant-crash result visible during the normal 60-second break.
-          // The next round is created by the crashed-state transition below.
+          // Open the next round's 60-second entry window immediately.
+          // Players can place their next-round stake during the break; flight starts when it expires.
+          const nextId = randomUUID();
+          const nextSeed = randomBytes(32).toString('hex');
+          await tx.execute({
+            sql: "INSERT INTO crash_rounds(id,status,betting_ends_at,crash_multiplier,server_seed,seed_hash) VALUES(?,'countdown',?,?,?,?)",
+            args: [nextId, now + BETTING_MS, makeCrashPoint(nextSeed, nextId), nextSeed, hash(nextSeed)],
+          });
         }
       } else if (status === 'running') {
         const start = Number(round.started_at ?? now);
@@ -55,9 +60,16 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
           if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
-          // Keep the crashed round visible for the full 60-second break before opening new bets.
+          // Start the next round's 60-second betting window during the break.
+          const nextId = randomUUID();
+          const nextSeed = randomBytes(32).toString('hex');
+          await tx.execute({
+            sql: "INSERT INTO crash_rounds(id,status,betting_ends_at,crash_multiplier,server_seed,seed_hash) VALUES(?,'countdown',?,?,?,?)",
+            args: [nextId, now + BETTING_MS, makeCrashPoint(nextSeed, nextId), nextSeed, hash(nextSeed)],
+          });
         }
-      } else if (status === 'crashed' && Number(round.crashed_at ?? now) + CRASH_WAIT_MS <= now) {
+      } else if (status === 'crashed') {
+        // Recover old rounds by opening the next betting window without an extra idle minute.
         const id = randomUUID();
         const seed = randomBytes(32).toString('hex');
         await tx.execute({
