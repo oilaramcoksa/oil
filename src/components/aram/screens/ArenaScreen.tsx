@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Coins, History, Loader2, Users, Zap, ShoppingCart } from 'lucide-react';
+import { Coins, History, Loader2, Users, Zap, ShoppingCart, Flame } from 'lucide-react';
 import { TonConnectUI } from '@tonconnect/ui';
 import { beginCell } from '@ton/core';
 import { motion } from 'framer-motion';
@@ -264,7 +264,21 @@ export function ArenaScreen({
         <button type="button" onClick={() => setGameMode('wheel')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'wheel' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
           <span>🎡</span>{lang === 'ar' ? 'عجلة الحظ' : lang === 'ru' ? 'Колесо удачи' : 'Lucky Wheel'}
         </button>
-        <button type="button" onClick={() => setGameMode('crash')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'crash' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
+        <button type="button" onClick={() => setGameMode('crash')} className={`relative flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'crash' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
+          <motion.span
+            className="absolute -top-3 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-orange-200/90 bg-gradient-to-r from-red-600 via-orange-500 to-amber-400 px-2 py-0.5 text-[9px] font-black leading-none tracking-wider text-white shadow-[0_0_12px_rgba(249,115,22,.75)]"
+            animate={{ y: [0, -2, 0], scale: [1, 1.06, 1], boxShadow: ['0 0 7px rgba(249,115,22,.45)', '0 0 15px rgba(249,115,22,.9)', '0 0 7px rgba(249,115,22,.45)'] }}
+            transition={{ duration: 1.35, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            HOT
+            <motion.span
+              className="inline-flex"
+              animate={{ rotate: [-8, 9, -8], scale: [1, 1.22, 1] }}
+              transition={{ duration: .55, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Flame className="h-3 w-3 fill-yellow-200 text-yellow-100 drop-shadow-[0_0_5px_rgba(255,220,80,.95)]" />
+            </motion.span>
+          </motion.span>
           <span>✈️</span>{lang === 'ar' ? 'ARMCOFLY' : 'ARMCOFLY'}
         </button>
       </div>
