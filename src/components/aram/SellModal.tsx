@@ -15,8 +15,6 @@ import { toast } from 'sonner';
 import { t } from '@/lib/i18n';
 import { useTelegram } from '@/hooks/use-telegram';
 import { Button } from '@/components/ui/button';
-import { showActionInterstitial } from '@/lib/action-ad';
-import { TadsWidget } from 'react-tads-widget';
 import { Truck, X, Droplet, Coins, Check } from 'lucide-react';
 
 interface Props {
@@ -62,7 +60,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
     saleStartedRef.current = true;
     let cancelled = false;
     let cleanupTimers: () => void = () => {};
-    void showActionInterstitial().then(() => {
+    if (!cancelled) {
       if (cancelled) return;
       startingOilRef.current = oilValueRef.current;
       const timers: ReturnType<typeof setTimeout>[] = [];
@@ -158,7 +156,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
         })();
       }, 5900));
       cleanupTimers = () => timers.forEach(clearTimeout);
-    });
+    }
     return () => { cancelled = true; cleanupTimers(); };
 
   }, [open, initData, isVerified, applyServerSale, lang, notify, haptic]);
@@ -186,7 +184,6 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
             style={{ aspectRatio: '4 / 5', maxHeight: '90vh' }}
           >
             <div className="sr-only" aria-hidden="true">
-              <TadsWidget id="13283" type="fullscreen" debug={false} onAdsNotFound={() => console.info('TADS sale ad not found')} />
             </div>
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3">
