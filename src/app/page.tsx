@@ -74,10 +74,14 @@ export default function Home() {
   // Sync language from Telegram user
   useEffect(() => {
     if (user?.language_code) {
-      const code = user.language_code.toLowerCase();
-      if (code.startsWith('ar')) setLang('ar');
-      else if (code.startsWith('ru')) setLang('ru');
-      else setLang('en');
+      const code = user.language_code.toLowerCase().replace('_', '-');
+      const localeMap: Array<[string, import('@/lib/i18n').Lang]> = [
+        ['ar', 'ar'], ['ru', 'ru'], ['es', 'es'], ['pt', 'pt'], ['fr', 'fr'],
+        ['de', 'de'], ['tr', 'tr'], ['zh', 'zh'], ['hi', 'hi'], ['id', 'id'],
+        ['bn', 'bn'], ['ja', 'ja'], ['ko', 'ko'], ['ur', 'ur'],
+      ];
+      const matched = localeMap.find(([prefix]) => code === prefix || code.startsWith(prefix + '-'));
+      setLang(matched?.[1] ?? 'en');
     }
   }, [user, setLang]);
 
