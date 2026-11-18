@@ -11,7 +11,7 @@ const ADMIN_SHOP_PARTS = [
   {id:'plane_tips',name:'قطعة توصيات الطائرة'}, {id:'oil_pump',name:'قطعة مضخة النفط'},
   {id:'fuel_station',name:'قطعة محطة الوقود'}, {id:'oil_truck',name:'قطعة شاحنة النفط'},
   {id:'new_background',name:'الخلفية الجديدة'}, {id:'vip_badge',name:'شارة VIP'},
-  {id:'wheel_expansion',name:'توسعة عجلة الحظ'}, {id:'arena_tokens_10000',name:'10,000 عملة للساحة'},
+  {id:'wheel_expansion',name:'توسعة عجلة الحظ'}, {id:'auto_sell',name:'البيع الآلي'}, {id:'arena_tokens_10000',name:'10,000 عملة للساحة'},
 ];
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
 
