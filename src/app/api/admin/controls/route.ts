@@ -3,6 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { PACKAGES, UPGRADE_DURATION_MS } from '@/lib/wallets';
 
+const ADMIN_SHOP_PARTS = [
+  'plane_tips','oil_pump','fuel_station','oil_truck','new_background','vip_badge','wheel_expansion','arena_tokens_10000',
+] as const;
+const ADMIN_PRODUCT_NAMES: Record<string,string> = {
+  fast_oil:'باقة Fast Oil', king_oil:'باقة King Oil', super_oil:'باقة Super Oil',
+  plane_tips:'قطعة توصيات الطائرة', oil_pump:'قطعة مضخة النفط', fuel_station:'قطعة محطة الوقود',
+  oil_truck:'قطعة شاحنة النفط', new_background:'الخلفية الجديدة', vip_badge:'شارة VIP',
+  wheel_expansion:'توسعة عجلة الحظ', arena_tokens_10000:'10,000 عملة للساحة',
+};
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -308,10 +318,17 @@ export async function POST(req: NextRequest) {
   const amount = Number(body.amount);
   let broadcastDelivered: number | null = null;
 
-  if (['grant_coins', 'grant_oil', 'set_speed', 'ban', 'unban', 'product_control'].includes(action) && !target) return fail('player_required');
+  if (['grant_coins', 'grant_oil', 'set_speed', 'ban', 'unban', 'product_control', 'grant_product'].includes(action) && !target) return fail('player_required');
   if (['grant_coins', 'grant_oil'].includes(action) &&
       (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000_000)) return fail('invalid_amount');
   if (action === 'grant_coins' && !reason) return fail('reason_required');
+  if (action === 'grant_product') {
+    const productId = String(body.productId ?? '');
+    const quantity = Number(body.quantity ?? 1);
+    if ((!ADMIN_SHOP_PARTS.includes(productId as typeof ADMIN_SHOP_PARTS[number]) && !PACKAGES.some((p) => p.id === productId)) ||
+        !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100 || (!ADMIN_SHOP_PARTS.includes(productId as typeof ADMIN_SHOP_PARTS[number]) && quantity !== 1)) return fail('invalid_product_grant');
+    if (!reason) return fail('reason_required');
+  }
   if (action === 'set_speed' &&
       (!Number.isSafeInteger(Number(body.speed)) || Number(body.speed) < 1 || Number(body.speed) > 1_000_000)) return fail('invalid_speed');
   if (action === 'set_mining_fee_exemption' && !['0','1'].includes(String(body.exempt))) return fail('invalid_exemption_value');
@@ -335,7 +352,47 @@ export async function POST(req: NextRequest) {
         await tx.commit();
         return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
       }
-      if (action === 'product_control') {
+      if (action === 'grant_product') {
+        const productId = String(body.productId);
+        const quantity = Number(body.quantity ?? 1);
+        const player = await tx.execute({ sql: 'SELECT telegram_id FROM players WHERE telegram_id=?', args: [target] });
+        if (!player.rows.length) { await tx.rollback(); return fail('player_not_found', 404); }
+        await tx.execute(`CREATE TABLE IF NOT EXISTS player_product_controls (
+          id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+          product_id TEXT NOT NULL, product_type TEXT NOT NULL CHECK(product_type IN ('part','package')),
+          status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','revoked')),
+          speed_multiplier REAL NOT NULL DEFAULT 1 CHECK(speed_multiplier >= 0 AND speed_multiplier <= 100),
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(telegram_id,product_id,product_type)
+        )`);
+        const grantId = randomUUID();
+        const isPackage = PACKAGES.some((p) => p.id === productId);
+        if (isPackage) {
+          const now = Date.now();
+          await tx.execute({ sql: "INSERT INTO player_upgrades(id,telegram_id,package_id,payment_id,purchased_at,expires_at,status) VALUES(?,?,?,NULL,?,?,'active')", args: [grantId,target,productId,new Date(now).toISOString(),new Date(now+UPGRADE_DURATION_MS).toISOString()] });
+        } else if (productId === 'arena_tokens_10000') {
+          const credit = await tx.execute({ sql: 'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,?) ON CONFLICT(telegram_id) DO UPDATE SET balance=balance+excluded.balance,updated_at=CURRENT_TIMESTAMP RETURNING balance', args: [target,10000*quantity] });
+          await tx.execute({ sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'purchase',?,?, 'admin',?,?,?)", args: [grantId,target,10000*quantity,Number(credit.rows[0]?.balance ?? 0),grantId,`admin-product:${grantId}`,JSON.stringify({productId,quantity,reason,source:'admin_panel'})] });
+        } else if (['oil_pump','fuel_station','oil_truck'].includes(productId)) {
+          await tx.execute({ sql: 'INSERT INTO player_parts(telegram_id,part_id,quantity) VALUES(?,?,?) ON CONFLICT(telegram_id,part_id) DO UPDATE SET quantity=quantity+excluded.quantity,updated_at=CURRENT_TIMESTAMP', args: [target,productId,quantity] });
+        } else {
+          await tx.execute(`CREATE TABLE IF NOT EXISTS player_special_parts (
+            telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+            part_id TEXT NOT NULL, purchased_at INTEGER NOT NULL, expires_at INTEGER,
+            payment_id TEXT NOT NULL UNIQUE, usage_count INTEGER NOT NULL DEFAULT 0 CHECK(usage_count >= 0),
+            PRIMARY KEY(telegram_id,part_id,payment_id)
+          )`);
+          for (let i=0;i<quantity;i++) {
+            const now = Date.now();
+            await tx.execute({ sql: 'INSERT INTO player_special_parts(telegram_id,part_id,purchased_at,expires_at,payment_id,usage_count) VALUES(?,?,?,?,?,0)', args: [target,productId,now,productId==='wheel_expansion'?now+72*60*60*1000:null,randomUUID()] });
+          }
+        }
+        if (productId !== 'arena_tokens_10000') {
+          await tx.execute({ sql: "INSERT INTO player_product_controls(id,telegram_id,product_id,product_type,status,speed_multiplier) VALUES(?,?,?,?,'active',1) ON CONFLICT(telegram_id,product_id,product_type) DO UPDATE SET status='active',speed_multiplier=1,updated_at=CURRENT_TIMESTAMP", args: [randomUUID(),target,productId,isPackage?'package':'part'] });
+        }
+        const productName = ADMIN_PRODUCT_NAMES[productId] ?? productId;
+        await tx.execute({ sql: 'INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,?,?,?,?)', args: [randomUUID(),target,'admin_product_grant',isPackage?1:quantity,JSON.stringify({productId,quantity,reason,grantId}),`admin-product-event:${grantId}`] });
+        await notify(tx,target,'🎁 هدية من إدارة ARMCO OIL',`منحتك الإدارة ${quantity>1?quantity+' × ':''}${productName} مجانًا. السبب: ${reason}`,'reward',{productId,quantity,reason,source:'admin_panel'});
+      } else if (action === 'product_control') {
         const productId = String(body.productId ?? '').trim();
         const productType = String(body.productType ?? '');
         const operation = String(body.operation ?? '');
