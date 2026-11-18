@@ -6,11 +6,9 @@ import { verifiedPlayerFromRequest } from '@/lib/telegram-player';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const TADS_REWARDED_WIDGET_ID = 13283;
-const REWARD_COINS = 100;
+const REWARD_COINS = 20;
 const CYCLE_LIMIT = 30;
 const TADS_LIMIT = 30;
-const ADEXIUM_WIDGET_ID = 'fac3402b-57c4-45be-9d1d-5589a334852d';
 const MONETAG_WIDGET_ID = 12295910;
 const CYCLE_HOURS = 12;
 const CYCLE_TABLE = 'ad_reward_cycles_v4';
@@ -86,7 +84,7 @@ function cycleResponse(
     totalCycleReward: CYCLE_LIMIT * REWARD_COINS,
     tads: { used: locked ? TADS_LIMIT : tadsUsed, limit: TADS_LIMIT, remaining: locked ? 0 : Math.max(0, TADS_LIMIT - tadsUsed) },
     adexium: { used: locked ? CYCLE_LIMIT : adexiumUsed, limit: CYCLE_LIMIT, remaining: locked ? 0 : Math.max(0, CYCLE_LIMIT - adexiumUsed) },
-    nextProvider: used % 2 === 0 ? 'adexium' : 'tads',
+    nextProvider: 'monetag',
   };
 }
 
@@ -127,32 +125,15 @@ export async function POST(req: NextRequest) {
 
   let body: { widgetId?: unknown; claimId?: unknown; provider?: unknown; taskId?: unknown; ymid?: unknown };
   try { body = await req.json(); } catch { return fail('invalid_body'); }
-  if (body.provider !== 'adexium' && body.provider !== 'tads' && body.provider !== 'monetag') return fail('invalid_ad_provider');
-  const provider = body.provider;
+  if (body.provider !== 'monetag') return fail('monetag_only_provider');
+  const provider = 'monetag';
   const adFormat = 'reward';
-  const expectedWidgetId = provider === 'adexium' ? ADEXIUM_WIDGET_ID : provider === 'tads' ? TADS_REWARDED_WIDGET_ID : MONETAG_WIDGET_ID;
+  const expectedWidgetId = MONETAG_WIDGET_ID;
   const rewardCoins = REWARD_COINS;
   if (String(body.widgetId) !== String(expectedWidgetId)) return fail('invalid_reward_widget', 400);
-  const claimId = provider === 'adexium'
-    ? (typeof body.taskId === 'string' ? body.taskId : '')
-    : provider === 'tads'
-      ? (typeof body.claimId === 'string' ? body.claimId : '')
-      : (typeof body.ymid === 'string' ? body.ymid : '');
+  const claimId = typeof body.ymid === 'string' ? body.ymid : '';
   const validUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId);
   if (!validUuid) return fail('invalid_claim_id');
-  if (provider === 'adexium') {
-    try {
-      const check = await fetch(`https://bid.tgads.live/task/check/${encodeURIComponent(ADEXIUM_WIDGET_ID)}/${encodeURIComponent(claimId)}`, {
-        method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(8000),
-      });
-      if (!check.ok) return fail('adexium_verification_unavailable', 503);
-      const verification = await check.json() as { done?: boolean };
-      if (verification.done !== true) return fail('adexium_task_not_completed', 409);
-    } catch (error) {
-      console.error('adexium_task_check_failed', error);
-      return fail('adexium_verification_unavailable', 503);
-    }
-  }
 
   try {
     await ensureDatabaseSchema();
@@ -166,25 +147,6 @@ export async function POST(req: NextRequest) {
         args: [telegramId, claimId],
       });
       if (previous.rows.length) {
-        if (provider === 'tads') {
-        const verifiedView = await tx.execute({
-          sql: "SELECT id FROM tads_ad_webhook_events WHERE telegram_id=? AND widget_id='13283' AND event_type='view' AND consumed_at IS NULL AND received_at >= datetime('now','-10 minutes') ORDER BY received_at ASC LIMIT 1",
-          args: [telegramId],
-        });
-        if (!verifiedView.rows.length) {
-          await tx.rollback();
-          return fail('tads_view_not_verified', 409);
-        }
-        const consumed = await tx.execute({
-          sql: 'UPDATE tads_ad_webhook_events SET consumed_at=CURRENT_TIMESTAMP WHERE id=? AND consumed_at IS NULL RETURNING id',
-          args: [String(verifiedView.rows[0].id)],
-        });
-        if (!consumed.rows.length) {
-          await tx.rollback();
-          return fail('tads_view_not_verified', 409);
-        }
-      }
-
       const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [telegramId] });
         const cycle = await tx.execute({
           sql: `SELECT views, tads_views, adexium_views,
@@ -202,11 +164,12 @@ export async function POST(req: NextRequest) {
         }, { headers: { 'Cache-Control': 'no-store' } });
       }
 
-      if (provider === 'monetag') {
-        const verified = await tx.execute({ sql: "SELECT ymid FROM monetag_ad_postbacks WHERE ymid=? AND telegram_id=? AND zone_id=? AND event_type='impression' AND reward_event_type='valued' AND consumed_at IS NULL LIMIT 1", args: [claimId, telegramId, String(MONETAG_WIDGET_ID)] });
-        if (!verified.rows.length) { await tx.rollback(); return fail('monetag_postback_not_verified', 409); }
-        await tx.execute({ sql: 'UPDATE monetag_ad_postbacks SET consumed_at=CURRENT_TIMESTAMP WHERE ymid=? AND consumed_at IS NULL', args: [claimId] });
-      }
+      const verified = await tx.execute({
+        sql: "SELECT ymid FROM monetag_ad_postbacks WHERE ymid=? AND telegram_id=? AND zone_id=? AND event_type='impression' AND reward_event_type='valued' AND consumed_at IS NULL LIMIT 1",
+        args: [claimId, telegramId, String(MONETAG_WIDGET_ID)],
+      });
+      if (!verified.rows.length) { await tx.rollback(); return fail('monetag_postback_not_verified', 409); }
+      await tx.execute({ sql: 'UPDATE monetag_ad_postbacks SET consumed_at=CURRENT_TIMESTAMP WHERE ymid=? AND consumed_at IS NULL', args: [claimId] });
       const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [telegramId] });
       if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
       await tx.execute({ sql: `INSERT OR IGNORE INTO ${CYCLE_TABLE}(telegram_id) VALUES (?)`, args: [telegramId] });
@@ -225,7 +188,7 @@ export async function POST(req: NextRequest) {
         await tx.execute({ sql: `UPDATE ${CYCLE_TABLE} SET views=0, tads_views=0, adexium_views=0, cooldown_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?`, args: [telegramId] });
         used = 0; tadsUsed = 0; adexiumUsed = 0;
       }
-      if (used >= CYCLE_LIMIT || (provider === 'tads' ? tadsUsed >= TADS_LIMIT : adexiumUsed >= CYCLE_LIMIT)) {
+      if (used >= CYCLE_LIMIT) {
         await tx.rollback();
         return fail('ad_cycle_limit_reached', 429);
       }
@@ -237,8 +200,8 @@ export async function POST(req: NextRequest) {
       if (!Number.isSafeInteger(oldCoins) || oldCoins < 0 || !Number.isSafeInteger(newCoins)) { await tx.rollback(); return fail('invalid_wallet_balance', 409); }
 
       const nextUsed = used + 1;
-      const nextTads = tadsUsed + (provider === 'tads' ? 1 : 0);
-      const nextAdexium = adexiumUsed + (provider === 'adexium' ? 1 : 0);
+      const nextTads = tadsUsed;
+      const nextAdexium = adexiumUsed;
       const completesCycle = nextUsed === CYCLE_LIMIT;
       const claimRowId = randomUUID();
       await tx.execute({
