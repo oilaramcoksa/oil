@@ -103,19 +103,19 @@ export function LuckyWheel({ open, onClose }: { open: boolean; onClose: () => vo
                   {VALUES.map((value, index) => {
                     const angle = index * 45;
                     const radians = (angle * Math.PI) / 180;
-                    const left = 50 + 30 * Math.sin(radians);
-                    const top = 50 - 30 * Math.cos(radians);
+                    const left = 50 + 34 * Math.sin(radians);
+                    const top = 50 - 34 * Math.cos(radians);
                     return (
                       <div key={value} className="absolute z-[2] flex h-10 w-12 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-xl bg-black/10 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,.8)]" style={{ left: `${left}%`, top: `${top}%`, transform: `translate(-50%,-50%) rotate(${-rotation}deg)`, transition: spinning ? 'transform 10s cubic-bezier(.12,.78,.08,1)' : 'none' }}>
                         <span className="text-[22px] font-black leading-none tabular-nums">{value}</span>
-                        <span className="mt-0.5 text-[14px] leading-none">🪙</span>
+                        <span className="mt-0.5 text-[15px] leading-none" aria-label="money">💰</span>
                       </div>
                     );
                   })}
                 </div>
               </div>
               <div className="absolute -top-1 left-1/2 z-10 -translate-x-1/2 drop-shadow-md"><div className="h-0 w-0 border-x-[19px] border-t-[31px] border-x-transparent border-t-orange-500" /></div>
-              <div className="absolute left-1/2 top-1/2 z-10 grid h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-amber-200 bg-gradient-to-br from-white to-amber-100 text-2xl shadow-lg">🪙</div>
+              <div className="absolute left-1/2 top-1/2 z-10 grid h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-amber-200 bg-gradient-to-br from-white to-amber-100 text-2xl shadow-lg">💰</div>
             </div>
 
             <div className="mb-3 rounded-2xl border border-amber-500/25 bg-white/55 p-3 text-center">
