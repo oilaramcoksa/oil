@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react';
 interface TelegramUser { id: number; first_name?: string; last_name?: string; username?: string; language_code?: string; photo_url?: string; }
 interface TelegramWebApp {
+  initDataUnsafe?: { user?: TelegramUser; start_param?: string };
   ready: () => void; expand: () => void; close: () => void; initData: string;
   colorScheme: 'light' | 'dark'; themeParams: Record<string, string>;
   setHeaderColor: (color: string) => void; setBackgroundColor: (color: string) => void;
