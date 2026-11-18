@@ -413,14 +413,18 @@ export function ArenaScreen({
             <div className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_32%_18%,rgba(255,255,255,.42),transparent_36%),radial-gradient(ellipse_at_50%_50%,transparent_48%,rgba(110,55,10,.18)_100%)]" />
             <div className="pointer-events-none absolute inset-[3px] rounded-full border border-white/25 shadow-[inset_0_2px_8px_rgba(255,255,255,.22),inset_0_-12px_22px_rgba(0,0,0,.22)]" />
             {wheelEntries.map((entry, index) => {
-              const playerIndex = index - 1;
-              const beforePlayer = displayedEntries.slice(0, playerIndex).reduce((sum, item) => sum + item.amount, 0);
-              const angle = entry.house ? 225 : ((beforePlayer + (displayedEntries[playerIndex]?.amount ?? 0) / 2) / Math.max(total, 1)) * 270;
+              const segmentStart = wheelEntries.slice(0, index).reduce((sum, item) => sum + item.weight, 0);
+              // Match the exact CSS conic-gradient(from -90deg) sector midpoint.
+              // Using the same angle convention keeps player photos inside their own slices,
+              // never inside the reserved 25% house/burn sector.
+              const angle = (-90 + (segmentStart + entry.weight / 2) * 3.6) * Math.PI / 180;
+              const avatarLeft = 50 + Math.sin(angle) * 34;
+              const avatarTop = 50 - Math.cos(angle) * 34;
               return (
                 <div
                   key={entry.id}
                   className="absolute z-[5] grid place-items-center"
-                  style={{ left: `${50 + Math.cos(angle * Math.PI / 180) * 37}%`, top: `${50 + Math.sin(angle * Math.PI / 180) * 37}%`, width: avatarSize, height: avatarSize, transform: 'translate(-50%, -50%)' }}
+                  style={{ left: `${avatarLeft}%`, top: `${avatarTop}%`, width: avatarSize, height: avatarSize, transform: 'translate(-50%, -50%)' }}
                   title={entry.house ? entry.label : `${entry.label} · ${entry.weight.toFixed(1)}%`}
                 >
                   {entry.house ? (
