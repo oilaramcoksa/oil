@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useGame, type TaskState } from '@/lib/store';
-import { t } from '@/lib/i18n';
+import { t, type Lang } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Check, Gift, Flame, Calendar, Trophy, Package, Sparkles, Send, Users, Camera, ExternalLink, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -543,7 +543,7 @@ function TaskCard({
   delay,
 }: {
   task: TaskState;
-  lang: 'ar' | 'en' | 'ru';
+  lang: Lang;
   onClaim: (id: string) => void;
   delay: number;
 }) {
