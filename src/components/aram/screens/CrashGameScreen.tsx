@@ -41,6 +41,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const [showExplosion, setShowExplosion] = useState(false);
   const [parachuteEvents, setParachuteEvents] = useState<Array<{id:string;username:string}>>([]);
   const seenCashouts = useRef<Set<string>>(new Set());
+  const actionLock = useRef(false);
   const playedExplosionFor = useRef<string | null>(null);
   const headers = useMemo(() => ({ 'X-Telegram-Init-Data': initData }), [initData]);
 
@@ -68,7 +69,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     let alive = true;
     const poll = async () => { try { if (alive) await refresh(); } catch (e) { console.error('crash_refresh_failed', e); } };
     void poll();
-    const timer = window.setInterval(() => void poll(), 750);
+    const timer = window.setInterval(() => void poll(), 500);
     return () => { alive = false; window.clearInterval(timer); };
   }, [isVerified, refresh]);
 
@@ -126,7 +127,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   };
 
   const act = async (action: 'bet' | 'cashout') => {
-    if (loading) return;
+    if (loading || actionLock.current) return;
     if (action === 'bet') {
       const value = Number(amount);
       if (!Number.isSafeInteger(value) || value < 100 || (value > (state?.betBalance ?? 0) && value > (state?.balance ?? 0))) {
@@ -134,6 +135,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
         return;
       }
     }
+    actionLock.current = true;
     setLoading(true);
     try {
       const response = await fetch('/api/crash', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...(action === 'bet' ? { amount: Number(amount) } : {}) }) });
@@ -155,7 +157,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
       toast.error(error instanceof Error ? error.message : (lang === 'ru' ? 'Не удалось выполнить действие. Попробуйте ещё раз.' : 'crash_action_failed'));
       if (action === 'cashout') playTone(180, 0.25);
       await refresh().catch(() => undefined);
-    } finally { setLoading(false); }
+    } finally { actionLock.current = false; setLoading(false); }
   };
 
   const usePlaneTip = async () => {
@@ -234,13 +236,13 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             </svg>
           </motion.div>
           <div className="absolute inset-0 opacity-20" style={{backgroundImage:'radial-gradient(#fff 0.7px,transparent 0.7px)',backgroundSize:'34px 34px'}} />
-          <div className="absolute inset-x-2 top-2 z-30 flex items-center gap-1.5" dir="ltr" aria-label={t(lang, 'crashRecentRounds')}>
+          <div className="absolute inset-x-2 top-2 z-30 flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-950/75 px-1.5 py-1" dir="ltr" aria-label={t(lang, 'crashRecentRounds')}>
             <span className="shrink-0 rounded-md bg-slate-950/65 px-1.5 py-1 text-[9px] font-bold text-amber-100">{t(lang, 'crashRecentRounds')}</span>
             <div className="flex min-w-0 flex-1 items-center justify-between gap-1">
-              {(state?.recentRounds ?? []).slice(0, 10).map((item) => {
+              {(state?.recentRounds ?? []).slice(0, 5).map((item) => {
                 const value = Number(item.crashMultiplier);
                 const color = value < 2 ? 'border-rose-300/70 bg-rose-600 text-white' : value < 3 ? 'border-amber-200/80 bg-amber-400 text-[#3b2507]' : 'border-emerald-200/70 bg-emerald-600 text-white';
-                return <span key={item.id} title={value.toFixed(2) + 'x'} className={`min-w-0 flex-1 rounded-md border px-0.5 py-1 text-center text-[9px] font-black leading-none shadow-sm ${color}`}>{value.toFixed(2)}x</span>;
+                return <span key={item.id} title={value.toFixed(2) + 'x'} className={`inline-flex min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-md border px-1 py-1.5 text-center text-[10px] font-black leading-none shadow-sm ${color}`}>{value.toFixed(2)}x</span>;
               })}
               {(!state?.recentRounds?.length) && <span className="flex-1 text-center text-[9px] text-white/65">—</span>}
             </div>
@@ -312,7 +314,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
         </div>
         <div className="mt-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-[10px] text-amber-100/70">
           <span className="flex items-center gap-1"><Clock3 size={13}/> {round?.status === 'countdown' ? (lang === 'ar' ? 'إغلاق الرهان بعد' : lang === 'ru' ? 'Приём ставок завершится через' : 'Betting closes in') : round?.status === 'running' ? (lang === 'ar' ? 'جولة مباشرة' : lang === 'ru' ? 'Раунд идёт' : 'Live round') : (lang === 'ar' ? 'استراحة الجولة' : lang === 'ru' ? 'Перерыв между раундами' : 'Round break')}</span>
-          <b className="text-amber-300">{round?.status === 'countdown' ? secondsLeft + 's' : round?.status === 'running' ? liveMultiplier.toFixed(2) + 'x' : (lang === 'ar' ? 'استراحة 50 ثانية' : lang === 'ru' ? 'Перерыв 50 сек.' : '50s break')}</b>
+          <b className="text-amber-300">{round?.status === 'countdown' ? secondsLeft + 's' : round?.status === 'running' ? liveMultiplier.toFixed(2) + 'x' : (lang === 'ar' ? 'استراحة 60 ثانية' : lang === 'ru' ? 'Перерыв 60 сек.' : '60s break')}</b>
         </div>
       </section>
 
