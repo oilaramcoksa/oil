@@ -316,6 +316,20 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
         </div>
       </section>
 
+      {ownBet?.status === 'active' && (
+        <section className="sticky top-1 z-40 -mt-1 rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 p-2.5 text-white shadow-[0_8px_24px_rgba(5,150,105,.35)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold text-white/85">{lang === 'ar' ? 'المبلغ الذي ستحصل عليه الآن' : lang === 'ru' ? 'СУММА ВЫВОДА СЕЙЧАС' : 'YOUR CASHOUT VALUE'}</div>
+              <div className="mt-0.5 text-2xl font-black tabular-nums leading-none">{fmt(ownBet.amount * liveMultiplier)} <span className="text-xs">{lang === 'ar' ? 'عملة' : lang === 'ru' ? 'монет' : 'coins'}</span></div>
+              <div className="mt-1 text-[10px] font-bold text-white/80">{liveMultiplier.toFixed(2)}x · {lang === 'ar' ? 'يتحدث لحظيًا' : lang === 'ru' ? 'Текущая сумма' : 'Live value'}</div>
+            </div>
+            <button onClick={() => void act('cashout')} disabled={!canCashout} className="min-h-[58px] shrink-0 rounded-xl border border-white/40 bg-white px-5 text-base font-black text-emerald-800 shadow-lg transition active:scale-[.97] disabled:opacity-50">
+              {loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? 'اسحب أرباحك' : lang === 'ru' ? 'ЗАБРАТЬ ВЫИГРЫШ' : 'CASH OUT')}
+            </button>
+          </div>
+        </section>
+      )}
       <section className="rounded-2xl border border-fuchsia-300/40 bg-gradient-to-br from-[#24133d] via-[#17213f] to-[#102c4a] p-3 text-white shadow-lg">
         <div className="flex items-center gap-3">
           <img src="/brain.png" alt={t(lang, 'planeTipsPart')} className="h-14 w-14 shrink-0 object-contain" />
@@ -339,20 +353,6 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
         <p className="mt-2 text-[9px] leading-relaxed text-white/50">{t(lang, 'planeTipsHistory')}</p>
       </section>
 
-      {ownBet?.status === 'active' && (
-        <section className="sticky top-1 z-40 -mt-1 rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 p-2.5 text-white shadow-[0_8px_24px_rgba(5,150,105,.35)]">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[10px] font-bold text-white/85">{lang === 'ar' ? 'المبلغ الذي ستحصل عليه الآن' : lang === 'ru' ? 'СУММА ВЫВОДА СЕЙЧАС' : 'YOUR CASHOUT VALUE'}</div>
-              <div className="mt-0.5 text-2xl font-black tabular-nums leading-none">{fmt(ownBet.amount * liveMultiplier)} <span className="text-xs">{lang === 'ar' ? 'عملة' : lang === 'ru' ? 'монет' : 'coins'}</span></div>
-              <div className="mt-1 text-[10px] font-bold text-white/80">{liveMultiplier.toFixed(2)}x · {lang === 'ar' ? 'يتحدث لحظيًا' : lang === 'ru' ? 'Текущая сумма' : 'Live value'}</div>
-            </div>
-            <button onClick={() => void act('cashout')} disabled={!canCashout} className="min-h-[58px] shrink-0 rounded-xl border border-white/40 bg-white px-5 text-base font-black text-emerald-800 shadow-lg transition active:scale-[.97] disabled:opacity-50">
-              {loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? 'اسحب أرباحك' : lang === 'ru' ? 'ЗАБРАТЬ ВЫИГРЫШ' : 'CASH OUT')}
-            </button>
-          </div>
-        </section>
-      )}
       <section className="mb-1 rounded-xl border border-emerald-700/20 bg-gradient-to-r from-emerald-50/95 to-teal-50/95 p-3 text-[#245b45] shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
