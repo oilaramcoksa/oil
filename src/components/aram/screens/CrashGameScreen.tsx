@@ -147,8 +147,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
       return { id, username: bet.username, x: point.x / 12, y, dropDistance: Math.max(55, 92 - y * 2.65) };
     });
     setParachuteEvents((current) => [...current, ...events].slice(-10));
-    const timer = window.setTimeout(() => setParachuteEvents((current) => current.filter((event) => !events.some((item) => item.id === event.id))), 7600);
-    return () => window.clearTimeout(timer);
+    // Let each parachute finish its full descent even while the 500ms game-state polling continues.
+    window.setTimeout(() => setParachuteEvents((current) => current.filter((event) => !events.some((item) => item.id === event.id))), 7600);
   }, [state]);
   const maxSingleWallet = Math.max(state?.balance ?? 0, state?.betBalance ?? 0);
   // The API remains the authority for Telegram verification and round timing; the UI only gates on an open betting phase and one entry per round.
