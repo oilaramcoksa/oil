@@ -7,6 +7,7 @@ import { Coins, Droplet, Gauge, History, ArrowDownRight, ArrowUpRight, Clock, Wa
 import { motion } from 'framer-motion';
 import { WithdrawSection } from '@/components/aram/WithdrawSection';
 import { effectiveSpeed, effectiveOilPerTap, effectiveCapacity, effectiveCoinsPerHour } from '@/lib/store';
+import { getTonConnectUI } from '@/lib/ton-connect';
 
 export function WalletScreen() {
   const lang = useGame((s) => s.lang);
@@ -27,12 +28,9 @@ export function WalletScreen() {
     let alive = true;
     let unsubscribe: (() => void) | undefined;
     let connector: import('@tonconnect/ui').TonConnectUI | null = null;
-    void import('@tonconnect/ui').then(({ TonConnectUI }) => {
+    void getTonConnectUI().then((instance) => {
       if (!alive) return;
-      connector = new TonConnectUI({
-        manifestUrl: new URL('/api/mining/activation/tonconnect-manifest.json', window.location.origin).toString(),
-        restoreConnection: true,
-      });
+      connector = instance;
       setTonConnector(connector);
       setTonConnected(Boolean(connector.connected));
       const restoredAddress = connector.account?.address ?? '';
