@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useGame } from '@/lib/store';
-import { t } from '@/lib/i18n';
+import { t, type Lang } from '@/lib/i18n';
 import { Coins, Droplet, Gauge, History, ArrowDownRight, ArrowUpRight, Clock, WalletCards, RefreshCw, Link2, Unlink } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { WithdrawSection } from '@/components/aram/WithdrawSection';
@@ -314,7 +314,7 @@ export function WalletScreen() {
   );
 }
 
-function timeAgo(ts: number, lang: 'ar' | 'en' | 'ru'): string {
+function timeAgo(ts: number, lang: Lang): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
