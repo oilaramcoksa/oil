@@ -195,7 +195,7 @@ export function WithdrawSection() {
       ) : cooldownRemainingMs > 0 ? (
         <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-center">
           {hasPendingRequest ? (
-            <div className="text-[11px] font-black text-emerald-800">{reviewText[lang] ?? reviewText.en}</div>
+            <button type="button" disabled className="w-full rounded-xl bg-emerald-100 px-3 py-2 text-[11px] font-black text-emerald-800 cursor-default">{reviewText[lang] ?? reviewText.en}</button>
           ) : (
             <>
               <div className="text-[11px] font-black text-sky-800">{t(lang, 'withdrawCooldown')}</div>
