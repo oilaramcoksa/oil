@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateArenaSettlement } from '../src/lib/arena-settlement.mjs';
+import { calculateArenaSettlement, isValidArenaEntryAmount, MIN_ARENA_ENTRY } from '../src/lib/arena-settlement.mjs';
+
+test('arena accepts stakes from 100 coins and rejects lower or fractional amounts', () => {
+  assert.equal(MIN_ARENA_ENTRY, 100);
+  assert.equal(isValidArenaEntryAmount(100), true);
+  assert.equal(isValidArenaEntryAmount(101), true);
+  assert.equal(isValidArenaEntryAmount(99), false);
+  assert.equal(isValidArenaEntryAmount(100.5), false);
+  assert.equal(isValidArenaEntryAmount('100'), false);
+});
 
 test('winner gets original purchased stake back and 90% of opponent stake as winnings', () => {
   const result = calculateArenaSettlement([
