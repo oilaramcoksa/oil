@@ -54,7 +54,10 @@ export function LuckyWheel({ open, onClose }: { open: boolean; onClose: () => vo
     if (!state || spinning || loading || (!state.freeAvailable && !state.extraSpinAvailable)) return;
     setLoading(true); setMessage(''); setResult(null); haptic('medium');
     try {
-      const response = await fetch('/api/lucky-wheel', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData }, body: JSON.stringify({ action: 'spin' }), cache: 'no-store' });
+      const requestId = crypto.randomUUID();
+      const request = () => fetch('/api/lucky-wheel', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData }, body: JSON.stringify({ action: 'spin', requestId }), cache: 'no-store' });
+      let response: Response;
+      try { response = await request(); } catch { response = await request(); }
       const data = await response.json();
       if (!response.ok || data.ok !== true) throw new Error(data.error || 'spin_failed');
       const prizeResult: SpinResult = { prize: Number(data.prize), prizeIndex: Number(data.prizeIndex), spinType: data.spinType, balance: Number(data.balance) };
@@ -65,7 +68,7 @@ export function LuckyWheel({ open, onClose }: { open: boolean; onClose: () => vo
       setSpinning(true);
     } catch (error) {
       const code = error instanceof Error ? error.message : '';
-      setMessage(code === 'spin_not_ready' ? t(lang, 'luckyWheelWaitFree') : t(lang, 'luckyWheelError'));
+      setMessage(code === 'spin_not_ready' ? t(lang, 'luckyWheelWaitFree') : code === 'daily_coin_limit_reached' ? t(lang, 'luckyWheelDailyLimit') : t(lang, 'luckyWheelError'));
       await loadState().catch(() => undefined);
     } finally { setLoading(false); }
   };
@@ -97,7 +100,18 @@ export function LuckyWheel({ open, onClose }: { open: boolean; onClose: () => vo
             <div className="relative mx-auto my-3 aspect-square w-full max-w-[330px]">
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-300 via-yellow-500 to-orange-600 p-[9px] shadow-[0_12px_30px_rgba(115,55,8,.3)]">
                 <div className="relative h-full w-full rounded-full border-[5px] border-amber-100 shadow-inner" style={{ background: `conic-gradient(from -22.5deg, ${COLORS.map((c,i)=>`${c} ${i*45}deg ${(i+1)*45}deg`).join(',')})`, transform: `rotate(${rotation}deg)`, transition: spinning ? 'transform 10s cubic-bezier(.12,.78,.08,1)' : 'none' }} onTransitionEnd={onSpinEnd}>
-                  {VALUES.map((value, index) => <div key={value} className="absolute left-1/2 top-1/2 flex h-[46%] w-10 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-start pt-2 text-white drop-shadow-[0_2px_2px_rgba(0,0,0,.65)]" style={{ transform: `translate(-50%,-50%) rotate(${index*45}deg) translateY(-72px)` }}><span className="text-xl font-black">{value}</span><span className="mt-1 text-xl">💰</span></div>)}
+                  {VALUES.map((value, index) => {
+                    const angle = index * 45;
+                    const radians = (angle * Math.PI) / 180;
+                    const left = 50 + 30 * Math.sin(radians);
+                    const top = 50 - 30 * Math.cos(radians);
+                    return (
+                      <div key={value} className="absolute z-[2] flex h-10 w-12 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-xl bg-black/10 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,.8)]" style={{ left: `${left}%`, top: `${top}%`, transform: `translate(-50%,-50%) rotate(${-angle}deg)` }}>
+                        <span className="text-[22px] font-black leading-none tabular-nums">{value}</span>
+                        <span className="mt-0.5 text-[14px] leading-none">🪙</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <div className="absolute -top-1 left-1/2 z-10 -translate-x-1/2 drop-shadow-md"><div className="h-0 w-0 border-x-[19px] border-t-[31px] border-x-transparent border-t-orange-500" /></div>
