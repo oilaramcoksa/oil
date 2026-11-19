@@ -91,30 +91,18 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     let alive = true;
     const poll = async () => { try { if (alive) await refresh(); } catch (e) { console.error('crash_refresh_failed', e); } };
     void poll();
-    const timer = window.setInterval(() => void poll(), 500);
+    const timer = window.setInterval(() => void poll(), 1000);
     return () => { alive = false; window.clearInterval(timer); };
   }, [isVerified, refresh, screenActive]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 50);
+    const timer = window.setInterval(() => setNow(Date.now()), 100);
     return () => window.clearInterval(timer);
   }, []);
 
   const round = state?.round;
   const serverNow = now + serverOffset;
   const secondsLeft = round?.status === 'countdown' ? Math.max(0, Math.ceil((round.bettingEndsAt - serverNow) / 1000)) : 0;
-  // At the exact deadline, force the authoritative server transition immediately.
-  // This avoids a frozen-looking 0s state if the regular 500ms poll lands on the boundary.
-  useEffect(() => {
-    if (!isVerified || round?.status !== 'countdown' || secondsLeft > 0) return;
-    let alive = true;
-    const nudge = () => {
-      if (alive) void refresh().catch((error) => console.error('crash_countdown_transition_failed', error));
-    };
-    nudge();
-    const timer = window.setInterval(nudge, 150);
-    return () => { alive = false; window.clearInterval(timer); };
-  }, [isVerified, round?.id, round?.status, secondsLeft, refresh]);
   const liveMultiplier = round?.status === 'running' && round.startedAt
     ? Math.min(20, Math.floor((1 + Math.max(0, serverNow - round.startedAt) / 10_000) * 10) / 10)
     : round?.status === 'crashed' ? (round.crashMultiplier ?? 1) : 1;
