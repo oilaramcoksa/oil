@@ -43,7 +43,7 @@ export function MonetagInAppAds({ enabled }: { enabled: boolean }) {
         inAppSettings: {
           frequency: 1,
           capping: 1,
-          interval: 0,
+          interval: 30,
           timeout: 5,
           everyPage: false,
         },
