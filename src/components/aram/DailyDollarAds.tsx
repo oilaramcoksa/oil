@@ -197,7 +197,6 @@ export function DailyDollarAds() {
   useEffect(() => {
     if (rewardClaimed && dailyWait === 0) void load().catch(() => undefined);
   }, [dailyWait, rewardClaimed, load]);
-  const rewardClaimed = progress?.rewardClaimed === true || progress?.completed === true;
   const progressColor = rewardClaimed ? 'bg-emerald-400' : 'bg-emerald-400';
 
   return <>
