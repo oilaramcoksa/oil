@@ -21,6 +21,9 @@ async function ensureTables() {
   const db = getTurso();
   await db.execute("CREATE TABLE IF NOT EXISTS daily_monetag_ad_progress (telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE, day_key TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0 CHECK(views >= 0 AND views <= 100), paid_at TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(telegram_id,day_key))");
   await db.execute("CREATE TABLE IF NOT EXISTS daily_monetag_ad_claims (ymid TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE, day_key TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+  await db.execute("CREATE TABLE IF NOT EXISTS usd_ledger_entries (id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE, entry_type TEXT NOT NULL, amount_micros INTEGER NOT NULL CHECK(amount_micros <> 0), balance_after_micros INTEGER NOT NULL CHECK(balance_after_micros >= 0), reference_type TEXT, reference_id TEXT, idempotency_key TEXT NOT NULL UNIQUE, metadata_json TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+  await db.execute("CREATE TRIGGER IF NOT EXISTS usd_ledger_entries_no_update BEFORE UPDATE ON usd_ledger_entries BEGIN SELECT RAISE(ABORT, 'usd_ledger_entries_are_immutable'); END");
+  await db.execute("CREATE TRIGGER IF NOT EXISTS usd_ledger_entries_no_delete BEFORE DELETE ON usd_ledger_entries BEGIN SELECT RAISE(ABORT, 'usd_ledger_entries_are_immutable'); END");
 }
 async function snapshot(telegramId: string, dayKey: string) {
   const db = getTurso();
@@ -77,7 +80,7 @@ export async function POST(req: NextRequest) {
         if (!wallet.rows.length) throw new Error('player_wallet_not_found');
         const after = Number(wallet.rows[0].usd_micros);
         const key = 'daily_monetag_usd:' + telegramId + ':' + dayKey;
-        await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'usd','daily_ad_reward',?,?,'daily_ad_cycle',?,?,?)",args:[randomUUID(),telegramId,REWARD_MICROS,after,dayKey,key,JSON.stringify({provider:'monetag',zoneId:ZONE,verifiedImpressions:LIMIT,rewardUsd:'0.00121'})]});
+        await tx.execute({sql:"INSERT INTO usd_ledger_entries(id,telegram_id,entry_type,amount_micros,balance_after_micros,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'daily_ad_reward',?,?,'daily_ad_cycle',?,?,?)",args:[randomUUID(),telegramId,REWARD_MICROS,after,dayKey,key,JSON.stringify({provider:'monetag',zoneId:ZONE,verifiedImpressions:LIMIT,rewardUsd:'0.00121'})]});
         await tx.execute({sql:'UPDATE daily_monetag_ad_progress SET paid_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND day_key=? AND paid_at IS NULL',args:[telegramId,dayKey]});
         credited = true;
       }
