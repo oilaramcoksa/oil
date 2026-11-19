@@ -2,10 +2,13 @@
 
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { useGame } from '@/lib/store';
+import { t } from '@/lib/i18n';
 
 type Notice = { id: string; title: string; message: string; kind: string };
 
 export function AdminNotices({ initData, isVerified }: { initData: string; isVerified: boolean }) {
+  const lang = useGame((state) => state.lang);
   const seen = useRef<Set<string>>(new Set());
   const initialized = useRef(false);
 
@@ -33,7 +36,7 @@ export function AdminNotices({ initData, isVerified }: { initData: string; isVer
             if (first) seen.current.delete(first);
           }
           if (notice.message) {
-            toast(notice.title || 'إشعار من الإدارة', {
+            toast(notice.title || t(lang, 'adminNotice'), {
               description: notice.message,
               duration: 9000,
               className: 'aram-admin-notice',
@@ -53,7 +56,7 @@ export function AdminNotices({ initData, isVerified }: { initData: string; isVer
       disposed = true;
       window.clearInterval(interval);
     };
-  }, [initData, isVerified]);
+  }, [initData, isVerified, lang]);
 
   return null;
 }
