@@ -7,7 +7,7 @@ import { beginCell } from '@ton/core';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
-import { t } from '@/lib/i18n';
+import { t, dirOf } from '@/lib/i18n';
 import { isValidArenaEntryAmount, MIN_ARENA_ENTRY } from '@/lib/arena-settlement.mjs';
 import { CrashGameScreen } from '@/components/aram/screens/CrashGameScreen';
 
@@ -322,7 +322,7 @@ export function ArenaScreen({
     : 7;
 
   if (gameMode === 'store') return (
-    <div className="h-full w-full overflow-y-auto px-4 py-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="h-full w-full overflow-y-auto px-4 py-6" dir={dirOf(lang)}>
       <section className="mx-auto max-w-md rounded-3xl border border-emerald-700/20 bg-gradient-to-br from-emerald-50 to-teal-100 p-5 text-[#174d3c] shadow-xl">
         <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-700 text-white shadow-lg"><ShoppingCart size={38}/></div>
         <h2 className="text-center text-2xl font-black">{t(lang, 'arenaBuyTokensStore')}</h2>
@@ -341,7 +341,7 @@ export function ArenaScreen({
   );
 
   return (
-    <div className="h-full w-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-x-none bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="h-full w-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-x-none bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={dirOf(lang)}>
       <div className="mx-auto mb-3 grid w-full max-w-md grid-cols-2 gap-2 rounded-2xl border border-amber-900/10 bg-white/70 p-1.5 shadow-sm">
         <button type="button" onClick={() => setGameMode('wheel')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'wheel' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
           <span>🎡</span>{lang === 'ar' ? 'عجلة الحظ' : lang === 'ru' ? 'Колесо удачи' : 'Lucky Wheel'}
