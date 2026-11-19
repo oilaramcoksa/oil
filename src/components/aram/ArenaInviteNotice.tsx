@@ -35,7 +35,7 @@ export function ArenaInviteNotice({ initData, isVerified, telegramUserId, onGoTo
     let expiryTimer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
       try {
-        const response = await fetch('/api/color-wheel', {
+        const response = await fetch('/api/color-wheel?invite=1', {
           headers: { 'X-Telegram-Init-Data': initData },
           cache: 'no-store',
         });
