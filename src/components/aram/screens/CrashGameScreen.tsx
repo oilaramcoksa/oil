@@ -216,7 +216,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
       if (!response.ok) {
         const messages: Record<string,string> = {
           betting_closed: lang === 'ar' ? 'أُغلق باب المشاركة لهذه الجولة' : lang === 'ru' ? 'Приём ставок на этот раунд завершён' : 'Betting is closed for this round',
-          insufficient_balance: lang === 'ar' ? 'الرصيد الإجمالي غير كافٍ' : lang === 'ru' ? 'Недостаточно общего баланса' : 'Insufficient balance in one wallet',
+          insufficient_balance: lang === 'ar' ? 'الرصيد الإجمالي غير كافٍ' : lang === 'ru' ? 'Недостаточно общего баланса' : 'Insufficient total balance',
           already_joined: lang === 'ar' ? 'شاركت بالفعل في هذه الجولة' : lang === 'ru' ? 'Вы уже участвуете в этом раунде' : 'You already joined this round',
           round_crashed: lang === 'ar' ? 'انفجرت الطائرة قبل قبول السحب؛ خسرت الرهان' : lang === 'ru' ? 'Самолёт разбился до подтверждения вывода; ставка проиграна' : 'The plane crashed before cashout was accepted',
           bet_not_found: lang === 'ar' ? 'لم تشارك في هذه الجولة' : lang === 'ru' ? 'В этом раунде ваша ставка не найдена' : 'No bet found for this round',
