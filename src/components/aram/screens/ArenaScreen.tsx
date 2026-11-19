@@ -548,7 +548,7 @@ export function ArenaScreen({
 
         <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
           <div className="mb-2 flex justify-between text-xs text-[#8f6b4d]">
-            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaAvailableBalance')}: <b className="font-black text-amber-800">{availableBalance.toLocaleString()}</b> <span className="text-[9px]">{lang === 'ru' ? '(из одного кошелька)' : '(من رصيد واحد)'}</span></span>
+            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaAvailableBalance')}: <b className="font-black text-amber-800">{availableBalance.toLocaleString()}</b> <span className="text-[9px]">{t(lang, 'singleBalance')}</span></span>
           </div>
           <div className="flex gap-2">
             <input
