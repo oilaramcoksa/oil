@@ -19,33 +19,44 @@ function jsonError(error: string, status = 400) {
 }
 function colorAt(index: number): Color { return COLORS[index] ?? 'yellow'; }
 
-async function ensureColorTables(db: ReturnType<typeof getTurso>) {
-  await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_rounds (
-    id TEXT PRIMARY KEY,
-    status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','spinning','completed')),
-    starts_at INTEGER,
-    spin_started_at INTEGER,
-    winning_sector INTEGER,
-    winning_color TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at TEXT
-  )`);
-  await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_bets (
-    id TEXT PRIMARY KEY,
-    round_id TEXT NOT NULL REFERENCES color_wheel_rounds(id),
-    telegram_id TEXT NOT NULL REFERENCES players(telegram_id),
-    color TEXT NOT NULL CHECK(color IN ('yellow','purple','turquoise')),
-    amount INTEGER NOT NULL CHECK(amount >= 100),
-    payout INTEGER NOT NULL DEFAULT 0,
-    outcome TEXT NOT NULL DEFAULT 'pending' CHECK(outcome IN ('pending','win','loss')),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(round_id, telegram_id)
-  )`);
-  await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_color_wheel_one_active ON color_wheel_rounds((1)) WHERE status IN ('open','spinning')");
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_history ON color_wheel_rounds(status, completed_at DESC)');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_bets_round ON color_wheel_bets(round_id, created_at)');
-}
+let colorSchemaReady: Promise<void> | null = null;
 
+async function ensureColorTables(db: ReturnType<typeof getTurso>) {
+  if (!colorSchemaReady) {
+    colorSchemaReady = (async () => {
+      await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_rounds (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','spinning','completed')),
+        starts_at INTEGER,
+        spin_started_at INTEGER,
+        winning_sector INTEGER,
+        winning_color TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_at TEXT
+      )`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_bets (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL REFERENCES color_wheel_rounds(id),
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id),
+        color TEXT NOT NULL CHECK(color IN ('yellow','purple','turquoise')),
+        amount INTEGER NOT NULL CHECK(amount >= 100),
+        payout INTEGER NOT NULL DEFAULT 0,
+        outcome TEXT NOT NULL DEFAULT 'pending' CHECK(outcome IN ('pending','win','loss')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(round_id, telegram_id)
+      )`);
+      await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_color_wheel_one_active ON color_wheel_rounds((1)) WHERE status IN ('open','spinning')");
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_history ON color_wheel_rounds(status, completed_at DESC)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_bets_round ON color_wheel_bets(round_id, created_at)');
+    })();
+  }
+  try {
+    await colorSchemaReady;
+  } catch (error) {
+    colorSchemaReady = null;
+    throw error;
+  }
+}
 async function createRound(db: ReturnType<typeof getTurso>) {
   try {
     await db.execute({ sql: "INSERT INTO color_wheel_rounds(id,status,starts_at) VALUES(?,'open',?)", args: [randomUUID(), Date.now() + BETTING_MS] });
