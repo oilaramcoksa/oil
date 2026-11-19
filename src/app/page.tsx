@@ -17,9 +17,9 @@ const SwapScreen = dynamic(() => import('@/components/aram/screens/SwapScreen').
 
 
 
-import { Onboarding } from '@/components/aram/Onboarding';
-import { SettingsSheet } from '@/components/aram/SettingsSheet';
-import { TournamentsSheet } from '@/components/aram/TournamentsSheet';
+const Onboarding = dynamic(() => import('@/components/aram/Onboarding').then((m) => m.Onboarding));
+const SettingsSheet = dynamic(() => import('@/components/aram/SettingsSheet').then((m) => m.SettingsSheet));
+const TournamentsSheet = dynamic(() => import('@/components/aram/TournamentsSheet').then((m) => m.TournamentsSheet));
 
 import { useTelegram } from '@/hooks/use-telegram';
 import { Toaster } from 'sonner';
