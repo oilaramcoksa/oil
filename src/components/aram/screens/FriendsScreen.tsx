@@ -14,7 +14,7 @@ export function FriendsScreen() {
   const { tg, haptic, notify, initData } = useTelegram();
   const [copied, setCopied] = useState(false);
   const [referralCode, setReferralCode] = useState('');
-  const [referrals, setReferrals] = useState<{ id: string; name: string; joinedAt: number; earned: number; active: boolean; status?: string }[]>([]);
+  const [referrals, setReferrals] = useState<{ id: string; name: string; joinedAt: number; earned: number; revenueCoins: number; active: boolean; status?: string }[]>([]);
 
   useEffect(() => {
     if (!initData) return;
@@ -75,7 +75,7 @@ export function FriendsScreen() {
         </div>
         <div>
           <h2 className="text-lg font-black text-[#2a1c0a]">{t(lang, 'friendsTitle')}</h2>
-          <p className="text-[11px] text-amber-900/60 font-bold">{lang === 'ar' ? 'عمولة 5% من إيرادات أصدقائك النشطين مدى الحياة' : lang === 'ru' ? 'Пожизненная комиссия 5% от дохода активных друзей' : 'Lifetime 5% commission from active friends’ earnings'}</p>
+          <p className="text-[11px] text-amber-900/60 font-bold">{lang === 'ar' ? 'عمولة 5% من مبيعات البترول للأصدقاء بعد تأهلهم' : lang === 'ru' ? 'Комиссия 5% от продаж нефти приглашённых друзей после активации' : '5% commission on referred friends’ oil sales after qualification'}</p>
         </div>
       </div>
 
@@ -164,11 +164,17 @@ export function FriendsScreen() {
                     {t(lang, 'joined')} · {timeAgo(r.joinedAt, lang)}
                   </div>
                   <div className={`mt-1 text-[9px] font-black ${r.status === 'rewarded' ? 'text-emerald-700' : r.status === 'qualified' ? 'text-sky-700' : 'text-amber-700'}`}>
-                    {r.status === 'rewarded' ? (lang === 'ar' ? 'نشط · عمولة 5% مدى الحياة' : 'Active · lifetime 5%') : r.status === 'qualified' ? (lang === 'ar' ? 'مؤهل · تُحتسب الإيرادات اليومية' : 'Qualified · daily earnings count') : (lang === 'ar' ? 'بحاجة إلى تسجيل الدخول 3 أيام متتالية' : 'Needs 3 consecutive login days')}
+                    {r.status === 'rewarded' ? (lang === 'ar' ? 'مؤهل ونشط · عمولتك 5% من مبيعاته' : 'Active · 5% of their sales') : r.status === 'qualified' ? (lang === 'ar' ? 'مؤهل · تُحتسب عمولة 5% من مبيعاته' : 'Qualified · 5% sales commission') : (lang === 'ar' ? 'لم يُكمل تسجيل الدخول 3 أيام متتالية بعد' : 'Needs 3 consecutive login days')}
+                  </div>
+                  <div className="mt-1 text-[10px] font-bold text-amber-900/70">
+                    {lang === 'ar' ? 'مبيعات الصديق المحتسبة: ' : 'Friend sales counted: '}{r.revenueCoins.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] font-black text-emerald-700">
+                    {lang === 'ar' ? 'ربحك من هذا الصديق: ' : 'Your earnings: '}{r.earned.toLocaleString()} {lang === 'ar' ? 'عملة' : 'coins'}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-black">
-                  +{r.earned}
+                <div className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-emerald-700 text-xs font-black">
+                  +{r.earned.toLocaleString()}
                 </div>
               </motion.div>
             ))}

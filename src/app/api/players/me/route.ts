@@ -101,18 +101,24 @@ export async function GET(req: NextRequest) {
     });
     const referralRows = await db.execute({
       sql: `SELECT r.id, r.reward_coins, r.status, r.created_at,
-                   p.username, p.first_name, p.last_name
+                   p.username, p.first_name, p.last_name,
+                   COALESCE((SELECT SUM(l.amount) FROM ledger_entries l
+                     WHERE l.telegram_id=? AND l.asset='coins' AND l.entry_type='referral_commission'
+                       AND l.reference_type='referral' AND l.reference_id=p.telegram_id), r.reward_coins) AS earned_coins,
+                   COALESCE((SELECT SUM(d.revenue_coins) FROM referral_daily_commissions d
+                     WHERE d.referee_telegram_id=p.telegram_id), 0) AS revenue_coins
             FROM referrals r
             JOIN players p ON p.telegram_id = r.referee_telegram_id
             WHERE r.referrer_telegram_id = ?
             ORDER BY r.created_at DESC LIMIT 100`,
-      args: [telegramId],
+      args: [telegramId, telegramId],
     });
     const referrals = referralRows.rows.map((row) => ({
       id: String(row.id),
       name: String(row.username || row.first_name || 'Player'),
       joinedAt: Date.parse(String(row.created_at)) || Date.now(),
-      earned: Number(row.reward_coins ?? 0),
+      earned: Number(row.earned_coins ?? row.reward_coins ?? 0),
+      revenueCoins: Number(row.revenue_coins ?? 0),
       active: String(row.status) === 'qualified' || String(row.status) === 'rewarded',
       status: String(row.status),
     }));
