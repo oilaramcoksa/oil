@@ -79,7 +79,6 @@ export function DailyDollarAds() {
   const [loading, setLoading] = useState(true);
   const [initData, setInitData] = useState('');
   const [now, setNow] = useState(Date.now());
-  const [hintVisible, setHintVisible] = useState(false);
 
   useEffect(() => {
     const w = window as Window & { Telegram?: { WebApp?: { initData?: string } } };
@@ -89,11 +88,6 @@ export function DailyDollarAds() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  useEffect(() => {
-    if (!hintVisible) return;
-    const timer = window.setTimeout(() => setHintVisible(false), 5000);
-    return () => window.clearTimeout(timer);
-  }, [hintVisible]);
 
   const load = useCallback(async () => {
     if (!initData) return;
@@ -120,7 +114,7 @@ export function DailyDollarAds() {
       return;
     }
     setBusy(true);
-    setHintVisible(true);
+    window.dispatchEvent(new Event('armco:monetag-ad-start'));
     try {
       const ymid = crypto.randomUUID();
       const ad = await w.show_12295910({ ymid, requestVar: 'daily_usd_reward' });
@@ -200,11 +194,6 @@ export function DailyDollarAds() {
   const progressColor = rewardClaimed ? 'bg-emerald-400' : 'bg-emerald-400';
 
   return <>
-    {hintVisible && <div className="fixed left-3 right-3 top-3 z-[9999] overflow-hidden rounded-xl border border-amber-300/70 bg-[#29251b] px-4 py-3 text-amber-100 shadow-2xl" role="status">
-      <div className="flex items-start gap-3"><span className="text-amber-300">↗</span><p className="flex-1 text-xs font-bold leading-6">{extra.hint}</p><button type="button" aria-label="Close" onClick={() => setHintVisible(false)} className="text-amber-200/80"><X size={16}/></button></div>
-      <motion.div className="absolute bottom-0 left-0 h-1 bg-amber-400" initial={{ width: '100%' }} animate={{ width: '0%' }} transition={{ duration: 5, ease: 'linear' }}/>
-    </div>}
-
     <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mx-auto mt-5 w-full max-w-md rounded-[26px] border border-white/10 bg-[#24272b] p-4 text-white shadow-[0_18px_50px_rgba(0,0,0,.22)]">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3"><div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/[.04] text-white/70"><Tv size={25}/></div><h3 className="text-xl font-black">{words[0]}</h3></div>
