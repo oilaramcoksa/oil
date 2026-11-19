@@ -75,6 +75,18 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
   if (!round) throw new Error('color_wheel_round_unavailable');
 
   const now = Date.now();
+  // Repair rounds created by the previous timer behavior: an empty round
+  // must wait indefinitely until the first successful bet is committed.
+  if (String(round.status) === 'open' && round.starts_at != null) {
+    const resetEmptyTimer = await db.execute({
+      sql: "UPDATE color_wheel_rounds SET starts_at=NULL WHERE id=? AND status='open' AND starts_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM color_wheel_bets WHERE round_id=?)",
+      args: [String(round.id), String(round.id)],
+    });
+    if (Number(resetEmptyTimer.rowsAffected ?? 0) > 0) {
+      active = await db.execute("SELECT * FROM color_wheel_rounds WHERE status IN ('open','spinning') ORDER BY created_at DESC LIMIT 1");
+      round = active.rows[0] ?? round;
+    }
+  }
   if (String(round.status) === 'open' && round.starts_at != null && Number(round.starts_at) <= now) {
     const sector = randomInt(0, 15);
     await db.execute({
