@@ -177,7 +177,7 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
   return (
     <div dir={dirOf(lang)} className="fixed inset-0 z-[100] flex items-center justify-center bg-[#2b1809]/55 p-4 backdrop-blur-sm">
       <div role="dialog" aria-modal="true" aria-labelledby="mining-fee-title" className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[#f0c66d] bg-gradient-to-b from-[#fff8e8] via-[#ffedc7] to-[#f8d99d] p-5 text-[#633715] shadow-[0_24px_80px_rgba(65,35,5,.35)]">
-        <button type="button" onClick={onClose} disabled={busy} aria-label={t(lang, 'miningFeeClose')} className="absolute left-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-[#6a3b13]/10 text-xl font-bold text-[#6a3b13] disabled:opacity-40">×</button>
+        <button type="button" onClick={onClose} disabled={busy || !!pendingPaymentId} aria-label={t(lang, 'miningFeeClose')} className="absolute left-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-[#6a3b13]/10 text-xl font-bold text-[#6a3b13] disabled:opacity-40">×</button>
         <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-[#e7b94e] bg-gradient-to-br from-[#ffe8a6] to-[#f7b83d] text-[#75400e] shadow-md"><ShieldCheck size={30}/></div>
         <h2 id="mining-fee-title" className="text-center text-xl font-black text-[#633715]">{t(lang, 'miningFeeTitle')}</h2>
         <p className="mt-3 text-center text-sm leading-7 text-[#80562e]">{t(lang, 'miningFeeDescription')}</p>
