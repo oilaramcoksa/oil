@@ -54,6 +54,23 @@ const RESULT_COPY: Record<Lang,{players:string;empty:string;round:string;won:str
  ko:{players:'현재 라운드 참가자',empty:'아직 베팅이 없습니다',round:'최근 완료된 라운드 결과',won:'순수익',lost:'손실'},
  ur:{players:'موجودہ راؤنڈ کے شرکاء',empty:'ابھی تک کوئی شرط نہیں لگی',round:'آخری مکمل راؤنڈ کے نتائج',won:'خالص جیت',lost:'نقصان'},
 };
+const BALANCE_COPY: Record<Lang,{regular:string;purchased:string}> = {
+ ar:{regular:'المحفظة العادية',purchased:'عملات الرهان المشتراة'},
+ en:{regular:'Regular wallet',purchased:'Purchased bet tokens'},
+ ru:{regular:'Обычный кошелёк',purchased:'Купленные монеты для ставок'},
+ es:{regular:'Billetera normal',purchased:'Fichas de apuesta compradas'},
+ pt:{regular:'Carteira normal',purchased:'Fichas de aposta compradas'},
+ fr:{regular:'Portefeuille normal',purchased:'Jetons de pari achetés'},
+ de:{regular:'Normales Guthaben',purchased:'Gekaufte Einsatz-Token'},
+ tr:{regular:'Normal bakiye',purchased:'Satın alınan bahis jetonları'},
+ zh:{regular:'普通钱包',purchased:'已购下注代币'},
+ hi:{regular:'सामान्य वॉलेट',purchased:'खरीदे गए बेट टोकन'},
+ id:{regular:'Dompet biasa',purchased:'Token taruhan yang dibeli'},
+ bn:{regular:'সাধারণ ওয়ালেট',purchased:'কেনা বাজির টোকেন'},
+ ja:{regular:'通常ウォレット',purchased:'購入したベットトークン'},
+ ko:{regular:'일반 지갑',purchased:'구매한 베팅 토큰'},
+ ur:{regular:'عام والیٹ',purchased:'خریدے گئے شرط کے سکے'},
+};
 const SECTOR_DEG = 360 / 15;
 
 export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerified:boolean}) {
@@ -147,14 +164,8 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
     <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/50"><Timer size={12}/>{isSpinning?c[11]:(state?.bets.length??0)===0?c[12]:c[13]}</div>
    </section>
    <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
-    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><History size={14}/> {c[14]}</h3><span className="text-[10px] text-white/35">{history.length}</span></div>
-    <div className="flex flex-wrap gap-2">
-     {history.length?history.map(item=><div key={item.id} title={item.color} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 shadow-inner" style={{background:META[item.color].hex}}><span className="text-[9px] font-black text-black/65">{item.sector+1}</span></div>):<span className="py-2 text-[11px] text-white/35" >{c[15]}</span>}
-    </div>
-   </section>
-   <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
     <div className="mb-2 flex items-center justify-between text-xs"><span className="text-white/55" >{c[16]}</span><b className="flex items-center gap-1 text-amber-300"><Coins size={13}/>{totalBalance.toLocaleString()}</b></div>
-    <div className="mb-2 flex items-center justify-between gap-2 text-[9px] text-white/45"><span>المحفظة العادية: {(state?.balance??0).toLocaleString()}</span><span>عملات الرهان: {(state?.betBalance??0).toLocaleString()}</span></div>
+    <div className="mb-2 flex items-center justify-between gap-2 text-[9px] text-white/45"><span>{(BALANCE_COPY[lang]??BALANCE_COPY.en).regular}: {(state?.balance??0).toLocaleString()}</span><span>{(BALANCE_COPY[lang]??BALANCE_COPY.en).purchased}: {(state?.betBalance??0).toLocaleString()}</span></div>
     <div className="flex gap-2">
      <input type="number" min={100} step={1} inputMode="numeric" value={amount} onChange={event=>setAmount(event.target.value)} disabled={!canBet} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#171a1c] px-3 py-3 text-lg font-black text-white outline-none focus:border-amber-400 disabled:opacity-60"/>
      {presets.map(item=><button key={item.label} type="button" disabled={!canBet||item.value>totalBalance} onClick={()=>setAmount(String(item.value))} className="min-w-11 rounded-xl border border-white/10 bg-[#2a2e31] px-2 text-xs font-black text-white/65 disabled:opacity-30">{item.label}</button>)}
@@ -169,6 +180,13 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
     </div>
     <p className="mt-2 text-center text-[9px] text-white/35" >{c[28]}</p>
    </section>
+   <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
+    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><History size={14}/> {c[14]}</h3><span className="text-[10px] text-white/35">{history.length}</span></div>
+    <div className="flex flex-wrap gap-2">
+     {history.length?history.map(item=><div key={item.id} title={item.color} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 shadow-inner" style={{background:META[item.color].hex}}><span className="text-[9px] font-black text-black/65">{item.sector+1}</span></div>):<span className="py-2 text-[11px] text-white/35" >{c[15]}</span>}
+    </div>
+   </section>
+
    <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
     <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><Users size={14}/> {resultCopy.players}</h3><span className="text-[10px] text-amber-300">{currentBets.length}</span></div>
     {currentBets.length===0?<p className="py-3 text-center text-[11px] text-white/40">{resultCopy.empty}</p>:<div className="space-y-2">{currentBets.map(bet=><div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-black/15 px-2.5 py-2">
