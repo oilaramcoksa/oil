@@ -642,7 +642,7 @@ export function SellModal({ open, onClose, initData, isVerified }: Props) {
                     </span>
                   )}
                   {phase === 'retracting' && (
-                    <span className="flex items-center gap-2">🔧 جاري سحب الخرطوم...</span>
+                    <span className="flex items-center gap-2">🔧 {t(lang, 'retractingHose')}</span>
                   )}
                   {(phase === 'counting' || phase === 'departing') && (
                     <span className="flex items-center gap-2">
