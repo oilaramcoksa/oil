@@ -20,6 +20,11 @@ export async function GET(req: NextRequest) {
   try {
     await ensureDatabaseSchema();
     const db = getTurso();
+    await db.execute(`CREATE TABLE IF NOT EXISTS monetag_action_ad_claims (
+      id TEXT PRIMARY KEY, telegram_id TEXT NOT NULL REFERENCES players(telegram_id) ON DELETE CASCADE,
+      ymid TEXT NOT NULL UNIQUE, purpose TEXT NOT NULL, reward_coins INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
     const telegramId = String(user.id);
     const latest = await db.execute({
       sql: "SELECT CAST(strftime('%s', created_at) AS INTEGER) * 1000 AS created_at_ms FROM monetag_action_ad_claims WHERE telegram_id=? AND purpose IN ('sell_action','mining_start') ORDER BY created_at DESC LIMIT 1",
