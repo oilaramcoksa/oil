@@ -637,6 +637,7 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
   remaining: "المتبقي",
   retractingHose: "جارٍ سحب الخرطوم...",
   singleBalance: "(من رصيد واحد)",
+  swapConversionHint: "100,000 عملة = 100 دولار",
 };
 
 const en: Dict = {
@@ -1239,6 +1240,7 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
   remaining: 'Remaining',
   retractingHose: 'Retracting the hose...',
   singleBalance: '(from one balance)',
+  swapConversionHint: '100,000 coins = $100',
 };
 
 const ru: Dict = {
@@ -1841,6 +1843,7 @@ shortsVideoDescription: "Хочу познакомить вас с Aramco Oil �
   remaining: 'Осталось',
   retractingHose: 'Шланг убирается...',
   singleBalance: '(из одного баланса)',
+  swapConversionHint: '100 000 монет = 100 $',
 };
 
 
