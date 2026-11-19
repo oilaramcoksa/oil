@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { t, type Lang } from '@/lib/i18n';
-import { Coins, Droplet, Gauge, History, ArrowDownRight, ArrowUpRight, Clock, WalletCards, RefreshCw, Link2, Unlink } from 'lucide-react';
+import { Coins, Droplet, Gauge, History, ArrowDownRight, ArrowUpRight, Clock, WalletCards, RefreshCw, Link2, Unlink, DollarSign } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { WithdrawSection } from '@/components/aram/WithdrawSection';
 import { effectiveSpeed, effectiveOilPerTap, effectiveCapacity, effectiveCoinsPerHour } from '@/lib/store';
@@ -21,6 +21,21 @@ export function WalletScreen() {
   const [tonBalance, setTonBalance] = useState<string | null>(null);
   const [tonBalanceLoading, setTonBalanceLoading] = useState(false);
   const [tonWalletError, setTonWalletError] = useState(false);
+  const [usdBalance, setUsdBalance] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const initData = window.Telegram?.WebApp?.initData ?? '';
+    if (!initData) return;
+    void fetch('/api/ads/daily-dollar', { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json() as { usdBalance?: string };
+        if (alive && typeof data.usdBalance === 'string') setUsdBalance(data.usdBalance);
+      })
+      .catch((error) => console.warn('wallet_usd_balance_load_failed', error));
+    return () => { alive = false; };
+  }, []);
 
   // TON Connect keeps the approved session in its own persistent storage.
   // Keep the public wallet address in the game's persisted Zustand state too.
@@ -172,6 +187,16 @@ export function WalletScreen() {
           <p className="text-[10px] text-amber-200/80 font-bold leading-relaxed">
             ⓘ {t(lang, 'aboutText').split('.')[0]}.
           </p>
+        </div>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-3 rounded-2xl border border-emerald-300/25 bg-gradient-to-r from-[#103a31] to-[#0d5143] p-4 text-white shadow-lg">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-bold text-emerald-100/70">{t(lang, 'swapDollar')}</div>
+            <div className="mt-1 font-mono text-2xl font-black tabular-nums text-emerald-200" dir="ltr">$ {usdBalance ?? '—'}</div>
+          </div>
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-300/15 text-emerald-200"><DollarSign className="h-6 w-6" /></div>
         </div>
       </motion.div>
 
