@@ -69,7 +69,7 @@ function clock(seconds: number) {
   return h + ':' + m + ':' + s;
 }
 
-export function DailyDollarAds() {
+export function DailyDollarAds({ initData, isVerified }: { initData: string; isVerified: boolean }) {
   const lang = useGame((s) => s.lang);
   const words = TEXT[lang] ?? TEXT.en;
   const extra = EXTRA[lang] ?? EXTRA.en;
@@ -77,27 +77,22 @@ export function DailyDollarAds() {
   const [busy, setBusy] = useState(false);
   const [claimBusy, setClaimBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [initData, setInitData] = useState('');
-  const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(Date.now());
 
-  useEffect(() => {
-    const w = window as Window & { Telegram?: { WebApp?: { initData?: string } } };
-    setInitData(w.Telegram?.WebApp?.initData ?? '');
-  }, []);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
   const load = useCallback(async () => {
-    if (!initData) return;
+    if (!isVerified || !initData) return;
     const response = await fetch('/api/ads/daily-dollar', {
       headers: { 'X-Telegram-Init-Data': initData },
       cache: 'no-store',
     });
     if (!response.ok) throw new Error('progress_failed');
     setProgress(await response.json() as Progress);
-  }, [initData]);
+  }, [initData, isVerified]);
 
   useEffect(() => {
     setLoading(true);
@@ -109,7 +104,7 @@ export function DailyDollarAds() {
     const w = window as Window & {
       show_12295910?: (options?: { ymid?: string; requestVar?: string }) => Promise<{ reward_event_type?: string; variable2?: string } | undefined>;
     };
-    if (!initData || typeof w.show_12295910 !== 'function') {
+    if (!isVerified || !initData || typeof w.show_12295910 !== 'function') {
       toast.error(words[8]);
       return;
     }
@@ -208,7 +203,7 @@ export function DailyDollarAds() {
       </div>
       <div className="mt-3 flex items-center justify-between rounded-xl bg-white/[.04] px-3 py-2"><span className="flex items-center gap-1.5 text-xs text-white/55"><DollarSign size={14}/>{words[6]}</span><b className="font-mono text-sm text-emerald-300" dir="ltr">$ {progress?.usdBalance ?? '0.000000'}</b></div>
 
-      <button type="button" onClick={() => void watch()} disabled={busy || claimBusy || loading || !progress || !initData || progress.remaining <= 0 || rewardReady || adWait > 0 || dailyWait > 0} className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#ffa75e] px-4 py-4 text-base font-black text-[#24170e] shadow-lg transition active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-45">
+      <button type="button" onClick={() => void watch()} disabled={busy || claimBusy || loading || !progress || !isVerified || !initData || progress.remaining <= 0 || rewardReady || adWait > 0 || dailyWait > 0} className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#ffa75e] px-4 py-4 text-base font-black text-[#24170e] shadow-lg transition active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-45">
         {busy ? <Loader2 size={20} className="animate-spin"/> : adWait > 0 || dailyWait > 0 ? <Clock size={20}/> : rewardClaimed ? <CheckCircle2 size={20}/> : <Play size={20}/>}
         {busy ? words[3] : dailyWait > 0 ? extra.nextCycle + ' ' + clock(dailyWait) : adWait > 0 ? extra.cooldown + ' ' + clock(adWait) : rewardClaimed ? extra.claimed : rewardReady ? extra.rewardTitle : words[2]}
       </button>
