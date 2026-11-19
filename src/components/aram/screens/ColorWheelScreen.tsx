@@ -93,7 +93,16 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
   if(!response.ok)throw new Error(data.error||'color_wheel_unavailable');
   setState(data as WheelState);
  },[headers,initData,isVerified]);
- useEffect(()=>{void refresh().catch(()=>undefined);const poll=window.setInterval(()=>void refresh().catch(()=>undefined),900);const clock=window.setInterval(()=>setNow(Date.now()),200);return()=>{window.clearInterval(poll);window.clearInterval(clock)}},[refresh]);
+ useEffect(()=>{
+  let alive=true;
+  const poll=()=>{if(alive && document.visibilityState==='visible') void refresh().catch(()=>undefined);};
+  poll();
+  const timer=window.setInterval(poll,1500);
+  const visibility=()=>{if(document.visibilityState==='visible')poll();};
+  document.addEventListener('visibilitychange',visibility);
+  const clock=window.setInterval(()=>setNow(Date.now()),200);
+  return()=>{alive=false;window.clearInterval(timer);window.clearInterval(clock);document.removeEventListener('visibilitychange',visibility);};
+ },[refresh]);
  useEffect(()=>{
   const round=state?.round;
   if(!round||round.status!=='spinning'||round.winningSector===null||animatedRound.current===round.id)return;
