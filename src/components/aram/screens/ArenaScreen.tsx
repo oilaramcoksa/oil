@@ -164,12 +164,22 @@ export function ArenaScreen({
   }, [isVerified, refreshHistory]);
 
 
-  const refresh = useCallback(async () => {
-    if (!isVerified || !initData) return;
-    const response = await fetch('/api/arena', { headers, cache: 'no-store' });
-    if (!response.ok) throw new Error('arena_state_failed');
-    const data = await response.json() as ArenaState;
-    setState(data);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
+  const refresh = useCallback((): Promise<void> => {
+    if (!isVerified || !initData) return Promise.resolve();
+    if (refreshInFlight.current) return refreshInFlight.current;
+    const request = (async () => {
+      try {
+        const response = await fetch('/api/arena', { headers, cache: 'no-store' });
+        if (!response.ok) throw new Error('arena_state_failed');
+        const data = await response.json() as ArenaState;
+        setState(data);
+      } finally {
+        refreshInFlight.current = null;
+      }
+    })();
+    refreshInFlight.current = request;
+    return request;
   }, [headers, initData, isVerified]);
 
   useEffect(() => {
@@ -183,7 +193,7 @@ export function ArenaScreen({
       }
     };
     void poll();
-    const timer = window.setInterval(() => void poll(), 650);
+    const timer = window.setInterval(() => void poll(), 1500);
     return () => {
       stopped = true;
       window.clearInterval(timer);
@@ -297,7 +307,7 @@ export function ArenaScreen({
       const response = await fetch('/api/arena', {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel' }),
+        body: JSON.stringify({ action: 'cancel', roundId: round?.id }),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) {
