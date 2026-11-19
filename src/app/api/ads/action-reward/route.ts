@@ -13,6 +13,28 @@ function fail(error: string, status = 400) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
+
+export async function GET(req: NextRequest) {
+  const user = verifiedPlayerFromRequest(req);
+  if (!user) return fail('telegram_auth_required', 401);
+  try {
+    await ensureDatabaseSchema();
+    const db = getTurso();
+    const telegramId = String(user.id);
+    const latest = await db.execute({
+      sql: "SELECT CAST(strftime('%s', created_at) AS INTEGER) * 1000 AS created_at_ms FROM monetag_action_ad_claims WHERE telegram_id=? AND purpose IN ('sell_action','mining_start') ORDER BY created_at DESC LIMIT 1",
+      args: [telegramId],
+    });
+    const lastAt = Number(latest.rows[0]?.created_at_ms ?? 0);
+    const cooldownMs = 12 * 60 * 60 * 1000;
+    const remainingMs = Math.max(0, lastAt + cooldownMs - Date.now());
+    return NextResponse.json({ ok: true, canWatchAd: remainingMs === 0, remainingMs, nextAllowedAt: remainingMs ? lastAt + cooldownMs : null }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('monetag_action_ad_status_failed', error);
+    return fail('monetag_action_ad_status_unavailable', 503);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const user = verifiedPlayerFromRequest(req);
   if (!user) return fail('telegram_auth_required', 401);
@@ -55,6 +77,19 @@ export async function POST(req: NextRequest) {
         args: [ymid, telegramId],
       });
       if (!verified.rows.length) { await tx.rollback(); return fail('monetag_postback_not_verified', 409); }
+
+
+      // One shared 12-hour cooldown across mining-start and sell action ads.
+      if (purpose === 'sell_action' || purpose === 'mining_start') {
+        const recentClaim = await tx.execute({
+          sql: "SELECT id FROM monetag_action_ad_claims WHERE telegram_id=? AND purpose IN ('sell_action','mining_start') AND created_at >= datetime('now','-12 hours') LIMIT 1",
+          args: [telegramId],
+        });
+        if (recentClaim.rows.length) {
+          await tx.rollback();
+          return fail('action_ad_cooldown_active', 429);
+        }
+      }
 
       const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [telegramId] });
       if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
