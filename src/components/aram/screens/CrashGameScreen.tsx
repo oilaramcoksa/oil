@@ -225,10 +225,15 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
       }
       if (action === 'bet') { toast.success(lang === 'ar' ? 'تم تسجيل رهانك للجولة القادمة' : lang === 'ru' ? 'Ваша ставка принята' : 'Your bet is registered'); playTone(560); }
       else { toast.success((lang === 'ar' ? 'تم السحب عند ' : lang === 'ru' ? 'Вы вывели средства при ' : 'Cashed out at ') + Number(data.multiplier).toFixed(2) + 'x · +' + fmt(Number(data.payout))); playTone(880, 0.2); }
+      // Let any poll that began before this action finish, then fetch a fresh authoritative state.
+      const pendingRefresh = refreshInFlight.current;
+      if (pendingRefresh) await pendingRefresh.catch(() => undefined);
       await refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : (lang === 'ru' ? 'Не удалось выполнить действие. Попробуйте ещё раз.' : 'crash_action_failed'));
       if (action === 'cashout') playTone(180, 0.25);
+      const pendingRefreshAfterError = refreshInFlight.current;
+      if (pendingRefreshAfterError) await pendingRefreshAfterError.catch(() => undefined);
       await refresh().catch(() => undefined);
     } finally { actionLock.current = false; setLoading(false); setPendingAction(null); }
   };
