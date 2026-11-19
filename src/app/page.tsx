@@ -11,7 +11,7 @@ import { WalletScreen } from '@/components/aram/screens/WalletScreen';
 import { TasksScreen } from '@/components/aram/screens/TasksScreen';
 import { FriendsScreen } from '@/components/aram/screens/FriendsScreen';
 import { StoreScreen } from '@/components/aram/screens/StoreScreen';
-import { ArenaScreen } from '@/components/aram/screens/ArenaScreen';
+import { ArenaHubScreen } from '@/components/aram/screens/ArenaHubScreen';
 import { SwapScreen } from '@/components/aram/screens/SwapScreen';
 
 
@@ -139,7 +139,7 @@ export default function Home() {
         {visitedTabs.has('tasks') && <section className={tab === 'tasks' ? 'h-full' : 'hidden'}><TasksScreen initData={initData} isVerified={isVerified} /></section>}
         {visitedTabs.has('friends') && <section className={tab === 'friends' ? 'h-full' : 'hidden'}><FriendsScreen /></section>}
         {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} openProductRequest={openStoreProductRequest} /></section>}
-        {visitedTabs.has('arena') && <section className={tab === 'arena' ? 'h-full' : 'hidden'}><ArenaScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} /></section>}
+        {visitedTabs.has('arena') && <section className={tab === 'arena' ? 'h-full' : 'hidden'}><ArenaHubScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} /></section>}
         {visitedTabs.has('swap') && <section className={tab === 'swap' ? 'h-full' : 'hidden'}><SwapScreen initData={initData} isVerified={isVerified} /></section>}
       </main>
 
