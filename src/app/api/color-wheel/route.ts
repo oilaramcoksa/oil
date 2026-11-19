@@ -59,7 +59,7 @@ async function ensureColorTables(db: ReturnType<typeof getTurso>) {
 }
 async function createRound(db: ReturnType<typeof getTurso>) {
   try {
-    await db.execute({ sql: "INSERT INTO color_wheel_rounds(id,status,starts_at) VALUES(?,'open',?)", args: [randomUUID(), Date.now() + BETTING_MS] });
+    await db.execute({ sql: "INSERT INTO color_wheel_rounds(id,status,starts_at) VALUES(?,'open',NULL)", args: [randomUUID()] });
   } catch {
     // Another concurrent request may have created the active round first.
   }
@@ -75,6 +75,18 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
   if (!round) throw new Error('color_wheel_round_unavailable');
 
   const now = Date.now();
+  // Repair rounds created by the previous timer behavior: an empty round
+  // must wait indefinitely until the first successful bet is committed.
+  if (String(round.status) === 'open' && round.starts_at != null) {
+    const resetEmptyTimer = await db.execute({
+      sql: "UPDATE color_wheel_rounds SET starts_at=NULL WHERE id=? AND status='open' AND starts_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM color_wheel_bets WHERE round_id=?)",
+      args: [String(round.id), String(round.id)],
+    });
+    if (Number(resetEmptyTimer.rowsAffected ?? 0) > 0) {
+      active = await db.execute("SELECT * FROM color_wheel_rounds WHERE status IN ('open','spinning') ORDER BY created_at DESC LIMIT 1");
+      round = active.rows[0] ?? round;
+    }
+  }
   if (String(round.status) === 'open' && round.starts_at != null && Number(round.starts_at) <= now) {
     const sector = randomInt(0, 15);
     await db.execute({
@@ -174,7 +186,7 @@ export async function GET(req: NextRequest) {
     }
     const round = await advanceRound(db);
     const roundId = String(round.id);
-    const [wallet, betsResult, historyResult, winnersResult] = await Promise.all([
+    const [wallet, betsResult, historyResult, winnersResult, lastRoundBetsResult] = await Promise.all([
       db.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [playerId] }),
       db.execute({
         sql: `SELECT b.telegram_id,b.color,b.amount,b.payout,b.outcome,p.username,p.first_name,p.photo_url
@@ -193,6 +205,12 @@ export async function GET(req: NextRequest) {
         JOIN players p ON p.telegram_id=b.telegram_id
         WHERE b.outcome='win' AND r.status='completed'
         ORDER BY r.completed_at DESC,b.payout DESC LIMIT 2`),
+      db.execute(`SELECT r.id AS round_id,r.winning_color,r.completed_at,b.telegram_id,b.color,b.amount,b.payout,b.outcome,p.username,p.first_name,p.photo_url
+        FROM color_wheel_rounds r
+        JOIN color_wheel_bets b ON b.round_id=r.id
+        JOIN players p ON p.telegram_id=b.telegram_id
+        WHERE r.status='completed' AND r.id=(SELECT id FROM color_wheel_rounds WHERE status='completed' ORDER BY completed_at DESC LIMIT 1)
+        ORDER BY b.created_at,b.telegram_id`),
     ]);
     const bets = betsResult.rows.map((row) => ({
       telegramId: String(row.telegram_id),
@@ -212,6 +230,21 @@ export async function GET(req: NextRequest) {
       color: String(row.color),
       roundId: String(row.round_id),
     }));
+    const lastRoundRows = lastRoundBetsResult.rows;
+    const lastRoundResults = lastRoundRows.length ? {
+      id: String(lastRoundRows[0].round_id),
+      winningColor: String(lastRoundRows[0].winning_color),
+      completedAt: String(lastRoundRows[0].completed_at ?? ''),
+      bets: lastRoundRows.map((row) => ({
+        telegramId: String(row.telegram_id),
+        username: String(row.username || row.first_name || 'Player'),
+        photoUrl: row.photo_url == null ? null : String(row.photo_url),
+        color: String(row.color),
+        amount: Number(row.amount),
+        payout: Number(row.payout ?? 0),
+        outcome: String(row.outcome),
+      })),
+    } : null;
     const history = historyResult.rows.map((row) => ({
       id: String(row.id),
       color: String(row.winning_color),
@@ -234,6 +267,7 @@ export async function GET(req: NextRequest) {
       ownBet,
       winners,
       history,
+      lastRoundResults,
       serverNow: Date.now(),
     }, { headers: { 'Cache-Control': 'no-store, private' } });
   } catch (error) {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Coins, Loader2, History, Timer, Trophy } from 'lucide-react';
+import { Coins, Loader2, History, Timer, Trophy, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 import { dirOf, type Lang } from '@/lib/i18n';
@@ -11,7 +11,8 @@ type Color = 'yellow' | 'purple' | 'turquoise';
 type Bet = { telegramId: string; username: string; photoUrl: string | null; color: Color; amount: number; payout: number; outcome: string };
 type Winner = { telegramId: string; username: string; photoUrl: string | null; payout: number; color: Color; roundId: string };
 type RoundHistory = { id: string; color: Color; sector: number; betsCount: number; total: number; completedAt: string };
-type WheelState = { round: { id: string; status: 'open' | 'spinning' | 'completed'; startsAt: number | null; spinStartedAt: number | null; winningSector: number | null; winningColor: Color | null }; balance: number; bets: Bet[]; ownBet: Bet | null; winners: Winner[]; history: RoundHistory[]; serverNow: number };
+type LastRoundResults = { id: string; winningColor: Color; completedAt: string; bets: Bet[] } | null;
+type WheelState = { round: { id: string; status: 'open' | 'spinning' | 'completed'; startsAt: number | null; spinStartedAt: number | null; winningSector: number | null; winningColor: Color | null }; balance: number; bets: Bet[]; ownBet: Bet | null; winners: Winner[]; history: RoundHistory[]; lastRoundResults?: LastRoundResults; serverNow: number };
 
 const COLORS: Color[] = ['yellow','purple','yellow','purple','yellow','purple','yellow','turquoise','purple','yellow','purple','yellow','purple','yellow','purple'];
 const META: Record<Color,{multiplier:string;className:string;hex:string}> = {
@@ -36,11 +37,29 @@ const COPY: Record<Lang,string[]> = {
  ko:['노랑','보라','희귀 청록색','최근 우승자','우승자 대기 중','이번 라운드 승리','컬러 휠','15칸 · 희귀 칸 1개','회전 중','첫 베팅 대기 중','카운트다운','당첨 색상을 결정 중...','첫 베팅으로 라운드에 참여하세요','타이머가 끝나면 베팅이 마감됩니다','이전 결과','첫 라운드가 끝나면 결과가 표시됩니다','내 잔액','최소 베팅은 100입니다','베팅이 등록되었습니다','잔액이 부족합니다','이번 라운드에 이미 베팅했습니다','베팅이 마감되었습니다','베팅에 실패했습니다','내 베팅','라운드 회전 중','베팅 등록 완료','희귀 기회','지급 배율','라운드당 플레이어 한 번 베팅 · 최소 100코인','코인'],
  ur:['پیلا','جامنی','نایاب فیروزی','آخری فاتحین','فاتح کا انتظار','اس راؤنڈ کے فاتح','رنگوں کا پہیہ','15 خانے · 1 نایاب خانہ','گھوم رہا ہے','پہلی شرط کا انتظار','الٹی گنتی','فاتح رنگ منتخب ہو رہا ہے...','راؤنڈ میں شامل ہونے کے لیے پہلی شرط لگائیں','وقت ختم ہونے پر شرطیں بند ہو جائیں گی','پچھلے نتائج','پہلے راؤنڈ کے بعد نتائج دکھائے جائیں گے','آپ کا بیلنس','کم از کم شرط 100 ہے','آپ کی شرط درج ہو گئی','بیلنس ناکافی ہے','آپ اس راؤنڈ میں پہلے ہی شرط لگا چکے ہیں','شرطیں بند ہو چکی ہیں','شرط درج نہیں ہو سکی','آپ کی شرط','راؤنڈ گھوم رہا ہے','شرط محفوظ ہو گئی','نایاب موقع','انعام کا ضربی تناسب','ہر کھلاڑی کے لیے فی راؤنڈ ایک شرط · کم از کم 100 سکے','سکے'],
 };
+const RESULT_COPY: Record<Lang,{players:string;empty:string;round:string;won:string;lost:string}> = {
+ ar:{players:'المشاركون في الجولة الحالية',empty:'لم يسجل أي لاعب رهانًا بعد',round:'نتائج آخر جولة مكتملة',won:'ربح صافٍ',lost:'خسارة'},
+ en:{players:'Players in the current round',empty:'No players have placed a bet yet',round:'Latest completed round results',won:'Net win',lost:'Loss'},
+ ru:{players:'Участники текущего раунда',empty:'Пока никто не сделал ставку',round:'Результаты последнего раунда',won:'Чистый выигрыш',lost:'Потеря'},
+ es:{players:'Participantes de la ronda actual',empty:'Aún no hay apuestas',round:'Resultados de la última ronda',won:'Ganancia neta',lost:'Pérdida'},
+ pt:{players:'Participantes da rodada atual',empty:'Ainda não há apostas',round:'Resultados da última rodada',won:'Lucro líquido',lost:'Perda'},
+ fr:{players:'Participants du tour actuel',empty:'Aucune mise pour le moment',round:'Résultats du dernier tour',won:'Gain net',lost:'Perte'},
+ de:{players:'Teilnehmer der aktuellen Runde',empty:'Noch keine Einsätze vorhanden',round:'Ergebnisse der letzten Runde',won:'Nettogewinn',lost:'Verlust'},
+ tr:{players:'Mevcut turun katılımcıları',empty:'Henüz bahis yok',round:'Son turun sonuçları',won:'Net kazanç',lost:'Kayıp'},
+ zh:{players:'本轮参与者',empty:'暂无玩家下注',round:'最近一轮结果',won:'净赢得',lost:'损失'},
+ hi:{players:'इस राउंड के खिलाड़ी',empty:'अभी तक कोई दांव नहीं',round:'पिछले पूरे राउंड के परिणाम',won:'शुद्ध जीत',lost:'नुकसान'},
+ id:{players:'Peserta ronde saat ini',empty:'Belum ada taruhan',round:'Hasil ronde terakhir',won:'Kemenangan bersih',lost:'Kerugian'},
+ bn:{players:'বর্তমান রাউন্ডের অংশগ্রহণকারী',empty:'এখনও কোনো বাজি নেই',round:'সর্বশেষ সম্পন্ন রাউন্ডের ফলাফল',won:'নিট জয়',lost:'ক্ষতি'},
+ ja:{players:'現在のラウンド参加者',empty:'まだベットはありません',round:'直近の完了ラウンド結果',won:'純利益',lost:'損失'},
+ ko:{players:'현재 라운드 참가자',empty:'아직 베팅이 없습니다',round:'최근 완료된 라운드 결과',won:'순수익',lost:'손실'},
+ ur:{players:'موجودہ راؤنڈ کے شرکاء',empty:'ابھی تک کوئی شرط نہیں لگی',round:'آخری مکمل راؤنڈ کے نتائج',won:'خالص جیت',lost:'نقصان'},
+};
 const SECTOR_DEG = 360 / 15;
 
 export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerified:boolean}) {
  const lang=useGame(s=>s.lang);
  const c=COPY[lang]??COPY.en;
+ const resultCopy=RESULT_COPY[lang]??RESULT_COPY.en;
  const colorLabel=(color:Color)=>color==='yellow'?c[0]:color==='purple'?c[1]:c[2];
  const [state,setState]=useState<WheelState|null>(null);
  const [amount,setAmount]=useState('100');
@@ -68,7 +87,7 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
   const target=((360-center)%360);
   setRotation(current=>current+360*8+target);
  },[state?.round?.id,state?.round?.status,state?.round?.winningSector,state?.round?.spinStartedAt]);
- const countdown=state?.round.startsAt?Math.max(0,Math.ceil((state.round.startsAt-now)/1000)):15;
+ const countdown=state?.round.startsAt==null?null:Math.max(0,Math.ceil((state.round.startsAt-now)/1000));
  const isSpinning=state?.round.status==='spinning';
  const placeBet=async(color:Color)=>{
   const value=Number(amount);
@@ -89,6 +108,8 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
  };
  const presets=[{label:'½',value:Math.max(100,Math.floor(Number(amount||100)/2))},{label:'×2',value:Math.max(100,Number(amount||100)*2)},{label:'MAX',value:state?.balance??0}];
  const history=state?.history??[];
+ const currentBets=state?.bets??[];
+ const lastRoundResults=state?.lastRoundResults;
  const ownBet=state?.ownBet;
  const canBet=Boolean(state&&isVerified&&!ownBet&&!loading&&state.round.status==='open'&&(state.round.startsAt===null||state.round.startsAt>Date.now()));
  const wheelGradient=useMemo(()=>`conic-gradient(from -12deg,${COLORS.map((color,index)=>`${META[color].hex} ${index*24}deg ${(index+1)*24}deg`).join(',')})`,[]);
@@ -118,12 +139,26 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
      </div>
      <div className="absolute -top-0.5 left-1/2 z-20 -translate-x-1/2 drop-shadow-[0_3px_5px_rgba(0,0,0,.8)]"><div className="h-0 w-0 border-x-[15px] border-t-[28px] border-x-transparent border-t-orange-400"/></div>
      <div className="absolute left-1/2 top-1/2 z-10 flex h-[35%] w-[35%] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-[5px] border-[#47494b] bg-[radial-gradient(circle_at_35%_30%,#34383c,#111315_70%)] shadow-[0_4px_18px_rgba(0,0,0,.7),inset_0_2px_8px_rgba(255,255,255,.08)]">
-      <span className="text-4xl font-black tabular-nums text-white drop-shadow-lg">{isSpinning?'':countdown}</span>
+      <span className="text-4xl font-black tabular-nums text-white drop-shadow-lg">{isSpinning?'':countdown===null?'—':countdown}</span>
       <span className="mt-1 text-[9px] font-bold text-white/45">{isSpinning?c[8]:(state?.bets.length??0)===0?c[9]:c[10]}</span>
      </div>
     </div>
     <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/50"><Timer size={12}/>{isSpinning?c[11]:(state?.bets.length??0)===0?c[12]:c[13]}</div>
    </section>
+   <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
+    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><Users size={14}/> {resultCopy.players}</h3><span className="text-[10px] text-amber-300">{currentBets.length}</span></div>
+    {currentBets.length===0?<p className="py-3 text-center text-[11px] text-white/40">{resultCopy.empty}</p>:<div className="space-y-2">{currentBets.map(bet=><div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-black/15 px-2.5 py-2">
+      <div className="flex min-w-0 items-center gap-2">{bet.photoUrl?<img src={bet.photoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover"/>:<span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black">{bet.username.slice(0,1).toUpperCase()}</span>}<div className="min-w-0"><b className="block truncate text-[11px]">{bet.username}</b><span className="text-[9px] text-white/45">{colorLabel(bet.color)}</span></div></div>
+      <b className="shrink-0 text-xs text-amber-300">{bet.amount.toLocaleString()} {c[29]}</b>
+    </div>)}</div>}
+   </section>
+   {lastRoundResults&&<section className="rounded-2xl border border-amber-300/20 bg-[#282522] p-3">
+    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-amber-100"><Trophy size={14}/> {resultCopy.round}</h3><span className="rounded-lg px-2 py-1 text-[9px] font-black" style={{background:META[lastRoundResults.winningColor].hex,color:'#21180e'}}>{colorLabel(state.lastRoundResults.winningColor)}</span></div>
+    <div className="space-y-2">{lastRoundResults.bets.map(bet=>{const net=bet.outcome==='win'?bet.payout-bet.amount:-bet.amount;return <div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl bg-black/20 px-2.5 py-2">
+      <div className="flex min-w-0 items-center gap-2">{bet.photoUrl?<img src={bet.photoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover"/>:<span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black">{bet.username.slice(0,1).toUpperCase()}</span>}<div className="min-w-0"><b className="block truncate text-[11px]">{bet.username}</b><span className="text-[9px] text-white/45">{colorLabel(bet.color)} · {bet.amount.toLocaleString()} {c[29]}</span></div></div>
+      <div className="shrink-0 text-end"><b className={net>=0?'text-sm text-emerald-300':'text-sm text-rose-300'}>{net>=0?'+':''}{net.toLocaleString()}</b><div className="text-[9px] text-white/45">{net>=0?resultCopy.won:resultCopy.lost}</div></div>
+    </div>})}</div>
+   </section>}
    <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
     <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><History size={14}/> {c[14]}</h3><span className="text-[10px] text-white/35">{history.length}</span></div>
     <div className="flex flex-wrap gap-2">
