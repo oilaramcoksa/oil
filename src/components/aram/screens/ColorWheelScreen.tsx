@@ -14,10 +14,10 @@ type RoundHistory = { id: string; color: Color; sector: number; betsCount: numbe
 type WheelState = { round: { id: string; status: 'open' | 'spinning' | 'completed'; startsAt: number | null; spinStartedAt: number | null; winningSector: number | null; winningColor: Color | null }; balance: number; bets: Bet[]; ownBet: Bet | null; winners: Winner[]; history: RoundHistory[]; serverNow: number };
 
 const COLORS: Color[] = ['yellow','purple','yellow','purple','yellow','purple','yellow','turquoise','purple','yellow','purple','yellow','purple','yellow','purple'];
-const META: Record<Color,{label:string;multiplier:string;className:string;hex:string}> = {
- yellow:{label:'أصفر',multiplier:'×1.95',className:'border-yellow-300/60 bg-yellow-400/10 text-yellow-200',hex:'#f5cf55'},
- purple:{label:'بنفسجي',multiplier:'×1.95',className:'border-violet-300/50 bg-violet-400/10 text-violet-200',hex:'#a98add'},
- turquoise:{label:'فيروزي نادر',multiplier:'×9.5',className:'border-teal-300/60 bg-teal-400/10 text-teal-200',hex:'#65c8b9'},
+const META: Record<Color,{multiplier:string;className:string;hex:string}> = {
+ yellow:{multiplier:'×1.95',className:'border-yellow-300/60 bg-yellow-400/10 text-yellow-200',hex:'#f5cf55'},
+ purple:{multiplier:'×1.95',className:'border-violet-300/50 bg-violet-400/10 text-violet-200',hex:'#a98add'},
+ turquoise:{multiplier:'×9.5',className:'border-teal-300/60 bg-teal-400/10 text-teal-200',hex:'#65c8b9'},
 };
 const COPY: Record<Lang,string[]> = {
  ar:['أصفر','بنفسجي','فيروزي نادر','آخر فائزين','بانتظار فائز','فاز بالجولة','عجلة الألوان','15 خانة · خانة نادرة واحدة','تدور الآن','بانتظار أول رهان','العد التنازلي','تحديد اللون الفائز...','ضع أول رهان وشارك في الجولة','تُغلق الرهانات عند انتهاء العداد','نتائج الجولات السابقة','ستظهر النتائج بعد اكتمال أول جولة','رصيدك','الحد الأدنى للرهان 100','تم تسجيل رهانك','رصيدك غير كافٍ','لقد راهنت في هذه الجولة بالفعل','انتهى وقت الرهان','تعذر تسجيل الرهان','رهانك','الجولة تدور','تم تسجيل الرهان','فرصة نادرة','معامل الربح','رهان واحد لكل لاعب في الجولة · الحد الأدنى 100 عملة','عملة'],
@@ -106,7 +106,7 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
     </div>
    </section>
    <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#292b2d] to-[#17191b] p-3 shadow-[0_16px_36px_rgba(0,0,0,.28)]">
-    <div className="mb-2 flex items-center justify-between"><span className="text-xs font-black text-white/75"{c[6]}</span><span className="text-[10px] text-white/35">{c[7]}</span></div>
+    <div className="mb-2 flex items-center justify-between"><span className="text-xs font-black text-white/75">{c[6]}</span><span className="text-[10px] text-white/35">{c[7]}</span></div>
     <div className="relative mx-auto aspect-square w-full max-w-[390px] p-1">
      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#f9e3a2] via-[#8b7541] to-[#1d2023] p-[7px] shadow-[0_15px_32px_rgba(0,0,0,.55)]">
       <div className="h-full w-full rounded-full bg-[#101214] p-[5px] shadow-[inset_0_0_0_3px_rgba(255,255,255,.15)]">
@@ -125,7 +125,7 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
     <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/50"><Timer size={12}/>{isSpinning?c[11]:(state?.bets.length??0)===0?c[12]:c[13]}</div>
    </section>
    <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
-    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><History size={14}/ > {c[14]}</h3><span className="text-[10px] text-white/35">{history.length}</span></div>
+    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><History size={14}/> {c[14]}</h3><span className="text-[10px] text-white/35">{history.length}</span></div>
     <div className="flex flex-wrap gap-2">
      {history.length?history.map(item=><div key={item.id} title={item.color} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 shadow-inner" style={{background:META[item.color].hex}}><span className="text-[9px] font-black text-black/65">{item.sector+1}</span></div>):<span className="py-2 text-[11px] text-white/35" >{c[15]}</span>}
     </div>
