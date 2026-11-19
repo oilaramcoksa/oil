@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Coins, Loader2, History, Timer, Trophy, RotateCcw } from 'lucide-react';
+import { Coins, Loader2, History, Timer, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 
@@ -20,7 +20,7 @@ const META: Record<Color,{label:string;multiplier:string;className:string;hex:st
 };
 const SECTOR_DEG = 360 / 15;
 
-export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:string;isVerified:boolean;telegramUserId:string}) {
+export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerified:boolean}) {
  const lang=useGame(s=>s.lang);
  const [state,setState]=useState<WheelState|null>(null);
  const [amount,setAmount]=useState('100');
@@ -37,14 +37,14 @@ export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:
   if(!response.ok)throw new Error(data.error||'color_wheel_unavailable');
   setState(data as WheelState);
  },[headers,initData,isVerified]);
- useEffect(()=>{void refresh().catch(()=>undefined);const poll=window.setInterval(()=>void refresh().catch(()=>undefined),500);const clock=window.setInterval(()=>setNow(Date.now()),200);return()=>{window.clearInterval(poll);window.clearInterval(clock)}},[refresh]);
+ useEffect(()=>{void refresh().catch(()=>undefined);const poll=window.setInterval(()=>void refresh().catch(()=>undefined),900);const clock=window.setInterval(()=>setNow(Date.now()),200);return()=>{window.clearInterval(poll);window.clearInterval(clock)}},[refresh]);
  useEffect(()=>{
   const round=state?.round;
   if(!round||round.status!=='spinning'||round.winningSector===null||animatedRound.current===round.id)return;
   animatedRound.current=round.id;
   const remaining=Math.max(500,Math.min(7000,(round.spinStartedAt??Date.now())+7000-Date.now()));
   setSpinDuration(remaining);
-  const center=round.winningSector*SECTOR_DEG+SECTOR_DEG/2;
+  const center=round.winningSector*SECTOR_DEG;
   const target=((360-center)%360);
   setRotation(current=>current+360*8+target);
  },[state?.round?.id,state?.round?.status,state?.round?.winningSector,state?.round?.spinStartedAt]);
@@ -78,7 +78,7 @@ export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:
    <section className="rounded-2xl border border-white/10 bg-[#25282b] p-3 shadow-lg">
     <div className="mb-2 flex items-center justify-between"><div className="flex items-center gap-2 text-xs font-black text-white/65"><Trophy size={15} className="text-amber-300"/> آخر فائزين</div><span className="text-[10px] text-white/35">ARMCO OIL</span></div>
     <div className="grid grid-cols-2 gap-2">
-     {[0,1].map(index=>{const winner=state?.winners[index];return <div key={winner?.roundId??index} className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-black/20 p-2">
+     {[0,1].map(index=>{const winner=state?.winners[index];return <div key={winner?winner.roundId+':'+winner.telegramId:index} className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-black/20 p-2">
       {winner?.photoUrl?<img src={winner.photoUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover"/>:<div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-sm font-black">{winner?.username?.slice(0,1)??'?'}</div>}
       <div className="min-w-0 flex-1"><div className="truncate text-[11px] font-bold">{winner?.username??'بانتظار فائز'}</div><div className="text-[9px] text-white/40">فاز بالجولة</div></div>
       <b className="shrink-0 text-[11px] text-amber-300">+{(winner?.payout??0).toLocaleString()}</b>
@@ -99,10 +99,10 @@ export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:
      <div className="absolute -top-0.5 left-1/2 z-20 -translate-x-1/2 drop-shadow-[0_3px_5px_rgba(0,0,0,.8)]"><div className="h-0 w-0 border-x-[15px] border-t-[28px] border-x-transparent border-t-orange-400"/></div>
      <div className="absolute left-1/2 top-1/2 z-10 flex h-[35%] w-[35%] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-[5px] border-[#47494b] bg-[radial-gradient(circle_at_35%_30%,#34383c,#111315_70%)] shadow-[0_4px_18px_rgba(0,0,0,.7),inset_0_2px_8px_rgba(255,255,255,.08)]">
       <span className="text-4xl font-black tabular-nums text-white drop-shadow-lg">{isSpinning?'':countdown}</span>
-      <span className="mt-1 text-[9px] font-bold text-white/45">{isSpinning?'تدور الآن':state?.round.startsAt===null?'بانتظار أول لاعب':'العد التنازلي'}</span>
+      <span className="mt-1 text-[9px] font-bold text-white/45">{isSpinning?'تدور الآن':(state?.bets.length??0)===0?'بانتظار أول رهان':'العد التنازلي'}</span>
      </div>
     </div>
-    <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/50"><Timer size={12}/>{isSpinning?'تحديد اللون الفائز...':state?.round.startsAt===null?'ضع أول رهان لبدء الجولة':'تُغلق الرهانات عند انتهاء العداد'}</div>
+    <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/50"><Timer size={12}/>{isSpinning?'تحديد اللون الفائز...':(state?.bets.length??0)===0?'ضع أول رهان وشارك في الجولة':'تُغلق الرهانات عند انتهاء العداد'}</div>
    </section>
    <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
     <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><History size={14}/> نتائج الجولات السابقة</h3><span className="text-[10px] text-white/35">{history.length}</span></div>
@@ -119,7 +119,7 @@ export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:
     {ownBet&&<div className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-2 text-xs font-bold text-emerald-200">رهانك: {ownBet.amount.toLocaleString()} على {META[ownBet.color].label} · {isSpinning?'الجولة تدور':'تم تسجيل الرهان'}</div>}
     <div className="mt-3 grid grid-cols-3 gap-2">
      {(['yellow','turquoise','purple'] as Color[]).map(color=><button key={color} type="button" disabled={!canBet||Number(amount)<100||Number(amount)>(state?.balance??0)} onClick={()=>void placeBet(color)} className={'relative flex min-h-[102px] flex-col items-center justify-center rounded-2xl border p-2 transition active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-35 '+META[color].className}>
-      <span className="mb-1 h-9 w-9 rounded-full border-4 border-white/20 shadow-[0_0_18px_currentColor] " style={{background:META[color].hex}}/>
+      {loading?<Loader2 className="mb-1 h-8 w-8 animate-spin"/>:<span className="mb-1 h-9 w-9 rounded-full border-4 border-white/20 shadow-[0_0_18px_currentColor] " style={{background:META[color].hex}}/>}
       <b className="text-xs">{META[color].label}</b><span className="mt-1 text-lg font-black">{META[color].multiplier}</span>
       <span className="text-[9px] opacity-65">{color==='turquoise'?'فرصة نادرة':'معامل الربح'}</span>
      </button>)}

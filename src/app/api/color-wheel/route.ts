@@ -19,36 +19,47 @@ function jsonError(error: string, status = 400) {
 }
 function colorAt(index: number): Color { return COLORS[index] ?? 'yellow'; }
 
-async function ensureColorTables(db: ReturnType<typeof getTurso>) {
-  await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_rounds (
-    id TEXT PRIMARY KEY,
-    status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','spinning','completed')),
-    starts_at INTEGER,
-    spin_started_at INTEGER,
-    winning_sector INTEGER,
-    winning_color TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at TEXT
-  )`);
-  await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_bets (
-    id TEXT PRIMARY KEY,
-    round_id TEXT NOT NULL REFERENCES color_wheel_rounds(id),
-    telegram_id TEXT NOT NULL REFERENCES players(telegram_id),
-    color TEXT NOT NULL CHECK(color IN ('yellow','purple','turquoise')),
-    amount INTEGER NOT NULL CHECK(amount >= 100),
-    payout INTEGER NOT NULL DEFAULT 0,
-    outcome TEXT NOT NULL DEFAULT 'pending' CHECK(outcome IN ('pending','win','loss')),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(round_id, telegram_id)
-  )`);
-  await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_color_wheel_one_active ON color_wheel_rounds((1)) WHERE status IN ('open','spinning')");
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_history ON color_wheel_rounds(status, completed_at DESC)');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_bets_round ON color_wheel_bets(round_id, created_at)');
-}
+let colorSchemaReady: Promise<void> | null = null;
 
+async function ensureColorTables(db: ReturnType<typeof getTurso>) {
+  if (!colorSchemaReady) {
+    colorSchemaReady = (async () => {
+      await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_rounds (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','spinning','completed')),
+        starts_at INTEGER,
+        spin_started_at INTEGER,
+        winning_sector INTEGER,
+        winning_color TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_at TEXT
+      )`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_bets (
+        id TEXT PRIMARY KEY,
+        round_id TEXT NOT NULL REFERENCES color_wheel_rounds(id),
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id),
+        color TEXT NOT NULL CHECK(color IN ('yellow','purple','turquoise')),
+        amount INTEGER NOT NULL CHECK(amount >= 100),
+        payout INTEGER NOT NULL DEFAULT 0,
+        outcome TEXT NOT NULL DEFAULT 'pending' CHECK(outcome IN ('pending','win','loss')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(round_id, telegram_id)
+      )`);
+      await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_color_wheel_one_active ON color_wheel_rounds((1)) WHERE status IN ('open','spinning')");
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_history ON color_wheel_rounds(status, completed_at DESC)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_bets_round ON color_wheel_bets(round_id, created_at)');
+    })();
+  }
+  try {
+    await colorSchemaReady;
+  } catch (error) {
+    colorSchemaReady = null;
+    throw error;
+  }
+}
 async function createRound(db: ReturnType<typeof getTurso>) {
   try {
-    await db.execute({ sql: "INSERT INTO color_wheel_rounds(id,status) VALUES(?,'open')", args: [randomUUID()] });
+    await db.execute({ sql: "INSERT INTO color_wheel_rounds(id,status,starts_at) VALUES(?,'open',?)", args: [randomUUID(), Date.now() + BETTING_MS] });
   } catch {
     // Another concurrent request may have created the active round first.
   }
@@ -100,6 +111,12 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
               sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_prize',?,?,'color_wheel_round',?,?,?)",
               args: [randomUUID(), String(bet.telegram_id), payout, Number(credited.rows[0].coins_balance), String(round.id), `color_wheel_prize:${round.id}:${String(bet.telegram_id)}`, JSON.stringify({ color: winningColor, stake: Number(bet.amount), multiplier: MULTIPLIERS[winningColor] })],
             });
+            const monthKey = new Date().toISOString().slice(0, 7);
+            await tx.execute({
+              sql: `INSERT INTO player_monthly_stats(telegram_id,month_key,coins_earned) VALUES(?,?,?)
+                ON CONFLICT(telegram_id,month_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned,updated_at=CURRENT_TIMESTAMP`,
+              args: [String(bet.telegram_id), monthKey, payout],
+            });
             await tx.execute({
               sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'color_wheel_prize',?,?,?)",
               args: [randomUUID(), String(bet.telegram_id), payout, JSON.stringify({ roundId: String(round.id), color: winningColor }), `event:color_wheel_prize:${round.id}:${String(bet.telegram_id)}`],
@@ -139,6 +156,22 @@ export async function GET(req: NextRequest) {
       sql: 'UPDATE players SET username=COALESCE(?,username),first_name=COALESCE(?,first_name),last_name=COALESCE(?,last_name),photo_url=COALESCE(?,photo_url) WHERE telegram_id=?',
       args: [identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, identity.photo_url ?? null, playerId],
     });
+    if (req.nextUrl.searchParams.get('invite') === '1') {
+      const active = await db.execute("SELECT id,status,starts_at FROM color_wheel_rounds WHERE status IN ('open','spinning') ORDER BY created_at DESC LIMIT 1");
+      if (!active.rows.length) return NextResponse.json({ round: null, bets: [], ownBet: null }, { headers: { 'Cache-Control': 'no-store, private' } });
+      const inviteRoundId = String(active.rows[0].id);
+      const inviteBets = await db.execute({
+        sql: `SELECT b.telegram_id,p.username,p.first_name FROM color_wheel_bets b
+          JOIN players p ON p.telegram_id=b.telegram_id WHERE b.round_id=? ORDER BY b.created_at LIMIT 10`,
+        args: [inviteRoundId],
+      });
+      const inviteList = inviteBets.rows.map(row => ({ telegramId: String(row.telegram_id), username: String(row.username || row.first_name || 'Player') }));
+      return NextResponse.json({
+        round: { id: inviteRoundId, status: String(active.rows[0].status), startsAt: active.rows[0].starts_at == null ? null : Number(active.rows[0].starts_at) },
+        bets: inviteList,
+        ownBet: inviteList.find(entry => entry.telegramId === playerId) ?? null,
+      }, { headers: { 'Cache-Control': 'no-store, private' } });
+    }
     const round = await advanceRound(db);
     const roundId = String(round.id);
     const [wallet, betsResult, historyResult, winnersResult] = await Promise.all([
@@ -231,6 +264,8 @@ export async function POST(req: NextRequest) {
     let playerName = 'لاعب';
     let firstBet = false;
     try {
+      const lockedRound = await tx.execute({ sql: "SELECT status,starts_at FROM color_wheel_rounds WHERE id=?", args: [roundId] });
+      if (!lockedRound.rows.length || String(lockedRound.rows[0].status) !== 'open' || (lockedRound.rows[0].starts_at != null && Number(lockedRound.rows[0].starts_at) <= Date.now())) throw new Error('betting_closed');
       const profile = await tx.execute({ sql: "SELECT COALESCE(username,first_name,'لاعب') AS display_name FROM players WHERE telegram_id=? AND status='active'", args: [playerId] });
       if (!profile.rows.length) throw new Error('player_not_found');
       playerName = String(profile.rows[0].display_name);
@@ -246,6 +281,12 @@ export async function POST(req: NextRequest) {
         sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_bet',?,?,'color_wheel_round',?,?,?)",
         args: [randomUUID(), playerId, -Number(body.amount), newBalance, roundId, `color_wheel_bet:${roundId}:${playerId}`, JSON.stringify({ color: body.color })],
       });
+      const monthKey = new Date().toISOString().slice(0, 7);
+      await tx.execute({
+        sql: `INSERT INTO player_monthly_stats(telegram_id,month_key,coins_spent) VALUES(?,?,?)
+          ON CONFLICT(telegram_id,month_key) DO UPDATE SET coins_spent=coins_spent+excluded.coins_spent,updated_at=CURRENT_TIMESTAMP`,
+        args: [playerId, monthKey, Number(body.amount)],
+      });
       await tx.execute({
         sql: "INSERT INTO color_wheel_bets(id,round_id,telegram_id,color,amount) VALUES(?,?,?,?,?)",
         args: [randomUUID(), roundId, playerId, body.color, Number(body.amount)],
@@ -258,7 +299,7 @@ export async function POST(req: NextRequest) {
       firstBet = Number(count.rows[0]?.count ?? 0) === 1;
       if (firstBet) {
         await tx.execute({
-          sql: "UPDATE color_wheel_rounds SET starts_at=? WHERE id=? AND status='open' AND starts_at IS NULL',
+          sql: "UPDATE color_wheel_rounds SET starts_at=? WHERE id=? AND status='open' AND starts_at IS NULL",
           args: [Date.now() + BETTING_MS, roundId],
         });
       }
@@ -273,6 +314,7 @@ export async function POST(req: NextRequest) {
     const code = error instanceof Error ? error.message : '';
     if (code === 'insufficient_balance') return jsonError('insufficient_balance', 409);
     if (code === 'already_bet') return jsonError('already_bet', 409);
+    if (code === 'betting_closed') return jsonError('betting_closed', 409);
     if (code === 'player_not_found') return jsonError('player_not_found', 404);
     console.error('color_wheel_bet_failed', error);
     return jsonError('color_wheel_bet_failed', 503);

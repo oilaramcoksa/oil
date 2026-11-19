@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, X, ArrowUpRight } from 'lucide-react';
+import { Gamepad2, X, ArrowUpRight } from 'lucide-react';
 import { useGame } from '@/lib/store';
 
 type WaitingEntry = { telegramId: string; username: string };
 type ArenaSnapshot = {
-  round: { id: string; status: string; entriesCount: number } | null;
-  entries: WaitingEntry[];
+  round: { id: string; status: string; startsAt: number | null } | null;
+  bets: WaitingEntry[];
+  ownBet: WaitingEntry | null;
 };
 
 type Props = {
@@ -34,15 +35,15 @@ export function ArenaInviteNotice({ initData, isVerified, telegramUserId, onGoTo
     let expiryTimer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
       try {
-        const response = await fetch('/api/arena', {
+        const response = await fetch('/api/color-wheel?invite=1', {
           headers: { 'X-Telegram-Init-Data': initData },
           cache: 'no-store',
         });
         if (!response.ok) return;
         const data = await response.json() as ArenaSnapshot;
         if (stopped) return;
-        const waiting = data.round?.status === 'open' && data.round.entriesCount === 1
-          ? data.entries?.find((entry) => entry.telegramId !== telegramUserId)
+        const waiting = data.round?.status === 'open' && data.round.startsAt !== null && !data.ownBet
+          ? data.bets?.find((entry) => entry.telegramId !== telegramUserId)
           : undefined;
 
         if (!waiting || !data.round) {
@@ -77,10 +78,10 @@ export function ArenaInviteNotice({ initData, isVerified, telegramUserId, onGoTo
   };
 
   const copy = lang === 'ar'
-    ? { title: 'الساحة تناديك!', body: (name: string) => `${name} وضع رهانه وينتظرك تلعب معه في الساحة.`, action: 'اذهب إلى الساحة' }
+    ? { title: 'لاعب ينتظرك في الألعاب!', body: (name: string) => `${name} دخل عجلة الألوان وينتظر انضمامك إلى الجولة.`, action: 'العب الآن' }
     : lang === 'ru'
-      ? { title: 'Арена ждёт тебя!', body: (name: string) => `${name} сделал ставку и ждёт тебя на арене.`, action: 'Перейти на арену' }
-      : { title: 'Arena challenge!', body: (name: string) => `${name} placed a bet and is waiting for you in the arena.`, action: 'Go to arena' };
+      ? { title: 'Игрок ждёт тебя в играх!', body: (name: string) => `${name} сделал ставку в цветном колесе и ждёт тебя.`, action: 'Играть сейчас' }
+      : { title: 'A player is waiting in Games!', body: (name: string) => `${name} placed a color-wheel bet and is waiting for you to join.`, action: 'Play now' };
 
   return (
     <AnimatePresence>
@@ -98,7 +99,7 @@ export function ArenaInviteNotice({ initData, isVerified, telegramUserId, onGoTo
         >
           <div className="flex items-start gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-lg shadow-orange-900/20">
-              <Swords size={22} strokeWidth={2.5} />
+              <Gamepad2 size={22} strokeWidth={2.5} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-black tracking-tight">{copy.title}</div>
