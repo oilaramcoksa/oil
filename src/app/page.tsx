@@ -89,7 +89,7 @@ export default function Home() {
   // Open the requested game directly from a Telegram invite link.
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    if (requestedTab === 'arena' || requestedTab === 'crash') {
+    if (requestedTab === 'arena' || requestedTab === 'colors' || requestedTab === 'crash') {
       setVisitedTabs((current) => current.has('arena') ? current : new Set([...current, 'arena']));
       setTab('arena');
       if (requestedTab === 'crash') window.setTimeout(() => window.dispatchEvent(new Event('open-crash-game')), 0);
