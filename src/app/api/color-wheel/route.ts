@@ -48,7 +48,7 @@ async function ensureColorTables(db: ReturnType<typeof getTurso>) {
 
 async function createRound(db: ReturnType<typeof getTurso>) {
   try {
-    await db.execute({ sql: "INSERT INTO color_wheel_rounds(id,status) VALUES(?,'open')", args: [randomUUID()] });
+    await db.execute({ sql: "INSERT INTO color_wheel_rounds(id,status,starts_at) VALUES(?,'open',?)", args: [randomUUID(), Date.now() + BETTING_MS] });
   } catch {
     // Another concurrent request may have created the active round first.
   }
