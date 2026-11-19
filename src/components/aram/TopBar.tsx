@@ -8,6 +8,8 @@ import { useTelegram } from '@/hooks/use-telegram';
 import { LANGS } from '@/lib/i18n';
 import { useState, useEffect, useRef } from 'react';
 
+const LANG_DISPLAY_CODES: Record<string, string> = { ar: 'EG', en: 'GB', ru: 'RU', es: 'ES', pt: 'BR', fr: 'FR', de: 'DE', tr: 'TR', zh: 'CN', hi: 'IN', id: 'ID', bn: 'BD', ja: 'JP', ko: 'KR', ur: 'PK' };
+
 interface Props {
   onOpenSettings: () => void;
   onOpenTournaments: () => void;
@@ -44,15 +46,15 @@ export function TopBar({ onOpenSettings, onOpenTournaments }: Props) {
             onClick={() => { haptic('light'); setLangOpen((v) => !v); }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-100 text-xs font-bold border border-amber-500/30"
           >
-            <span>{LANGS.find((l) => l.code === lang)?.flag}</span>
-            <span className="uppercase">{lang}</span>
+            <span className="uppercase tracking-wide">{lang.toUpperCase()}</span>
+            <span className="text-amber-200/80">{LANG_DISPLAY_CODES[lang] ?? lang.toUpperCase()}</span>
           </button>
           {langOpen && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`absolute top-full mt-2 ${lang === 'ar' ? 'right-0' : 'left-0'} bg-[#2a1c0a] rounded-xl border border-amber-500/30 shadow-2xl z-50 w-48`}
-              style={{ minWidth: '180px' }}
+              className={`absolute top-full mt-2 ${lang === 'ar' ? 'right-0' : 'left-0'} w-60 max-w-[calc(100vw-2rem)] max-h-[min(68dvh,640px)] overflow-y-auto overscroll-contain rounded-2xl border border-amber-500/35 bg-[#2a1c0a] shadow-[0_18px_45px_rgba(0,0,0,.55)] z-[70] aram-scroll`}
+              style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {LANGS.map((l) => (
                 <button
@@ -68,9 +70,9 @@ export function TopBar({ onOpenSettings, onOpenTournaments }: Props) {
                       : 'text-amber-100 hover:bg-white/10 font-bold'
                   }`}
                 >
-                  <span className="text-lg flex-shrink-0">{l.flag}</span>
-                  <span className="flex-1 text-start">{l.label}</span>
-                  {lang === l.code && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />}
+                  {lang === l.code && <span className="absolute left-4 w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,.8)]" />}
+                  <span className="flex-1 text-right">{l.label}</span>
+                  <span className="w-7 text-right font-black tracking-wide">{LANG_DISPLAY_CODES[l.code] ?? l.code.toUpperCase()}</span>
                 </button>
               ))}
             </motion.div>
