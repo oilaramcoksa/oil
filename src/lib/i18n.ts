@@ -638,6 +638,7 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
   retractingHose: "جارٍ سحب الخرطوم...",
   singleBalance: "(من رصيد واحد)",
   swapConversionHint: "100,000 عملة = 100 دولار",
+  on: "على",
 };
 
 const en: Dict = {
@@ -1241,6 +1242,7 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
   retractingHose: 'Retracting the hose...',
   singleBalance: '(from one balance)',
   swapConversionHint: '100,000 coins = $100',
+  on: 'on',
 };
 
 const ru: Dict = {
@@ -1844,6 +1846,7 @@ shortsVideoDescription: "Хочу познакомить вас с Aramco Oil �
   retractingHose: 'Шланг убирается...',
   singleBalance: '(из одного баланса)',
   swapConversionHint: '100 000 монет = 100 $',
+  on: 'на',
 };
 
 
@@ -1983,6 +1986,7 @@ const ur: Dict = { ...en,
   tasksTitle: 'مشن', dailyTasks: 'روزانہ مشن', weeklyTasks: 'ہفتہ وار مشن', friendsTitle: 'دوست',
   inviteLink: 'دعوتی لنک', copyLink: 'لنک کاپی کریں', yourReferrals: 'آپ کے ریفرلز', noReferrals: 'ابھی کوئی ریفرل نہیں',
   speedPartsTitle: 'اپ گریڈ اسٹور', autoSellPart: "خودکار فروخت", autoSellDescription: "گیم کھولے بغیر 30 دن تک ہر 12 گھنٹے کے مائننگ سائیکل کے اختتام پر تیل خودکار فروخت کرتا ہے۔ مائننگ سائیکل پہلے سے فعال ہونا چاہیے۔", autoSellDuration: "30 دن", crashRecentRounds: 'آخری 10 راؤنڈ',
+  on: 'پر',
 };
 
 export const dictionaries: Record<Lang, Dict> = { ar, en, ru, es, pt, fr, de, tr, zh, hi, id, bn, ja, ko, ur };
