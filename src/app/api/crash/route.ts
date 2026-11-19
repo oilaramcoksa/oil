@@ -8,7 +8,7 @@ import { broadcastGameInvite } from '@/lib/game-invite-notice';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const BETTING_MS = 60_000;
+const BETTING_MS = 20_000;
 const MIN_BET = 100;
 
 function fail(error: string, status = 400) {
@@ -43,7 +43,7 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
           if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
-          // Open the next round's 60-second entry window immediately.
+          // Open the next round's 20-second entry window immediately.
           // Players can place their next-round stake during the break; flight starts when it expires.
           const nextId = randomUUID();
           const nextSeed = randomBytes(32).toString('hex');
@@ -60,7 +60,7 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
           const burnedAmount = Number(burned.rows[0]?.total ?? 0);
           if (burnedAmount > 0) await tx.execute({ sql: 'UPDATE crash_house_pool SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE id=1', args: [burnedAmount] });
           await tx.execute({ sql: "UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND status='active'", args: [String(round.id)] });
-          // Start the next round's 60-second betting window during the break.
+          // Start the next round's 20-second betting window during the break.
           const nextId = randomUUID();
           const nextSeed = randomBytes(32).toString('hex');
           await tx.execute({
