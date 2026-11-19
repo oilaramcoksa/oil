@@ -1,6 +1,6 @@
 import type { Client } from '@libsql/client';
 
-type InviteGame = 'arena' | 'crash';
+type InviteGame = 'arena' | 'crash' | 'colors';
 
 function safeName(value: string) {
   return value.replace(/[&<>]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[char] ?? char);
@@ -26,7 +26,7 @@ export async function broadcastGameInvite(
 
   const url = new URL(appUrl);
   url.searchParams.set('tab', input.game);
-  const gameName = input.game === 'arena' ? 'عجلة الحظ' : 'الطائرة';
+  const gameName = input.game === 'colors' ? 'عجلة الألوان' : input.game === 'arena' ? 'عجلة الحظ' : 'الطائرة';
   const message = [
     '🔥 <b>تحدٍ جديد في ARMCO OIL</b>',
     '',
@@ -53,7 +53,7 @@ export async function broadcastGameInvite(
             disable_web_page_preview: true,
             reply_markup: {
               inline_keyboard: [[{
-                text: input.game === 'arena' ? '🎡 ادخل عجلة الحظ' : '✈️ ادخل لعبة الطائرة',
+                text: input.game === 'colors' ? '🎨 ادخل عجلة الألوان' : input.game === 'arena' ? '🎡 ادخل عجلة الحظ' : '✈️ ادخل لعبة الطائرة',
                 web_app: { url: url.toString() },
               }]],
             },
