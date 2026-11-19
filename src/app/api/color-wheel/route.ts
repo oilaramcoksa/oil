@@ -231,6 +231,8 @@ export async function POST(req: NextRequest) {
     let playerName = 'لاعب';
     let firstBet = false;
     try {
+      const lockedRound = await tx.execute({ sql: "SELECT status,starts_at FROM color_wheel_rounds WHERE id=?", args: [roundId] });
+      if (!lockedRound.rows.length || String(lockedRound.rows[0].status) !== 'open' || (lockedRound.rows[0].starts_at != null && Number(lockedRound.rows[0].starts_at) <= Date.now())) throw new Error('betting_closed');
       const profile = await tx.execute({ sql: "SELECT COALESCE(username,first_name,'لاعب') AS display_name FROM players WHERE telegram_id=? AND status='active'", args: [playerId] });
       if (!profile.rows.length) throw new Error('player_not_found');
       playerName = String(profile.rows[0].display_name);
@@ -273,6 +275,7 @@ export async function POST(req: NextRequest) {
     const code = error instanceof Error ? error.message : '';
     if (code === 'insufficient_balance') return jsonError('insufficient_balance', 409);
     if (code === 'already_bet') return jsonError('already_bet', 409);
+    if (code === 'betting_closed') return jsonError('betting_closed', 409);
     if (code === 'player_not_found') return jsonError('player_not_found', 404);
     console.error('color_wheel_bet_failed', error);
     return jsonError('color_wheel_bet_failed', 503);
