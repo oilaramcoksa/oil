@@ -201,7 +201,7 @@ export function ArenaScreen({
   const total = displayedEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const balance = state.balance;
   const betBalance = state.betBalance;
-  const availableBalance = Math.max(balance, betBalance); // Maximum stake fundable by one wallet.
+  const availableBalance = balance + betBalance;
   const ownEntry = activeEntries.some((entry) => entry.telegramId === telegramUserId);
   const countdown = round?.startsAt
     ? Math.max(0, Math.ceil((round.startsAt - now) / 1000))
@@ -576,7 +576,7 @@ export function ArenaScreen({
                 key={preset}
                 type="button"
                 onClick={() => setAmount(String(preset))}
-                disabled={loading || !isVerified || ownEntry || isRoundClosed || (betBalance < preset && balance < preset)}
+                disabled={loading || !isVerified || ownEntry || isRoundClosed || preset > availableBalance}
                 aria-pressed={amount === String(preset)}
                 className={`rounded-lg border px-2 py-2 text-xs font-black tabular-nums transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${amount === String(preset) ? 'border-amber-500 bg-gradient-to-b from-amber-300 to-orange-400 text-[#3b210c] shadow-inner' : 'border-amber-800/15 bg-[#fff7e9] text-[#70431f] hover:border-amber-500/60'}`}
               >
@@ -585,7 +585,7 @@ export function ArenaScreen({
             ))}
           </div>
           <button
-            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < MIN_ARENA_ENTRY || (Number(amount) > betBalance && Number(amount) > balance)}
+            disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < MIN_ARENA_ENTRY || Number(amount) > availableBalance}
             onClick={() => void join()}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#ff9f50] py-3 font-black text-[#24180f] disabled:opacity-40"
           >
