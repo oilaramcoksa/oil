@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Coins, Loader2, History, Timer, Trophy, RotateCcw } from 'lucide-react';
+import { Coins, Loader2, History, Timer, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 
@@ -20,7 +20,7 @@ const META: Record<Color,{label:string;multiplier:string;className:string;hex:st
 };
 const SECTOR_DEG = 360 / 15;
 
-export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:string;isVerified:boolean;telegramUserId:string}) {
+export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerified:boolean}) {
  const lang=useGame(s=>s.lang);
  const [state,setState]=useState<WheelState|null>(null);
  const [amount,setAmount]=useState('100');
@@ -119,7 +119,7 @@ export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:
     {ownBet&&<div className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-2 text-xs font-bold text-emerald-200">رهانك: {ownBet.amount.toLocaleString()} على {META[ownBet.color].label} · {isSpinning?'الجولة تدور':'تم تسجيل الرهان'}</div>}
     <div className="mt-3 grid grid-cols-3 gap-2">
      {(['yellow','turquoise','purple'] as Color[]).map(color=><button key={color} type="button" disabled={!canBet||Number(amount)<100||Number(amount)>(state?.balance??0)} onClick={()=>void placeBet(color)} className={'relative flex min-h-[102px] flex-col items-center justify-center rounded-2xl border p-2 transition active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-35 '+META[color].className}>
-      <span className="mb-1 h-9 w-9 rounded-full border-4 border-white/20 shadow-[0_0_18px_currentColor] " style={{background:META[color].hex}}/>
+      {loading?<Loader2 className="mb-1 h-8 w-8 animate-spin"/>:<span className="mb-1 h-9 w-9 rounded-full border-4 border-white/20 shadow-[0_0_18px_currentColor] " style={{background:META[color].hex}}/>}
       <b className="text-xs">{META[color].label}</b><span className="mt-1 text-lg font-black">{META[color].multiplier}</span>
       <span className="text-[9px] opacity-65">{color==='turquoise'?'فرصة نادرة':'معامل الربح'}</span>
      </button>)}
