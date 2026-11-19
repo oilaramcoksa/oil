@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Coins, Loader2, History, Timer, Trophy, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
-import { dirOf, type Lang } from '@/lib/i18n';
+import { dirOf, t, type Lang } from '@/lib/i18n';
 
 type Color = 'yellow' | 'purple' | 'turquoise';
 type Bet = { telegramId: string; username: string; photoUrl: string | null; color: Color; amount: number; payout: number; outcome: string };
