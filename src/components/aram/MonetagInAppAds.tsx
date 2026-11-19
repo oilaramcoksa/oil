@@ -21,9 +21,10 @@ type MonetagWindow = Window & {
   __armcoMonetagInAppStarted?: boolean;
 };
 
-export function MonetagInAppAds() {
+export function MonetagInAppAds({ enabled }: { enabled: boolean }) {
   const syncServerWalletCoins = useGame((state) => state.syncServerWalletCoins);
   useEffect(() => {
+    if (!enabled) return;
     const w = window as MonetagWindow;
     let attempts = 0;
     const timer = window.setInterval(() => {
@@ -64,7 +65,7 @@ export function MonetagInAppAds() {
       });
     }, 250);
     return () => window.clearInterval(timer);
-  }, [syncServerWalletCoins]);
+  }, [enabled, syncServerWalletCoins]);
 
   return null;
 }
