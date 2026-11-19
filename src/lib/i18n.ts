@@ -636,6 +636,7 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
   dataStorageText: "تُحفظ بيانات تقدمك وأرصدتك في قاعدة بيانات Turso الآمنة المرتبطة بحساب تيليجرام الخاص بك، لتتمكن من متابعة اللعب من أجهزتك المختلفة.",
   remaining: "المتبقي",
   retractingHose: "جارٍ سحب الخرطوم...",
+  singleBalance: "(من رصيد واحد)",
 };
 
 const en: Dict = {
@@ -1237,6 +1238,7 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
   miningFeeSafety: "We will never ask for your recovery phrase or private keys. Approve the transfer only inside your wallet app. This is a one-time lifetime activation fee.",
   remaining: 'Remaining',
   retractingHose: 'Retracting the hose...',
+  singleBalance: '(from one balance)',
 };
 
 const ru: Dict = {
@@ -1838,6 +1840,7 @@ shortsVideoDescription: "Хочу познакомить вас с Aramco Oil �
   miningFeeSafety: "Мы никогда не попросим вашу seed-фразу или приватные ключи. Подтверждайте перевод только в приложении кошелька. Плата за активацию взимается один раз на весь срок действия аккаунта.",
   remaining: 'Осталось',
   retractingHose: 'Шланг убирается...',
+  singleBalance: '(из одного баланса)',
 };
 
 
