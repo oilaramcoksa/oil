@@ -156,15 +156,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const identity = verifiedPlayerFromRequest(req);
   if (!identity) return fail('telegram_auth_required', 401);
-  let body: { action?: unknown; amount?: unknown };
+  let body: { action?: unknown; amount?: unknown; roundId?: unknown };
   try { body = await req.json(); } catch { return fail('invalid_body'); }
   if (body.action !== 'bet' && body.action !== 'cashout') return fail('invalid_action');
   if (body.action === 'bet' && (typeof body.amount !== 'number' || !Number.isSafeInteger(body.amount) || body.amount < MIN_BET)) return fail('minimum_100_required');
+  if (body.action === 'cashout' && body.roundId !== undefined && (typeof body.roundId !== 'string' || body.roundId.length < 1 || body.roundId.length > 64)) return fail('invalid_round');
   try {
     await ensureDatabaseSchema();
     const db = getTurso();
-    const round = await advanceRound(db);
-    const roundId = String(round.id);
+    const latestRound = await advanceRound(db);
+    // A cashout belongs to the round displayed when the player pressed the button.
+    // Do not silently retarget it to a newer round if the server advanced in the meantime.
+    const roundId = body.action === 'cashout' && typeof body.roundId === 'string' ? body.roundId : String(latestRound.id);
     const playerId = String(identity.id);
     const tx = await db.transaction('write');
     try {
