@@ -188,7 +188,11 @@ export function GameCloudSync({ initData, userId, userName }: { initData: string
 
       // Cross-device near-real-time refresh. Financial balances and ledger history
       // are read from Turso, never trusted from a stale localStorage snapshot.
-      pollTimer = setInterval(() => { void pull(false); syncParts(); }, PULL_INTERVAL_MS);
+      pollTimer = setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        void pull(false);
+        syncParts();
+      }, PULL_INTERVAL_MS);
       window.addEventListener('focus', onFocus);
       window.addEventListener('online', onFocus);
       document.addEventListener('visibilitychange', onVisibilityChange);
