@@ -442,7 +442,7 @@ const en: Dict = {
   txArenaPrize: 'Arena prize',
   txArenaRefund: 'Arena entry refund',
   txLedger: 'Balance activity',
-  txReferralCommission: '+{amount} from friend referral',
+  txReferralCommission: 'Friend referral',
   arenaJoin: 'Join round',
   arenaMax: 'MAX',
   arenaWaiting: 'Waiting for another player',
