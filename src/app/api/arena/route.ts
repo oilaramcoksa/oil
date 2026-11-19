@@ -487,12 +487,9 @@ export async function POST(req: NextRequest) {
       const walletSnapshot = await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[playerId]});
       const purchasedAvailable = Number(betWallet.rows[0]?.balance ?? 0);
       const walletAvailable = Number(walletSnapshot.rows[0]?.coins_balance ?? 0);
-      if (purchasedAvailable + walletAvailable < body.amount) throw new Error('insufficient_balance');
-      // A stake must be funded entirely by one wallet; never combine purchased
-      // betting tokens with the regular wallet for a single entry.
-      const purchasedAmount = purchasedAvailable >= body.amount ? body.amount : 0;
-      const walletAmount = purchasedAmount === 0 && walletAvailable >= body.amount ? body.amount : 0;
-      if (purchasedAmount === 0 && walletAmount === 0) throw new Error('insufficient_balance');
+      const purchasedAmount = Math.min(purchasedAvailable, body.amount);
+      const walletAmount = body.amount - purchasedAmount;
+      if (walletAvailable < walletAmount) throw new Error('insufficient_balance');
       if (walletAmount > 0) {
         const debit = await tx.execute({sql:`UPDATE player_wallets SET coins_balance=coins_balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance>=? RETURNING coins_balance`,args:[walletAmount,playerId,walletAmount]});
         if(!debit.rows.length) throw new Error('insufficient_balance');
