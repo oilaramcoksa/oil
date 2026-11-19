@@ -37,7 +37,7 @@ export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:
   if(!response.ok)throw new Error(data.error||'color_wheel_unavailable');
   setState(data as WheelState);
  },[headers,initData,isVerified]);
- useEffect(()=>{void refresh().catch(()=>undefined);const poll=window.setInterval(()=>void refresh().catch(()=>undefined),500);const clock=window.setInterval(()=>setNow(Date.now()),200);return()=>{window.clearInterval(poll);window.clearInterval(clock)}},[refresh]);
+ useEffect(()=>{void refresh().catch(()=>undefined);const poll=window.setInterval(()=>void refresh().catch(()=>undefined),900);const clock=window.setInterval(()=>setNow(Date.now()),200);return()=>{window.clearInterval(poll);window.clearInterval(clock)}},[refresh]);
  useEffect(()=>{
   const round=state?.round;
   if(!round||round.status!=='spinning'||round.winningSector===null||animatedRound.current===round.id)return;
