@@ -15,7 +15,7 @@ const CLOUD_KEYS = [
 ] as const;
 
 // Frequent lightweight reads keep admin-issued rewards visible without restarting the game.
-const PULL_INTERVAL_MS = 2_000;
+const PULL_INTERVAL_MS = 5_000;
 
 function snapshot(state: ReturnType<typeof useGame.getState>) {
   const value: Record<string, unknown> = {};
