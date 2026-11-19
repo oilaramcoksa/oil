@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const REWARD_COINS = 20;
-const ALLOWED_PURPOSES = new Set(['sell_action', 'mining_start', 'automatic_in_app']);
+const ALLOWED_PURPOSES = new Set(['sell_action', 'mining_start']);
 
 function fail(error: string, status = 400) {
   return NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
