@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { MonetagAdNotice } from "@/components/aram/MonetagAdNotice";
 import Script from "next/script";
 
 const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL
@@ -71,6 +72,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-background text-foreground aram-bg">
         {children}
+        <MonetagAdNotice />
         <Toaster />
       </body>
     </html>

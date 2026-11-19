@@ -44,6 +44,7 @@ export async function watchMonetagRewardedAd(args: {
   if (typeof window === 'undefined' || typeof window.show_12295910 !== 'function') throw new Error('monetag_sdk_unavailable');
   if (!args.initData) throw new Error('telegram_auth_required');
   const ymid = crypto.randomUUID();
+  window.dispatchEvent(new Event('armco:monetag-ad-start'));
   const result = await window.show_12295910({ ymid, requestVar: args.requestVar });
   if (result?.reward_event_type === 'non_valued' || (result?.variable2 && result.variable2 !== ymid)) throw new Error('monetag_ad_not_valued');
   if (args.endpoint === '/api/ads/action-reward') {
