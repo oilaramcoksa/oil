@@ -212,31 +212,9 @@ export async function POST(req: NextRequest) {
         });
         const alreadyCredited = Number(prior.rows[0]?.commission_coins ?? 0);
         await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [referrerId] });
-        const inviterBudget = await tx.execute({
-          sql: `SELECT
-            COALESCE((SELECT SUM(amount) FROM ledger_entries
-              WHERE telegram_id=? AND asset='coins' AND amount>0
-                AND entry_type NOT IN ('opening_balance','withdrawal_refund')
-                AND datetime(created_at)>=datetime('now','-24 hours')),0) AS coins_earned,
-            CASE
-              WHEN (SELECT COUNT(DISTINCT part_id) FROM (
-                SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
-                UNION SELECT part_id FROM player_special_parts WHERE telegram_id=? AND part_id<>'auto_sell'
-                    AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
-              ))>=6 THEN 2000
-              WHEN EXISTS (SELECT 1 FROM player_upgrades WHERE telegram_id=?
-                AND status='active' AND expires_at>CURRENT_TIMESTAMP
-                AND package_id IN ('fast_oil','king_oil','super_oil'))
-                AND (SELECT COUNT(DISTINCT part_id) FROM (
-                  SELECT part_id FROM player_parts WHERE telegram_id=? AND quantity>0
-                  UNION SELECT part_id FROM player_special_parts WHERE telegram_id=? AND part_id<>'auto_sell'
-                    AND (expires_at IS NULL OR expires_at>CAST(strftime('%s','now') AS INTEGER)*1000)
-                ))>=1 THEN 1500
-              ELSE 1000 END AS daily_limit FROM (SELECT 1)`,
-          args: [referrerId, referrerId, referrerId, referrerId, referrerId, referrerId],
-        });
-        const inviterRemaining = Math.max(0, Number(inviterBudget.rows[0]?.daily_limit ?? 1000) - Number(inviterBudget.rows[0]?.coins_earned ?? 0));
-        const delta = Math.min(Math.max(0, targetCommission - alreadyCredited), inviterRemaining);
+        // Referral commission is not subject to the inviter's gameplay reward cap.
+        // It is a platform-funded 5% share of this qualified friend's oil-sale coins.
+        const delta = Math.max(0, targetCommission - alreadyCredited);
         await tx.execute({
           sql: `INSERT INTO referral_daily_commissions(referee_telegram_id,day_key,revenue_coins,commission_coins)
                 VALUES(?,?,?,?) ON CONFLICT(referee_telegram_id,day_key) DO UPDATE SET
