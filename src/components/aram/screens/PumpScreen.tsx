@@ -175,7 +175,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   };
 
   const rewardActionAd = async (purpose: 'sell_action' | 'mining_start') => {
-    // Both buttons share one server-side 12-hour window. During the window,
+    // Sale and mining-start ads each have their own server-side 12-hour window. During the window,
     // continue the requested game action immediately without opening another ad.
     const statusResponse = await fetch('/api/ads/action-reward?purpose=' + purpose,
       method: 'GET',
