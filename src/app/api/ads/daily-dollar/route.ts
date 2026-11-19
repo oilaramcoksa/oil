@@ -180,6 +180,16 @@ export async function POST(req: NextRequest) {
       if (!verified.rows.length) { await tx.rollback(); return fail('monetag_postback_not_verified', 409); }
       const player = await tx.execute({ sql: "SELECT telegram_id FROM players WHERE telegram_id=? AND status='active'", args: [telegramId] });
       if (!player.rows.length) { await tx.rollback(); return fail('player_not_active', 403); }
+      const lastReward = await tx.execute({
+        sql: 'SELECT COALESCE(claimed_at,paid_at) AS claimed_at FROM daily_monetag_ad_progress WHERE telegram_id=? AND paid_at IS NOT NULL ORDER BY COALESCE(claimed_at,paid_at) DESC LIMIT 1',
+        args: [telegramId],
+      });
+      const lastRewardAt = epoch(lastReward.rows[0]?.claimed_at);
+      const rewardCooldownUntil = lastRewardAt === null ? null : lastRewardAt + REWARD_BREAK_MS;
+      if (rewardCooldownUntil && rewardCooldownUntil > Date.now()) {
+        await tx.rollback();
+        return fail('daily_reward_cooldown_active', 429, { cooldownUntil: rewardCooldownUntil });
+      }
 
       const pending = await tx.execute({
         sql: 'SELECT day_key FROM daily_monetag_ad_progress WHERE telegram_id=? AND views>=? AND paid_at IS NULL ORDER BY updated_at DESC LIMIT 1',
