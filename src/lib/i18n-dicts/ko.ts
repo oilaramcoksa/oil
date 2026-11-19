@@ -1,0 +1,16 @@
+import en from './en';
+// المهندس محمد حماد — language pack (loaded on demand)
+type Dict = Record<string, string>;
+const ko: Dict = { ...en,
+  navArena: '게임',
+  appName: 'Aramco Oil', appTagline: '석유 채굴 · 코인 모으기',
+  settingsTitle: '설정', language: '언어', sound: '소리', vibration: '진동', about: '정보', back: '뒤로',
+  balance: '잔액', coins: '코인', oil: '석유', speed: '속도', settings: '설정', leaderboard: '순위표',
+  navWallet: '지갑', navTasks: '미션', navPump: '채굴', navFriends: '친구', navStore: '상점', navSwap: '교환',
+  swapTitle: '코인 교환', tapToPump: '펌프 누르기', sell: '판매', startMining: '채굴 시작',
+  tasksTitle: '미션', dailyTasks: '일일 미션', weeklyTasks: '주간 미션', friendsTitle: '친구',
+  inviteLink: '초대 링크', copyLink: '링크 복사', yourReferrals: '내 추천', noReferrals: '아직 추천한 친구가 없습니다',
+  speedPartsTitle: '업그레이드 상점', autoSellPart: "자동 판매", autoSellDescription: "게임에 접속하지 않아도 30일 동안 12시간 채굴 주기가 끝날 때마다 석유를 자동 판매합니다. 채굴 주기가 먼저 시작되어 있어야 합니다.", autoSellDuration: "30일", crashRecentRounds: '최근 10라운드',
+};
+
+export default ko;

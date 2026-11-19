@@ -1,5 +1,6 @@
 'use client';
 
+import { BOT_URL } from '@/lib/links';
 import { useEffect, useRef, useState } from 'react';
 import { useGame, type TaskState } from '@/lib/store';
 import { t, type Lang } from '@/lib/i18n';
@@ -169,11 +170,11 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
       toast.error(lang === 'ar' ? 'افتح اللعبة من تطبيق تيليجرام لاستخدام نشر الحالة.' : 'Open the game inside Telegram to share a Story.');
       return;
     }
-    const mediaUrl = `${window.location.origin}/story.png`;
+    const mediaUrl = `${window.location.origin}/story.jpg`;
     try {
       tg.shareToStory(mediaUrl, {
         text: 'Mine with ARMCO OIL! Join the official bot',
-        widget_link: { url: 'https://t.me/armcooilbot', name: 'ARMCO OIL' },
+        widget_link: { url: BOT_URL, name: 'ARMCO OIL' },
       });
     } catch {
       toast.error(lang === 'ar' ? 'تعذر فتح محرر حالة تيليجرام.' : 'Could not open Telegram Story editor.');

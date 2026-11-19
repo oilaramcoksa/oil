@@ -149,9 +149,9 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
  const canBet=Boolean(state&&isVerified&&!ownBet&&!loading&&state.round.status==='open'&&(state.round.startsAt===null||state.round.startsAt>Date.now()));
  const wheelGradient=useMemo(()=>`conic-gradient(from -12deg,${COLORS.map((color,index)=>`${META[color].hex} ${index*24}deg ${(index+1)*24}deg`).join(',')})`,[]);
  const rotationStyle={transform:`rotate(${rotation}deg)`,transition:isSpinning?`transform ${spinDuration}ms cubic-bezier(.10,.78,.08,1)`:'none'};
- return <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-[#191b1d] px-3 pb-6 pt-3 text-white" dir={dirOf(lang)}>
+ return <div className="h-full min-h-0 overflow-y-auto overscroll-contain bg-transparent px-3 pb-6 pt-3 text-white" dir={dirOf(lang)}>
   <div className="mx-auto w-full max-w-md space-y-3">
-   <section className="rounded-2xl border border-white/10 bg-[#25282b] p-3 shadow-lg">
+   <section className="game-panel p-3 shadow-[0_10px_26px_rgba(0,0,0,.4)]">
     <div className="mb-2 flex items-center justify-between"><div className="flex items-center gap-2 text-xs font-black text-white/65"><Trophy size={15} className="text-amber-300"/> {c[3]}</div><span className="text-[10px] text-white/35">ARMCO OIL</span></div>
     <div className="grid grid-cols-2 gap-2">
      {[0,1].map(index=>{const winner=state?.winners[index];return <div key={winner?winner.roundId+':'+winner.telegramId:index} className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-black/20 p-2">
@@ -161,10 +161,10 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
      </div>})}
     </div>
    </section>
-   <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#292b2d] to-[#17191b] p-3 shadow-[0_16px_36px_rgba(0,0,0,.28)]">
+   <section className="game-panel p-3 shadow-[0_16px_36px_rgba(0,0,0,.28)]">
     <div className="mb-2 flex items-center justify-between"><span className="text-xs font-black text-white/75">{c[6]}</span></div>
     <div className="relative mx-auto aspect-square w-full max-w-[390px] p-1">
-     <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#f9e3a2] via-[#8b7541] to-[#1d2023] p-[7px] shadow-[0_15px_32px_rgba(0,0,0,.55)]">
+     <div aria-hidden="true" className={"absolute -inset-3 rounded-full bg-amber-400/25 blur-2xl "+(isSpinning?"wheel-glow":"opacity-40")}/><div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#f9e3a2] via-[#8b7541] to-[#1d2023] p-[7px] shadow-[0_15px_32px_rgba(0,0,0,.55)]">{Array.from({length:24},(_,i)=>{const a=i*15*Math.PI/180;return <i key={i} aria-hidden="true" className={"wheel-led absolute h-1.5 w-1.5 rounded-full bg-amber-100 "+(isSpinning?"wheel-led-fast":"")} style={{left:(50+48.2*Math.sin(a))+"%",top:(50-48.2*Math.cos(a))+"%",transform:"translate(-50%,-50%)",animationDelay:(i%2?0:.45)+"s"}}/>})}
       <div className="h-full w-full rounded-full bg-[#101214] p-[5px] shadow-[inset_0_0_0_3px_rgba(255,255,255,.15)]">
        <motion.div className="relative h-full w-full rounded-full border-[3px] border-[#5d5e5f] shadow-[inset_0_0_0_2px_rgba(0,0,0,.4)]" style={{...rotationStyle,background:wheelGradient}}>
         <div className="absolute inset-0 rounded-full" style={{background:'repeating-conic-gradient(from -12deg, transparent 0deg 23.35deg, rgba(22,22,22,.85) 23.35deg 24deg)'}}/>
@@ -172,15 +172,15 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
        </motion.div>
       </div>
      </div>
-     <div className="absolute -top-0.5 left-1/2 z-20 -translate-x-1/2 drop-shadow-[0_3px_5px_rgba(0,0,0,.8)]"><div className="h-0 w-0 border-x-[15px] border-t-[28px] border-x-transparent border-t-orange-400"/></div>
+     <div className={"absolute -top-0.5 left-1/2 z-20 -translate-x-1/2 drop-shadow-[0_3px_5px_rgba(0,0,0,.8)] "+(isSpinning?"wheel-pointer":"")}><div className="h-0 w-0 border-x-[15px] border-t-[28px] border-x-transparent border-t-orange-400"/></div>
      <div className="absolute left-1/2 top-1/2 z-10 flex h-[35%] w-[35%] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-[5px] border-[#47494b] bg-[radial-gradient(circle_at_35%_30%,#34383c,#111315_70%)] shadow-[0_4px_18px_rgba(0,0,0,.7),inset_0_2px_8px_rgba(255,255,255,.08)]">
-      <span className="text-4xl font-black tabular-nums text-white drop-shadow-lg">{isSpinning?'':countdown===null?'—':countdown}</span>
+      <span key={isSpinning?'s':String(countdown)} className={"text-4xl font-black tabular-nums drop-shadow-lg count-pop "+(countdown!==null&&countdown<=3&&!isSpinning?"text-rose-300":"text-white")}>{isSpinning?'':countdown===null?'—':countdown}</span>
       <span className="mt-1 text-[9px] font-bold text-white/45">{isSpinning?c[8]:(state?.bets.length??0)===0?c[9]:c[10]}</span>
      </div>
     </div>
     <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/50"><Timer size={12}/>{isSpinning?c[11]:(state?.bets.length??0)===0?c[12]:c[13]}</div>
    </section>
-   <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
+   <section className="game-panel p-3">
     <div className="mb-2 flex items-center justify-between text-xs"><span className="text-white/55" >{c[16]}</span><b className="flex items-center gap-1 text-amber-300"><Coins size={13}/>{totalBalance.toLocaleString()}</b></div>
     <div className="mb-2 flex items-center justify-between gap-2 text-[9px] text-white/45"><span>{(BALANCE_COPY[lang]??BALANCE_COPY.en).regular}: {(state?.balance??0).toLocaleString()}</span><span>{(BALANCE_COPY[lang]??BALANCE_COPY.en).purchased}: {(state?.betBalance??0).toLocaleString()}</span></div>
     <div className="flex gap-2">
@@ -189,7 +189,7 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
     </div>
     {ownBet&&<div className="mt-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-2 text-xs font-bold text-emerald-200">{c[23]}: {ownBet.amount.toLocaleString()} {c[29]} {t(lang, 'on')} {colorLabel(ownBet.color)} · {isSpinning?c[24]:c[25]}</div>}
     <div className="mt-3 grid grid-cols-3 gap-2">
-     {(['yellow','turquoise','purple'] as Color[]).map(color=><button key={color} type="button" disabled={!canBet||Number(amount)<100||Number(amount)>totalBalance} onClick={()=>void placeBet(color)} className={'relative flex min-h-[102px] flex-col items-center justify-center rounded-2xl border p-2 transition active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-35 '+META[color].className}>
+     {(['yellow','turquoise','purple'] as Color[]).map(color=><button key={color} type="button" disabled={!canBet||Number(amount)<100||Number(amount)>totalBalance} onClick={()=>void placeBet(color)} className={'bet-tile relative flex min-h-[102px] flex-col items-center justify-center overflow-hidden rounded-2xl border p-2 transition active:scale-[.95] disabled:cursor-not-allowed disabled:opacity-35 '+META[color].className}>
       {loading?<Loader2 className="mb-1 h-8 w-8 animate-spin"/>:<span className="mb-1 h-9 w-9 rounded-full border-4 border-white/20 shadow-[0_0_18px_currentColor] " style={{background:META[color].hex}}/>}
       <b className="text-xs">{colorLabel(color)}</b><span className="mt-1 text-lg font-black">{META[color].multiplier}</span>
       <span className="text-[9px] opacity-65">{color==='turquoise'?c[26]:c[27]}</span>
@@ -197,21 +197,21 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
     </div>
     <p className="mt-2 text-center text-[9px] text-white/35" >{c[28]}</p>
    </section>
-   <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
+   <section className="game-panel p-3">
     <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><History size={14}/> {c[14]}</h3><span className="text-[10px] text-white/35">{history.length}</span></div>
     <div className="flex flex-wrap gap-2">
      {history.length?history.map(item=><div key={item.id} title={item.color} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 shadow-inner" style={{background:META[item.color].hex}}><span className="text-[9px] font-black text-black/65">{item.sector+1}</span></div>):<span className="py-2 text-[11px] text-white/35" >{c[15]}</span>}
     </div>
    </section>
 
-   <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
+   <section className="game-panel p-3">
     <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><Users size={14}/> {resultCopy.players}</h3><span className="text-[10px] text-amber-300">{currentBets.length}</span></div>
     {currentBets.length===0?<p className="py-3 text-center text-[11px] text-white/40">{resultCopy.empty}</p>:<div className="space-y-2">{currentBets.map(bet=><div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-black/15 px-2.5 py-2">
       <div className="flex min-w-0 items-center gap-2">{bet.photoUrl?<img src={bet.photoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover"/>:<span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black">{bet.username.slice(0,1).toUpperCase()}</span>}<div className="min-w-0"><b className="block truncate text-[11px]">{bet.username}</b><span className="text-[9px] text-white/45">{colorLabel(bet.color)}</span></div></div>
       <b className="shrink-0 text-xs text-amber-300">{bet.amount.toLocaleString()} {c[29]}</b>
     </div>)}</div>}
    </section>
-   {lastRoundResults&&<section className="rounded-2xl border border-amber-300/20 bg-[#282522] p-3">
+   {lastRoundResults&&<section className="game-panel p-3">
     <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-amber-100"><Trophy size={14}/> {resultCopy.round}</h3><span className="rounded-lg px-2 py-1 text-[9px] font-black" style={{background:META[lastRoundResults.winningColor].hex,color:'#21180e'}}>{colorLabel(lastRoundResults.winningColor)}</span></div>
     <div className="space-y-2">{lastRoundResults.bets.map(bet=>{const net=bet.outcome==='win'?bet.payout-bet.amount:-bet.amount;return <div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl bg-black/20 px-2.5 py-2">
       <div className="flex min-w-0 items-center gap-2">{bet.photoUrl?<img src={bet.photoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover"/>:<span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black">{bet.username.slice(0,1).toUpperCase()}</span>}<div className="min-w-0"><b className="block truncate text-[11px]">{bet.username}</b><span className="text-[9px] text-white/45">{colorLabel(bet.color)} · {bet.amount.toLocaleString()} {c[29]}</span></div></div>

@@ -272,8 +272,8 @@ export async function GET(req: NextRequest) {
     const now = Date.now();
     const playerId = String(identity.id);
     await db.execute({
-      sql: 'UPDATE players SET username=COALESCE(?, username), first_name=COALESCE(?, first_name), last_name=COALESCE(?, last_name), photo_url=COALESCE(?, photo_url) WHERE telegram_id=?',
-      args: [identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, identity.photo_url ?? null, playerId],
+      sql: 'UPDATE players SET username=COALESCE(?, username), first_name=COALESCE(?, first_name), last_name=COALESCE(?, last_name), photo_url=COALESCE(?, photo_url) WHERE telegram_id=? AND (username IS NOT COALESCE(?, username) OR first_name IS NOT COALESCE(?, first_name) OR last_name IS NOT COALESCE(?, last_name) OR photo_url IS NOT COALESCE(?, photo_url))',
+      args: [identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, identity.photo_url ?? null, playerId, identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, identity.photo_url ?? null],
     });
     const [walletResult, betWalletResult, activeResult] = await Promise.all([
       db.execute({
@@ -383,6 +383,7 @@ export async function POST(req: NextRequest) {
     if (!player.rows.length) return jsonError('player_not_found', 404);
 
     if (body.action === 'cancel') {
+      const runCancel = async (): Promise<Response> => {
       const tx = await db.transaction('write');
       try {
         const active = typeof body.roundId === 'string'
@@ -456,6 +457,18 @@ export async function POST(req: NextRequest) {
         await tx.rollback();
         throw error;
       }
+      };
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { return await runCancel(); }
+        catch (error) {
+          lastError = error;
+          console.error('arena_cancel_attempt_failed', { attempt, error });
+          await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+        }
+      }
+      console.error('arena_cancel_failed', lastError);
+      return jsonError('arena_cancel_failed', 503);
     }
 
     if (!validAmount(body.amount)) return jsonError('minimum_100_required');

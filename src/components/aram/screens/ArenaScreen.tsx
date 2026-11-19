@@ -1,16 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Coins, History, Loader2, Users, Zap, ShoppingCart, Flame } from 'lucide-react';
-import { TonConnectUI } from '@tonconnect/ui';
+import { Coins, History, Loader2, Users, Zap, ShoppingCart } from 'lucide-react';
+import type { TonConnectUI } from '@tonconnect/ui';
+import { getTonConnectUI } from '@/lib/ton-connect';
 import { beginCell } from '@ton/core';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 import { t, dirOf } from '@/lib/i18n';
 import { isValidArenaEntryAmount, MIN_ARENA_ENTRY } from '@/lib/arena-settlement.mjs';
-import { CrashGameScreen } from '@/components/aram/screens/CrashGameScreen';
-import { LuckyWheel } from '@/components/aram/LuckyWheel';
 
 type Entry = { telegramId: string; username: string; amount: number; photoUrl?: string | null };
 type Round = {
@@ -60,22 +59,13 @@ export function ArenaScreen({
   initData,
   isVerified,
   telegramUserId,
-  initialGameMode = 'wheel',
-}: {
+  }: {
   initData: string;
   isVerified: boolean;
   telegramUserId: string;
-  initialGameMode?: 'wheel' | 'crash' | 'store';
 }) {
   const lang = useGame((s) => s.lang);
-  const [gameMode, setGameMode] = useState<'wheel' | 'crash' | 'store'>(initialGameMode);
-  const [luckyWheelOpen, setLuckyWheelOpen] = useState(false);
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('tab') === 'crash') setGameMode('crash');
-    const openCrash = () => setGameMode('crash');
-    window.addEventListener('open-crash-game', openCrash);
-    return () => window.removeEventListener('open-crash-game', openCrash);
-  }, []);
+  
   const [state, setState] = useState<ArenaState>(EMPTY_STATE);
   const [amount, setAmount] = useState('100');
   const joinLock = useRef(false);
@@ -90,11 +80,7 @@ export function ArenaScreen({
 
   useEffect(() => {
     let alive = true;
-    void import('@tonconnect/ui').then(({ TonConnectUI: TonConnect }) => {
-      if (!alive) return;
-      const connector = new TonConnect({ manifestUrl: new URL('/api/mining/activation/tonconnect-manifest.json', window.location.origin).toString(), restoreConnection: true });
-      setTonConnector(connector);
-    }).catch((error) => console.error('arena_tonconnect_init_failed', error));
+    void getTonConnectUI().then((connector) => { if (alive) setTonConnector(connector); }).catch((error) => console.error('arena_tonconnect_init_failed', error));
     return () => { alive = false; };
   }, []);
 
@@ -309,11 +295,14 @@ export function ArenaScreen({
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'cancel', roundId: round?.id }),
       });
-      const data = await response.json() as { error?: string };
+      const data = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) {
-        const key = data.error === 'cancellation_locked_second_player_joined' ? 'arenaCancelLocked' : 'arenaCancelError';
-        toast.error(t(lang, key));
-        await refresh();
+        const code = data.error ?? '';
+        if (code === 'cancellation_locked_second_player_joined') toast.error(t(lang, 'arenaCancelLocked'));
+        else if (code === 'entry_not_found' || code === 'no_cancellable_round') toast.info(lang === 'ar' ? 'تم تحديث حالة الجولة، لا يوجد رهان قابل للإلغاء.' : 'The round was updated; there is no entry to cancel.');
+        else if (code === 'telegram_auth_required' || response.status === 401) toast.error(lang === 'ar' ? 'انتهت جلسة التطبيق. أغلق اللعبة وافتحها من البوت مرة أخرى.' : 'Your session expired. Close and reopen the app from the bot.');
+        else toast.error(t(lang, 'arenaCancelError'));
+        await refresh().catch(() => undefined);
         return;
       }
       await refresh();
@@ -333,56 +322,15 @@ export function ArenaScreen({
     ? Math.max(0.2, (round.spinStartedAt + 7_000 - now) / 1_000)
     : 7;
 
-  if (gameMode === 'store') return (
-    <div className="h-full w-full overflow-y-auto px-4 py-6" dir={dirOf(lang)}>
-      <section className="mx-auto max-w-md rounded-3xl border border-emerald-700/20 bg-gradient-to-br from-emerald-50 to-teal-100 p-5 text-[#174d3c] shadow-xl">
-        <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-700 text-white shadow-lg"><ShoppingCart size={38}/></div>
-        <h2 className="text-center text-2xl font-black">{t(lang, 'arenaBuyTokensStore')}</h2>
-        <p className="mt-2 text-center text-sm leading-6 text-emerald-900/70">{t(lang, 'arenaBuyTokenDescription')}</p>
-        <div className="my-5 rounded-2xl border border-emerald-800/10 bg-white/80 p-5 text-center">
-          <div className="text-4xl font-black tabular-nums">10,000</div>
-          <div className="mt-1 text-sm font-bold">{t(lang, 'arenaPurchasedBalance')}</div>
-          <div className="mt-3 text-2xl font-black text-emerald-700">1 TON</div>
-        </div>
-        <button type="button" onClick={() => void buyArenaTokens()} disabled={buyingTokens || !isVerified} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-4 font-black text-white shadow-lg disabled:opacity-50">
-          {buyingTokens ? <Loader2 size={18} className="animate-spin"/> : <ShoppingCart size={18}/>} {buyingTokens ? t(lang, 'paymentSentVerifying') : t(lang, 'arenaBuyTokensButton')}
-        </button>
-        <p className="mt-3 text-center text-[10px] leading-5 text-emerald-900/60">{t(lang, 'arenaBuyTokensFootnote')}</p>
-      </section>
-    </div>
-  );
-
   return (
-    <div className="h-full w-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-x-none bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={dirOf(lang)}>
-      <div className="mx-auto mb-3 grid w-full max-w-md grid-cols-2 gap-2 rounded-2xl border border-amber-900/10 bg-white/70 p-1.5 shadow-sm">
-        <button type="button" onClick={() => setLuckyWheelOpen(true)} className="flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black text-[#8f6b4d]">
-          <span>🎡</span>{lang === 'ar' ? 'عجلة الحظ' : lang === 'ru' ? 'Колесо удачи' : 'Lucky Wheel'}
-        </button>
-        <button type="button" onClick={() => setGameMode('crash')} className={`relative flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'crash' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
-          <motion.span
-            className="absolute -top-3 left-1/2 z-20 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-orange-200/90 bg-gradient-to-r from-red-600 via-orange-500 to-amber-400 px-2 py-0.5 text-[9px] font-black leading-none tracking-wider text-white shadow-[0_0_12px_rgba(249,115,22,.75)]"
-            animate={{ y: [0, -2, 0], scale: [1, 1.06, 1], boxShadow: ['0 0 7px rgba(249,115,22,.45)', '0 0 15px rgba(249,115,22,.9)', '0 0 7px rgba(249,115,22,.45)'] }}
-            transition={{ duration: 1.35, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            HOT
-            <motion.span
-              className="inline-flex"
-              animate={{ rotate: [-8, 9, -8], scale: [1, 1.22, 1] }}
-              transition={{ duration: .55, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <Flame className="h-3 w-3 fill-yellow-200 text-yellow-100 drop-shadow-[0_0_5px_rgba(255,220,80,.95)]" />
-            </motion.span>
-          </motion.span>
-          <span>✈️</span>{lang === 'ar' ? 'ARMCOFLY' : 'ARMCOFLY'}
-        </button>
-      </div>
+    <div className="h-full w-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-x-none bg-transparent px-3 pt-4 pb-6 text-amber-50" dir={dirOf(lang)}>
       <div className="relative">
-        <div className={gameMode === 'crash' ? 'hidden' : 'block'}>
+        <div>
           <div className="mx-auto w-full max-w-md">
         <header className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-black tracking-tight">{t(lang, 'arenaTitle')}</h2>
-            <p className="mt-1 text-xs text-[#8f6b4d]">{t(lang, 'arenaSubtitle')}</p>
+            <h2 className="flex items-center gap-2 bg-gradient-to-b from-[#fff3c4] to-[#f5b83d] bg-clip-text text-xl font-black tracking-tight text-transparent"><i aria-hidden="true" className="live-dot h-2 w-2 rounded-full bg-emerald-400"/>{t(lang, 'arenaTitle')}</h2>
+            <p className="mt-1 text-xs text-white/55">{t(lang, 'arenaSubtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
             {state.lastResult && !replaying && (
@@ -393,7 +341,7 @@ export function ArenaScreen({
                   setReplaying(true);
                   window.setTimeout(() => setReplaying(false), 7_600);
                 }}
-                className="flex h-10 items-center gap-1.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-100 to-orange-100 px-3 text-[11px] font-black text-amber-900 shadow-sm"
+                className="flex h-10 items-center gap-1.5 rounded-xl border border-amber-300/40 bg-amber-300/15 px-3 text-[11px] font-black text-amber-100"
               >
                 <History size={15} />
                 {t(lang, 'arenaReplay')}
@@ -401,7 +349,7 @@ export function ArenaScreen({
             )}
             <button
               onClick={() => void refresh()}
-              className="grid h-10 w-10 place-items-center rounded-xl border border-amber-700/15 bg-white/55 text-amber-900 shadow-sm"
+              className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 bg-white/10 text-amber-100"
               aria-label={t(lang, 'arenaRecent')}
             >
               <History size={18} />
@@ -409,27 +357,27 @@ export function ArenaScreen({
           </div>
         </header>
 
-        <section className="mb-4 overflow-hidden rounded-2xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.12)] backdrop-blur-md">
+        <section className="mb-4 overflow-hidden game-panel p-3 text-amber-50 shadow-[0_10px_26px_rgba(0,0,0,.4)]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-700"><Users size={18}/></span>
-              <div><div className="text-sm font-extrabold">{t(lang, 'arenaRoundLabel')}</div><div className="mt-0.5 text-[10px] text-[#9a7659]">{t(lang, 'arenaPlayers')}: {displayedEntries.length}</div></div>
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-300"><Users size={18}/></span>
+              <div><div className="text-sm font-extrabold">{t(lang, 'arenaRoundLabel')}</div><div className="mt-0.5 text-[10px] text-white/45">{t(lang, 'arenaPlayers')}: {displayedEntries.length}</div></div>
             </div>
-            <span className="rounded-full border border-emerald-700/15 bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-800">{replaying ? t(lang, 'arenaReplayPlaying') : round?.status === 'open' ? t(lang, 'arenaWaitingPlayer') : round?.status === 'countdown' ? t(lang, 'arenaCountdown') : isSpinning ? t(lang, 'arenaSpinning') : t(lang, 'arenaReady')}</span>
+            <span className="rounded-full border border-emerald-300/25 bg-emerald-400/15 px-3 py-1 text-[10px] font-bold text-emerald-200">{replaying ? t(lang, 'arenaReplayPlaying') : round?.status === 'open' ? t(lang, 'arenaWaitingPlayer') : round?.status === 'countdown' ? t(lang, 'arenaCountdown') : isSpinning ? t(lang, 'arenaSpinning') : t(lang, 'arenaReady')}</span>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
-            <div className="rounded-xl border border-amber-900/5 bg-[#fff7e9]/85 p-2"><div className="text-[9px] leading-tight text-[#987354]">{t(lang, 'arenaPot')}</div><div className="mt-1 text-base font-black tabular-nums text-amber-800">{total.toLocaleString()}</div></div>
-            <div className="rounded-xl border border-emerald-900/10 bg-emerald-50/80 p-2"><div className="text-[9px] leading-tight text-emerald-800">{t(lang, 'arenaPurchasedBalance')}</div><div className="mt-1 text-base font-black tabular-nums text-emerald-800">{betBalance.toLocaleString()}</div></div>
-            <div className="rounded-xl border border-blue-900/10 bg-blue-50/80 p-2"><div className="text-[9px] leading-tight text-blue-800">{t(lang, 'arenaWalletBalance')}</div><div className="mt-1 text-base font-black tabular-nums text-blue-800">{balance.toLocaleString()}</div></div>
+            <div className="rounded-xl border border-amber-200/10 bg-amber-300/10 p-2"><div className="text-[9px] leading-tight text-white/50">{t(lang, 'arenaPot')}</div><div key={total} className="count-pop mt-1 text-base font-black tabular-nums text-amber-300">{total.toLocaleString()}</div></div>
+            <div className="rounded-xl border border-emerald-300/15 bg-emerald-400/10 p-2"><div className="text-[9px] leading-tight text-emerald-200">{t(lang, 'arenaPurchasedBalance')}</div><div className="mt-1 text-base font-black tabular-nums text-emerald-200">{betBalance.toLocaleString()}</div></div>
+            <div className="rounded-xl border border-blue-300/15 bg-blue-400/10 p-2"><div className="text-[9px] leading-tight text-blue-200">{t(lang, 'arenaWalletBalance')}</div><div className="mt-1 text-base font-black tabular-nums text-blue-200">{balance.toLocaleString()}</div></div>
           </div>
         </section>
 
         {round?.status === 'open' && (
-          <div className="mx-auto mb-3 max-w-md rounded-xl border border-amber-300/70 bg-amber-50/90 px-3 py-2 text-center text-[11px] font-bold leading-relaxed text-amber-900 shadow-sm">
+          <div className="mx-auto mb-3 max-w-md rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-center text-[11px] font-bold leading-relaxed text-amber-100">
             {t(lang, 'arenaWaitingNoExpiry')}
           </div>
         )}
-        <div className="relative mx-auto my-7 aspect-square w-full max-w-[390px] min-w-0 overflow-visible [perspective:1000px]">
+        <div className="relative mx-auto my-7 aspect-square w-full max-w-[390px] min-w-0 overflow-visible [perspective:1000px]"><div aria-hidden="true" className={"pointer-events-none absolute -inset-4 rounded-full bg-amber-400/20 blur-2xl "+(isSpinning?"wheel-glow":"opacity-50")}/>
           {/* Floating pointer with a metallic highlight */}
           <motion.div
             animate={isSpinning ? { y: [0, 5, 0], scale: [1, 0.96, 1] } : { y: [0, -2, 0] }}
@@ -506,7 +454,7 @@ export function ArenaScreen({
 
           {/* Raised center cap: compact countdown and participant count */}
           <div className="absolute inset-[35%] z-20 flex flex-col items-center justify-center rounded-full border-[5px] border-[#fff0cf] bg-[radial-gradient(circle_at_32%_22%,#fff4d8,#e6b875_58%,#a95c27)] text-[#542b12] shadow-[0_0_0_5px_rgba(126,68,27,.24),inset_0_3px_7px_rgba(255,255,255,.65),0_9px_22px_rgba(111,57,18,.35)]">
-            <div className="mb-1 grid h-7 w-7 place-items-center rounded-full border border-amber-700/20 bg-amber-100 text-amber-800">
+            <div className="mb-1 grid h-7 w-7 place-items-center rounded-full border border-amber-700/20 bg-amber-100 text-amber-300">
               {isSpinning ? <Zap size={15}/> : <Users size={15}/>}
             </div>
             {round?.status === 'countdown' && <div className="text-center text-lg font-black tabular-nums leading-none">{String(countdown ?? 0).padStart(2, '0')}</div>}
@@ -519,37 +467,37 @@ export function ArenaScreen({
         </div>
 
         {state.lastResult && !replaying && (
-          <section className="mb-3 rounded-2xl border border-emerald-300/70 bg-gradient-to-r from-emerald-50 to-amber-50 p-4 text-center text-[#245b45] shadow-md">
+          <section className="mb-3 rounded-2xl border border-emerald-300/25 bg-gradient-to-r from-emerald-500/15 to-amber-400/10 p-4 text-center text-emerald-100 shadow-md">
             <div className="text-lg font-black">🏆 {t(lang, 'arenaLastRoundResult')}</div>
             <div className="mt-1 text-sm font-extrabold">
               {state.lastResult.winnerType === 'house'
                 ? t(lang, 'arenaAdminSlice')
                 : state.lastResult.entries.find((entry) => entry.telegramId === state.lastResult?.winnerTelegramId)?.username ?? t(lang, 'arenaWinnerAnnounced')}
             </div>
-            <div className="mt-1 text-[10px] text-emerald-800">{t(lang, 'arenaRoundCompleted')}</div>
+            <div className="mt-1 text-[10px] text-emerald-200">{t(lang, 'arenaRoundCompleted')}</div>
           </section>
         )}
 
-        <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
-          <div className="mb-2 flex items-center justify-between text-xs text-[#8f6b4d]">
+        <section className="mb-3 game-panel p-3 text-amber-50 shadow-[0_10px_26px_rgba(0,0,0,.4)]">
+          <div className="mb-2 flex items-center justify-between text-xs text-white/55">
             <span className="flex items-center gap-1"><Coins size={13} /> {t(lang, 'arenaPot')}</span>
-            <strong className="text-base font-black text-amber-800">{total.toLocaleString()}</strong>
+            <strong className="text-base font-black text-amber-300">{total.toLocaleString()}</strong>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-amber-900/10">
+          <div className="h-2 overflow-hidden rounded-full bg-white/10">
             <div className="h-full w-1/4 bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500" />
           </div>
-          <div className="mt-2 flex justify-between text-[10px] text-[#8f6b4d]">
+          <div className="mt-2 flex justify-between text-[10px] text-white/55">
             <span>{t(lang, 'arenaBurnSlice')}</span><span>25%</span>
           </div>
-          <p className="mt-1 text-[10px] leading-relaxed text-[#8f6b4d]">{t(lang, 'arenaAdminNote')}</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-white/55">{t(lang, 'arenaAdminNote')}</p>
         </section>
 
-        <section className="mb-3 rounded-xl border border-emerald-700/20 bg-gradient-to-r from-emerald-50/95 to-teal-50/95 p-3 text-[#245b45] shadow-sm">
+        <section className="mb-3 rounded-xl border border-emerald-300/20 bg-gradient-to-r from-[#0f2b2a] to-[#10243a] p-3 text-emerald-50 shadow-md">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-sm font-black">{t(lang, 'arenaBuyTokensStore')}</div>
-              <p className="mt-1 text-[10px] leading-relaxed text-emerald-800">{t(lang, 'arenaBuyTokenDescription')}</p>
-              <div className="mt-1 text-xs font-black text-emerald-900">10,000 · 1 TON</div>
+              <p className="mt-1 text-[10px] leading-relaxed text-emerald-200">{t(lang, 'arenaBuyTokenDescription')}</p>
+              <div className="mt-1 text-xs font-black text-emerald-100">10,000 · 1 TON</div>
             </div>
             <button type="button" onClick={() => void buyArenaTokens()} disabled={buyingTokens || !isVerified}
               className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-teal-600 px-4 py-3 text-xs font-black text-white shadow-md disabled:opacity-50">
@@ -557,12 +505,12 @@ export function ArenaScreen({
               {buyingTokens ? t(lang, 'paymentSentVerifying') : t(lang, 'arenaBuyTokensButton')}
             </button>
           </div>
-          <p className="mt-2 text-[9px] text-emerald-800/75">{t(lang, 'arenaBuyTokensFootnote')}</p>
+          <p className="mt-2 text-[9px] text-emerald-100/60">{t(lang, 'arenaBuyTokensFootnote')}</p>
         </section>
 
-        <section className="mb-3 rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
-          <div className="mb-2 flex justify-between text-xs text-[#8f6b4d]">
-            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaAvailableBalance')}: <b className="font-black text-amber-800">{availableBalance.toLocaleString()}</b> <span className="text-[9px]">{t(lang, 'singleBalance')}</span></span>
+        <section className="mb-3 game-panel p-3 text-amber-50 shadow-[0_10px_26px_rgba(0,0,0,.4)]">
+          <div className="mb-2 flex justify-between text-xs text-white/55">
+            <span>{t(lang, 'arenaAmount')}</span><span>{t(lang, 'arenaAvailableBalance')}: <b className="font-black text-amber-300">{availableBalance.toLocaleString()}</b> <span className="text-[9px]">{t(lang, 'singleBalance')}</span></span>
           </div>
           <div className="flex gap-2">
             <input
@@ -592,7 +540,7 @@ export function ArenaScreen({
                 onClick={() => setAmount(String(preset))}
                 disabled={loading || !isVerified || ownEntry || isRoundClosed || preset > availableBalance}
                 aria-pressed={amount === String(preset)}
-                className={`rounded-lg border px-2 py-2 text-xs font-black tabular-nums transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${amount === String(preset) ? 'border-amber-500 bg-gradient-to-b from-amber-300 to-orange-400 text-[#3b210c] shadow-inner' : 'border-amber-800/15 bg-[#fff7e9] text-[#70431f] hover:border-amber-500/60'}`}
+                className={`rounded-lg border px-2 py-2 text-xs font-black tabular-nums transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${amount === String(preset) ? 'border-amber-500 bg-gradient-to-b from-amber-300 to-orange-400 text-[#3b210c] shadow-inner' : 'border-white/15 bg-white/10 text-amber-100 hover:border-amber-300/60'}`}
               >
                 {preset.toLocaleString()}
               </button>
@@ -601,27 +549,27 @@ export function ArenaScreen({
           <button
             disabled={loading || !isVerified || ownEntry || isRoundClosed || Number(amount) < MIN_ARENA_ENTRY || Number(amount) > availableBalance}
             onClick={() => void join()}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#ff9f50] py-3 font-black text-[#24180f] disabled:opacity-40"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg game-cta bg-gradient-to-b from-[#ffe08a] to-[#f59e0b] py-3 font-black text-[#3b2106] shadow-[0_3px_0_#a35c05] disabled:opacity-40"
           >
             {loading ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
             {t(lang, 'arenaJoin')} · {Number(amount || 0).toLocaleString()}
           </button>
           {canCancelWaitingEntry && (
-            <button type="button" onClick={() => void cancelWaitingEntry()} disabled={loading} className="mt-2 w-full rounded-lg border border-red-300 bg-red-50 py-2.5 text-xs font-black text-red-700 disabled:opacity-50">
+            <button type="button" onClick={() => void cancelWaitingEntry()} disabled={loading} className="mt-2 w-full rounded-lg border border-rose-300/40 bg-rose-400/10 py-2.5 text-xs font-black text-rose-200 disabled:opacity-50">
               {loading ? <Loader2 className="mx-auto animate-spin" size={15} /> : t(lang, 'arenaCancelEntry')}
             </button>
           )}
-          <p className="mt-2 text-[10px] text-[#9a7659]">{t(lang, 'arenaMin')} · {t(lang, 'arenaRules')} · {t(lang, 'arenaMaxHint')}</p>
-          <p className="mt-2 rounded-lg border border-emerald-700/15 bg-emerald-50/80 px-3 py-2 text-[10px] leading-relaxed text-emerald-900">{t(lang, 'arenaWinFeeNote')}</p>
+          <p className="mt-2 text-[10px] text-white/45">{t(lang, 'arenaMin')} · {t(lang, 'arenaRules')} · {t(lang, 'arenaMaxHint')}</p>
+          <p className="mt-2 rounded-lg border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-[10px] leading-relaxed text-emerald-100">{t(lang, 'arenaWinFeeNote')}</p>
           <p className="mt-2 rounded-lg border border-blue-400/15 bg-blue-400/[.06] px-3 py-2 text-[10px] leading-relaxed text-blue-100/75">{t(lang, 'arenaWaitingNoExpiry')}</p>
         </section>
 
-        <section className="rounded-xl border border-white/75 bg-white/75 p-3 text-[#633715] shadow-[0_8px_24px_rgba(120,53,15,.1)] backdrop-blur-md">
+        <section className="game-panel p-3 text-amber-50 shadow-[0_10px_26px_rgba(0,0,0,.4)]">
           <h3 className="mb-2 text-sm font-black">{t(lang, 'arenaPlayers')}</h3>
           {displayedEntries.length === 0 ? (
-            <div className="py-4 text-center text-xs text-[#9a7659]">{t(lang, 'arenaNoRound')}</div>
-          ) : displayedEntries.map((entry) => (
-            <div key={entry.telegramId} className="flex items-center justify-between border-b border-amber-900/10 py-2 last:border-0">
+            <div className="py-4 text-center text-xs text-white/45">{t(lang, 'arenaNoRound')}</div>
+          ) : displayedEntries.map((entry, entryIndex) => (
+            <div key={entry.telegramId} style={{ animationDelay: Math.min(entryIndex, 8) * 0.04 + 's' }} className={"row-in flex items-center justify-between border-b border-white/10 py-2 last:border-0 " + (entry.telegramId === telegramUserId ? "rounded-lg bg-amber-300/10 px-2" : "")}>
               <div className="flex min-w-0 items-center gap-2">
                 {entry.photoUrl ? (
                   <img src={entry.photoUrl} alt={entry.username} referrerPolicy="no-referrer" className="h-9 w-9 shrink-0 rounded-full border border-white/20 object-cover" />
@@ -633,8 +581,8 @@ export function ArenaScreen({
                 </span>
               </div>
               <div className="text-end">
-                <b className="text-xs font-black text-amber-800">{entry.amount.toLocaleString()}</b>
-                <div className="text-[9px] font-semibold text-[#805b3c]">{(75 * entry.amount / Math.max(total, 1)).toFixed(1)}%</div>
+                <b className="text-xs font-black text-amber-300">{entry.amount.toLocaleString()}</b>
+                <div className="text-[9px] font-semibold text-white/50">{(75 * entry.amount / Math.max(total, 1)).toFixed(1)}%</div>
               </div>
             </div>
           ))}
@@ -642,50 +590,50 @@ export function ArenaScreen({
 
         <section className="mt-4 space-y-3">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-sm font-black text-[#633715]">{t(lang, 'arenaBetHistory')}</h3>
-            <span className="text-[10px] font-bold text-[#9a7659]">{history.length}</span>
+            <h3 className="text-sm font-black text-amber-50">{t(lang, 'arenaBetHistory')}</h3>
+            <span className="text-[10px] font-bold text-white/45">{history.length}</span>
           </div>
           {history.length === 0 ? (
-            <div className="rounded-xl border border-white/70 bg-white/65 p-4 text-center text-xs text-[#9a7659]">{t(lang, 'arenaHistoryEmpty')}</div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-xs text-white/45">{t(lang, 'arenaHistoryEmpty')}</div>
           ) : history.map((item, index) => (
-            <article key={item.id} className="overflow-hidden rounded-xl border border-amber-900/10 bg-white/85 p-3 text-[#633715] shadow-[0_5px_16px_rgba(120,53,15,.08)]">
-              <div className="mb-2 flex items-center justify-between gap-2 border-b border-amber-900/10 pb-2">
+            <article key={item.id} className="overflow-hidden rounded-xl border border-white/10 bg-white/[.06] p-3 text-amber-50">
+              <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2">
                 <div className="text-xs font-black">{t(lang, 'arenaHistoryRound')} #{history.length - index}</div>
-                <time className="text-[9px] font-semibold text-[#987354]" dateTime={item.occurredAt}>
+                <time className="text-[9px] font-semibold text-white/50" dateTime={item.occurredAt}>
                   {new Date(item.occurredAt).toLocaleString(lang === 'ar' ? 'ar-EG' : lang === 'ru' ? 'ru-RU' : 'en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
                 </time>
               </div>
-              <div className="mb-2 flex items-center justify-between text-[10px] text-[#987354]">
-                <span>{t(lang, 'arenaHistoryPot')}: <b className="text-amber-800">{item.total.toLocaleString()}</b></span>
+              <div className="mb-2 flex items-center justify-between text-[10px] text-white/50">
+                <span>{t(lang, 'arenaHistoryPot')}: <b className="text-amber-300">{item.total.toLocaleString()}</b></span>
                 <span>{item.entries.length} {t(lang, 'arenaPlayers')}</span>
               </div>
-              <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-50 px-2.5 py-2 text-[9px] text-[#987354]">
-                <span>{t(lang, 'arenaHistoryFee')}: <b className="text-red-700">{item.fee.toLocaleString()}</b></span>
-                <span>{t(lang, 'arenaHistoryNetWin')}: <b className="text-emerald-700">{item.netWinnings.toLocaleString()}</b></span>
+              <div className="mb-2 flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-2 text-[9px] text-white/50">
+                <span>{t(lang, 'arenaHistoryFee')}: <b className="text-rose-300">{item.fee.toLocaleString()}</b></span>
+                <span>{t(lang, 'arenaHistoryNetWin')}: <b className="text-emerald-300">{item.netWinnings.toLocaleString()}</b></span>
               </div>
               <div className="space-y-2">
                 {item.entries.map((entry) => (
-                  <div key={entry.telegramId} className="flex items-center justify-between gap-2 rounded-lg border border-amber-900/5 bg-[#fffaf1] px-2.5 py-2">
+                  <div key={entry.telegramId} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[.05] px-2.5 py-2">
                     <div className="min-w-0">
                       <div className="truncate text-[11px] font-extrabold">{entry.username}{entry.telegramId === telegramUserId ? ' · ' + t(lang, 'arenaYou') : ''}</div>
-                      <div className="mt-0.5 text-[9px] text-[#987354]">{t(lang, 'arenaHistoryStake')}: {entry.stake.toLocaleString()}</div>
+                      <div className="mt-0.5 text-[9px] text-white/50">{t(lang, 'arenaHistoryStake')}: {entry.stake.toLocaleString()}</div>
                     </div>
                     <div className="shrink-0 text-end">
                       {entry.outcome === 'win' ? (
                         <>
-                          <div className="text-xs font-black text-emerald-700">+{entry.amount.toLocaleString()}</div>
-                          <div className="text-[9px] font-bold text-emerald-700">{t(lang, 'arenaHistoryWon')} · {entry.multiplier.toFixed(2)}X</div>
-                          <div className="text-[9px] text-emerald-800/75">{t(lang, 'arenaHistoryStakeReturned')}: {entry.stake.toLocaleString()}</div>
+                          <div className="text-xs font-black text-emerald-300">+{entry.amount.toLocaleString()}</div>
+                          <div className="text-[9px] font-bold text-emerald-300">{t(lang, 'arenaHistoryWon')} · {entry.multiplier.toFixed(2)}X</div>
+                          <div className="text-[9px] text-emerald-100/60">{t(lang, 'arenaHistoryStakeReturned')}: {entry.stake.toLocaleString()}</div>
                         </>
                       ) : entry.outcome === 'refund' ? (
                         <>
-                          <div className="text-xs font-black text-amber-700">+{entry.amount.toLocaleString()}</div>
-                          <div className="text-[9px] font-bold text-amber-700">{t(lang, 'arenaHistoryRefund')}</div>
+                          <div className="text-xs font-black text-amber-300">+{entry.amount.toLocaleString()}</div>
+                          <div className="text-[9px] font-bold text-amber-300">{t(lang, 'arenaHistoryRefund')}</div>
                         </>
                       ) : (
                         <>
-                          <div className="text-xs font-black text-red-600">-{entry.amount.toLocaleString()}</div>
-                          <div className="text-[9px] font-bold text-red-600">{t(lang, 'arenaHistoryLost')} · 1.00X</div>
+                          <div className="text-xs font-black text-rose-300">-{entry.amount.toLocaleString()}</div>
+                          <div className="text-[9px] font-bold text-rose-300">{t(lang, 'arenaHistoryLost')} · 1.00X</div>
                         </>
                       )}
                     </div>
@@ -698,22 +646,18 @@ export function ArenaScreen({
 
         {state.lastResult && (replaying || !round) && (
           <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-sm font-bold">
-            <div className="mb-1 text-[10px] uppercase text-amber-900/60">{replaying ? t(lang, 'arenaReplayWinner') : t(lang, 'arenaWinner')}</div>
+            <div className="mb-1 text-[10px] uppercase text-amber-200/70">{replaying ? t(lang, 'arenaReplayWinner') : t(lang, 'arenaWinner')}</div>
             {state.lastResult.winnerType === 'house'
               ? t(lang, 'arenaReplayHouse')
               : state.lastResult.winnerTelegramId === telegramUserId
                 ? t(lang, 'arenaPlayerWon')
                 : `${t(lang, 'arenaReplayPlayer')}: ${state.lastResult.entries.find((entry) => entry.telegramId === state.lastResult?.winnerTelegramId)?.username ?? t(lang, 'arenaRoundClosed')}`}
-            <div className="mt-1 text-[10px] font-semibold text-amber-900/65">{state.lastResult.totalEntries.toLocaleString()}</div>
+            <div className="mt-1 text-[10px] font-semibold text-amber-200/70">{state.lastResult.totalEntries.toLocaleString()}</div>
           </div>
         )}
 
           </div>
         </div>
-        <div className={gameMode === 'crash' ? 'block' : 'hidden'}>
-          <CrashGameScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} onBuyTokens={() => void buyArenaTokens()} buyingTokens={buyingTokens} />
-        </div>
-        <LuckyWheel open={luckyWheelOpen} onClose={() => setLuckyWheelOpen(false)} />
       </div>
     </div>
   );

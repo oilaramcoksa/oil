@@ -265,12 +265,12 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
 
   return (
     <div className="mx-auto w-full max-w-md space-y-3 pb-8 text-[#f8e7c6]" dir={dirOf(lang)}>
-      <section className="rounded-2xl border border-amber-300/20 bg-[#111a35] p-3 shadow-xl">
+      <section className="game-panel p-3 shadow-[0_14px_34px_rgba(0,0,0,.45)]">
         <div className="mb-3 flex items-center justify-between">
           <div><div className="text-lg font-black">{lang === 'ar' ? 'ARMCOFLY · لعبة الطائرة' : lang === 'ru' ? 'ARMCOFLY · АВИАКРАШ' : 'ARMCOFLY · CRASH'}</div><div className="text-[10px] text-amber-100/60">{lang === 'ar' ? 'اسحب أرباحك قبل الانفجار' : lang === 'ru' ? 'Заберите выигрыш до крушения' : 'Cash out before the crash'}</div></div>
           <button onClick={() => setSound((v) => !v)} className="rounded-xl border border-white/15 bg-white/5 p-2" aria-label="Toggle sound">{sound ? <Volume2 size={18}/> : <VolumeX size={18}/>}</button>
         </div>
-        <div className="relative h-72 overflow-hidden rounded-xl border border-sky-200/15 bg-[linear-gradient(180deg,#07152f_0%,#102d52_48%,#f28b4b_100%)] shadow-[inset_0_0_55px_rgba(4,12,32,.55)]">
+        <div className={"crash-stage relative h-72 overflow-hidden rounded-2xl border border-sky-200/20 bg-[linear-gradient(180deg,#07152f_0%,#102d52_48%,#f28b4b_100%)] shadow-[inset_0_0_55px_rgba(4,12,32,.55)] "+(round?.status==='running'?'crash-stage-live':'')}>
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_22%,rgba(255,220,145,.42),transparent_20%),radial-gradient(ellipse_at_50%_75%,rgba(249,115,22,.3),transparent_48%)]" />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#f28b4b]/35 to-transparent" />
           <motion.div
@@ -382,7 +382,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             ))}
           </div>
           <div className="absolute inset-x-0 bottom-3 z-20 text-center">
-            <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400' : 'text-white'}`}>
+            <div className={`text-5xl font-black tabular-nums tracking-tight ${round?.status === 'crashed' ? 'text-rose-400 crash-shake' : round?.status === 'running' ? (liveMultiplier >= 3 ? 'text-emerald-300 mult-glow-green' : liveMultiplier >= 2 ? 'text-amber-200 mult-glow-amber' : 'text-white mult-glow') : 'text-white'}`}>
               {recentCrash || round?.status === 'crashed' ? (round?.crashMultiplier !== null && round?.crashMultiplier !== undefined && round.crashMultiplier <= 1 ? (lang === 'ar' ? 'تعذّر الإقلاع!' : lang === 'ru' ? 'ЗАДЕРЖКА ВЫЛЕТА!' : 'WEATHER DELAY!') : (lang === 'ar' ? 'انفجار!' : lang === 'ru' ? 'КРУШЕНИЕ!' : 'CRASHED!')) : liveMultiplier.toFixed(2) + 'x'}
             </div>
             <div className="mt-1 text-[10px] font-bold text-amber-100/65">
@@ -404,7 +404,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
               <div className="mt-0.5 text-2xl font-black tabular-nums leading-none">{fmt(ownBet.amount * liveMultiplier)} <span className="text-xs">{lang === 'ar' ? 'عملة' : lang === 'ru' ? 'монет' : 'coins'}</span></div>
               <div className="mt-1 text-[10px] font-bold text-white/80">{liveMultiplier.toFixed(2)}x · {lang === 'ar' ? 'يتحدث لحظيًا' : lang === 'ru' ? 'Текущая сумма' : 'Live value'}</div>
             </div>
-            <button onClick={() => void act('cashout')} disabled={!canCashout} className="min-h-[58px] shrink-0 rounded-xl border border-white/40 bg-white px-5 text-base font-black text-emerald-800 shadow-lg transition active:scale-[.97] disabled:opacity-50">
+            <button onClick={() => void act('cashout')} disabled={!canCashout} className={"min-h-[58px] shrink-0 rounded-xl border border-white/40 bg-white px-5 text-base font-black text-emerald-700 shadow-lg transition active:scale-[.97] disabled:opacity-50 "+(canCashout?"cashout-pulse":"")}>
               {pendingAction === 'cashout' ? (lang === 'ar' ? 'جارٍ تأكيد السحب…' : lang === 'ru' ? 'ПОДТВЕРЖДЕНИЕ ВЫВОДА…' : 'CONFIRMING CASHOUT…') : loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? 'اسحب أرباحك' : lang === 'ru' ? 'ЗАБРАТЬ ВЫИГРЫШ' : 'CASH OUT')}
             </button>
           </div>
@@ -433,39 +433,39 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
         <p className="mt-2 text-[9px] leading-relaxed text-white/50">{t(lang, 'planeTipsHistory')}</p>
       </section>
 
-      <section className="mb-1 rounded-xl border border-emerald-700/20 bg-gradient-to-r from-emerald-50/95 to-teal-50/95 p-3 text-[#245b45] shadow-sm">
+      <section className="mb-1 rounded-xl border border-emerald-300/20 bg-gradient-to-r from-[#0f2b2a] to-[#10243a] p-3 text-emerald-50 shadow-md">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-sm font-black">{t(lang, 'arenaBuyTokensStore')}</div>
-            <p className="mt-1 text-[10px] leading-relaxed text-emerald-800">{t(lang, 'arenaBuyTokenDescription')}</p>
-            <div className="mt-1 text-xs font-black text-emerald-900">10,000 · 1 TON</div>
+            <p className="mt-1 text-[10px] leading-relaxed text-emerald-200">{t(lang, 'arenaBuyTokenDescription')}</p>
+            <div className="mt-1 text-xs font-black text-emerald-100">10,000 · 1 TON</div>
           </div>
           <button type="button" onClick={onBuyTokens} disabled={buyingTokens || !isVerified} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-teal-600 px-4 py-3 text-xs font-black text-white shadow-md disabled:opacity-50">
             {buyingTokens ? <Loader2 size={15} className="animate-spin"/> : <span aria-hidden="true">🛒</span>}
             {buyingTokens ? (lang === 'ar' ? 'جارٍ التجهيز…' : lang === 'ru' ? 'Подготовка…' : 'Preparing…') : t(lang, 'arenaBuyTokensButton')}
           </button>
         </div>
-        <p className="mt-2 text-[9px] text-emerald-800/75">{t(lang, 'arenaBuyTokensFootnote')}</p>
+        <p className="mt-2 text-[9px] text-emerald-100/60">{t(lang, 'arenaBuyTokensFootnote')}</p>
       </section>
-      <section className="rounded-2xl border border-amber-300/20 bg-[#fff5df] p-3 text-[#633715] shadow-lg">
+      <section className="game-panel p-3 text-amber-50 shadow-[0_14px_34px_rgba(0,0,0,.4)]">
         <div className="mb-2 flex items-center justify-between text-xs"><b>{lang === 'ar' ? 'رهانك' : lang === 'ru' ? 'Ваша ставка' : 'Your bet'}</b><span>{lang === 'ar' ? 'الحد الأدنى 100' : lang === 'ru' ? 'Минимум 100' : 'Min 100'}</span></div>
         {ownBet ? (
-          <div className="rounded-xl bg-white p-3">
+          <div className="rounded-xl bg-white/10 p-3">
             <div className="flex items-center justify-between"><b>{fmt(ownBet.amount)} {lang === 'ar' ? 'عملة' : lang === 'ru' ? 'монет' : 'coins'}</b><span className="text-xs font-bold">{ownBet.status === 'active' ? (lang === 'ar' ? 'رهان نشط' : lang === 'ru' ? 'Активна' : 'Active') : ownBet.status === 'cashed_out' ? (lang === 'ar' ? 'تم السحب' : lang === 'ru' ? 'Выведено' : 'Cashed out') : (lang === 'ar' ? 'خاسر' : lang === 'ru' ? 'Проигрыш' : 'Lost')}</span></div>
-            {ownBet.status === 'cashed_out' && <div className="mt-2 text-sm font-black text-emerald-700">+{fmt(ownBet.payout - ownBet.amount)} {lang === 'ar' ? 'ربح صافٍ' : lang === 'ru' ? 'чистая прибыль' : 'net profit'} · {ownBet.cashoutMultiplier?.toFixed(2)}x</div>}
-            {ownBet.status === 'lost' && <div className="mt-2 text-sm font-black text-rose-600">{lang === 'ar' ? 'خسرت كامل الرهان' : lang === 'ru' ? 'Ставка проиграна' : 'Stake lost'}</div>}
+            {ownBet.status === 'cashed_out' && <div className="mt-2 text-sm font-black text-emerald-300">+{fmt(ownBet.payout - ownBet.amount)} {lang === 'ar' ? 'ربح صافٍ' : lang === 'ru' ? 'чистая прибыль' : 'net profit'} · {ownBet.cashoutMultiplier?.toFixed(2)}x</div>}
+            {ownBet.status === 'lost' && <div className="mt-2 text-sm font-black text-rose-300">{lang === 'ar' ? 'خسرت كامل الرهان' : lang === 'ru' ? 'Ставка проиграна' : 'Stake lost'}</div>}
           </div>
         ) : (
           <>
-            {previousOwnBet && <div className={`mb-2 rounded-lg px-3 py-2 text-[10px] font-bold ${previousOwnBet.status === 'cashed_out' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700'}`}>
+            {previousOwnBet && <div className={`mb-2 rounded-lg px-3 py-2 text-[10px] font-bold ${previousOwnBet.status === 'cashed_out' ? 'bg-emerald-400/15 text-emerald-200' : 'bg-rose-400/15 text-rose-200'}`}>
               {lang === 'ar' ? 'نتيجتك في الجولة السابقة: ' : lang === 'ru' ? 'Ваш предыдущий раунд: ' : 'Your previous round: '}
               {previousOwnBet.status === 'cashed_out' ? '+' + fmt(previousOwnBet.payout - previousOwnBet.amount) + ' ' + (lang === 'ar' ? 'ربح صافٍ' : lang === 'ru' ? 'чистая прибыль' : 'net profit') + ' · ' + previousOwnBet.cashoutMultiplier?.toFixed(2) + 'x' : (lang === 'ar' ? 'خسرت ' : lang === 'ru' ? 'Проиграно ' : 'Lost ') + fmt(previousOwnBet.amount)}
             </div>}
-            <div className="mb-2 flex justify-between text-[10px] text-[#8e6a4b]"><span>{lang === 'ar' ? 'المحفظة العادية' : lang === 'ru' ? 'Кошелёк' : 'Wallet'}: {fmt(state?.balance ?? 0)}</span><span>{lang === 'ar' ? 'عملات الرهان' : lang === 'ru' ? 'Монеты для ставок' : 'Bet tokens'}: {fmt(state?.betBalance ?? 0)}</span></div>
-            <input type="number" inputMode="numeric" min="100" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={!canBet} className="w-full rounded-xl border border-amber-900/15 bg-white p-3 font-black outline-none focus:border-amber-500 disabled:opacity-50"/>
-            <div className="mt-2 grid grid-cols-4 gap-2">{[100,500,1000,5000].map((v) => <button key={v} onClick={() => setAmount(String(v))} disabled={!canBet} className="rounded-lg bg-amber-100 py-2 text-xs font-black disabled:opacity-40">{fmt(v)}</button>)}</div>
-            <button onClick={() => void act('bet')} disabled={!canBet || !Number.isSafeInteger(Number(amount)) || Number(amount) < 100 || Number(amount) > totalAvailableBalance} className="mt-3 w-full rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 py-3 font-black text-[#44240d] shadow-md disabled:opacity-40">{loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? (round?.status !== 'countdown' ? 'انتظر الجولة القادمة' : !initData ? 'افتح اللعبة من تيليجرام' : 'تأكيد الرهان') : lang === 'ru' ? (round?.status !== 'countdown' ? 'ОЖИДАЙТЕ СЛЕДУЮЩИЙ РАУНД' : 'СДЕЛАТЬ СТАВКУ') : (round?.status !== 'countdown' ? 'WAIT FOR NEXT ROUND' : 'PLACE BET'))}</button>
-            <p className="mt-2 text-[9px] text-[#997454]">{lang === 'ar' ? 'يُخصم الرهان من عملات الرهان المشتراة أولًا، ويُستكمل المتبقي من المحفظة العادية عند الحاجة.' : lang === 'ru' ? 'Сначала списываются купленные монеты для ставок, а недостающая сумма — с обычного кошелька.' : 'Purchased betting tokens are deducted first; any remaining stake is taken from your regular wallet.'}</p>
+            <div className="mb-2 flex justify-between text-[10px] text-white/55"><span>{lang === 'ar' ? 'المحفظة العادية' : lang === 'ru' ? 'Кошелёк' : 'Wallet'}: {fmt(state?.balance ?? 0)}</span><span>{lang === 'ar' ? 'عملات الرهان' : lang === 'ru' ? 'Монеты для ставок' : 'Bet tokens'}: {fmt(state?.betBalance ?? 0)}</span></div>
+            <input type="number" inputMode="numeric" min="100" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={!canBet} className="w-full rounded-xl border border-white/15 bg-black/30 p-3 font-black text-white outline-none focus:border-amber-400 disabled:opacity-50"/>
+            <div className="mt-2 grid grid-cols-4 gap-2">{[100,500,1000,5000].map((v) => <button key={v} onClick={() => setAmount(String(v))} disabled={!canBet} className="rounded-lg border border-white/15 bg-white/10 py-2 text-xs font-black text-amber-100 disabled:opacity-40">{fmt(v)}</button>)}</div>
+            <button onClick={() => void act('bet')} disabled={!canBet || !Number.isSafeInteger(Number(amount)) || Number(amount) < 100 || Number(amount) > totalAvailableBalance} className="mt-3 w-full rounded-xl game-cta bg-gradient-to-b from-[#ffe08a] to-[#f59e0b] py-3 font-black text-[#3b2106] shadow-[0_4px_0_#a35c05,0_10px_18px_rgba(245,158,11,.3)] active:translate-y-[2px] disabled:opacity-40">{loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? (round?.status !== 'countdown' ? 'انتظر الجولة القادمة' : !initData ? 'افتح اللعبة من تيليجرام' : 'تأكيد الرهان') : lang === 'ru' ? (round?.status !== 'countdown' ? 'ОЖИДАЙТЕ СЛЕДУЮЩИЙ РАУНД' : 'СДЕЛАТЬ СТАВКУ') : (round?.status !== 'countdown' ? 'WAIT FOR NEXT ROUND' : 'PLACE BET'))}</button>
+            <p className="mt-2 text-[9px] text-white/45">{lang === 'ar' ? 'يُخصم الرهان من عملات الرهان المشتراة أولًا، ويُستكمل المتبقي من المحفظة العادية عند الحاجة.' : lang === 'ru' ? 'Сначала списываются купленные монеты для ставок, а недостающая сумма — с обычного кошелька.' : 'Purchased betting tokens are deducted first; any remaining stake is taken from your regular wallet.'}</p>
           </>
         )}
       </section>
@@ -484,7 +484,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
         </div>)}</div>
       </section>}
 
-      <div className="rounded-xl border border-amber-200 bg-[#fff3d9] px-3 py-3 text-center text-[11px] font-medium leading-6 text-[#68431f] shadow-sm">
+      <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-center text-[11px] font-medium leading-6 text-white/55">
         {lang === 'ar' ? 'تنبيه: هذه لعبة ترفيهية برصيد عملات ARMCO OIL داخل التطبيق، وليست رهانًا نقديًا مباشرًا داخل اللعبة. تخضع العملات لقواعد المحفظة والتبديل العامة للتطبيق.' : lang === 'ru' ? 'Примечание: это внутриигровая игра с использованием монет ARMCO OIL, а не прямая денежная ставка. На монеты распространяются общие правила кошелька и конвертации приложения.' : 'Notice: This is an in-app game using ARMCO OIL coins, not a direct cash wager. Coins remain subject to the app wallet and conversion rules.'}
       </div>
     </div>

@@ -3,6 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { MonetagAdNotice } from "@/components/aram/MonetagAdNotice";
 import Script from "next/script";
+import { APP_URL } from "@/lib/links";
 
 const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL
   ? new URL(process.env.NEXT_PUBLIC_SITE_URL)
@@ -10,7 +11,7 @@ const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL
     ? new URL(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
     : process.env.VERCEL_URL
       ? new URL(`https://${process.env.VERCEL_URL}`)
-      : undefined;
+      : new URL(APP_URL);
 
 export const metadata: Metadata = {
   metadataBase: siteOrigin,

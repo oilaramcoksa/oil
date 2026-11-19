@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { t, dirOf } from '@/lib/i18n';
-import { getTonConnectUI } from '@/lib/ton-connect';
+import { getTonConnectUI, classifyWalletError } from '@/lib/ton-connect';
 import { ShieldCheck, Wallet, Loader2, CheckCircle2 } from 'lucide-react';
 
 type Props = {
@@ -33,6 +33,13 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [pendingPaymentId, setPendingPaymentId] = useState('');
+  // Keep latest callbacks/lang in refs so effects never re-run (and re-fetch) on every parent render.
+  const onActivatedRef = useRef(onActivated);
+  const langRef = useRef(lang);
+  onActivatedRef.current = onActivated;
+  langRef.current = lang;
+  const PENDING_KEY = 'armco_fee_pending_payment';
+  const rememberPending = (id: string) => { try { if (id) sessionStorage.setItem(PENDING_KEY, id); else sessionStorage.removeItem(PENDING_KEY); } catch {} };
 
   useEffect(() => {
     let alive = true;
@@ -43,10 +50,18 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
         if (!r.ok) throw new Error(t(lang, 'miningFeeLoadError'));
         return d as Status;
       })
-      .then(d => { if (alive) { setStatus(d); setSavedAddress(d.savedWalletAddress || ''); if (!d.required) onActivated(); } })
-      .catch(e => { if (alive) setError(t(lang, 'miningFeeVerifyError')); });
+      .then(d => {
+        if (!alive) return;
+        setStatus(d); setSavedAddress(d.savedWalletAddress || '');
+        if (!d.required) { rememberPending(''); onActivatedRef.current(); return; }
+        // The wallet app may have reloaded the Mini App mid-payment: resume checking instead of asking to pay twice.
+        let saved = ''; try { saved = sessionStorage.getItem(PENDING_KEY) || ''; } catch {}
+        if (saved) setPendingPaymentId(saved);
+      })
+      .catch(() => { if (alive) setError(t(langRef.current, 'miningFeeVerifyError')); });
     return () => { alive = false; };
-  }, [initData, onActivated, lang]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initData]);
 
   useEffect(() => {
     let alive = true;
@@ -68,7 +83,7 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
           if (alive) setSavedAddress(connected);
         }).catch((error) => {
           console.error('ton_wallet_save_failed', error);
-          if (alive) setError(t(lang, 'miningFeeWalletUiError'));
+          if (alive) setError(t(langRef.current, 'miningFeeWalletUiError'));
         });
       };
       // Read the already-restored session immediately; the callback alone may
@@ -81,13 +96,13 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
       });
     }).catch((error) => {
       console.error('ton_connect_ui_init_failed', error);
-      if (alive) setError(t(lang, 'miningFeeWalletUiError'));
+      if (alive) setError(t(langRef.current, 'miningFeeWalletUiError'));
     });
     return () => {
       alive = false;
       unsubscribe?.();
     };
-  }, [initData, lang]);
+  }, [initData]);
 
   async function verifyPayment(paymentId: string) {
     for (let attempt = 0; attempt < 20; attempt++) {
@@ -101,7 +116,8 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
       const data = await response.json();
       if (response.ok && data.activated) {
         setPendingPaymentId('');
-        onActivated();
+        rememberPending('');
+        onActivatedRef.current();
         return true;
       }
       if (response.status !== 202 && data.error !== 'payment_not_found_yet') {
@@ -146,10 +162,14 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
         throw sendError;
       }
       setPendingPaymentId(created.paymentId);
+      rememberPending(created.paymentId);
       await verifyPayment(created.paymentId);
     } catch (e) {
-      console.error('mining_fee_payment_flow_failed', e);
-      setError(t(lang, 'miningFeePaymentFailed'));
+      const kind = classifyWalletError(e);
+      if (kind === 'rejected') { setError(lang === 'ar' ? 'تم إلغاء العملية من المحفظة. لم يُخصم أي مبلغ، يمكنك المحاولة مرة أخرى.' : 'The request was cancelled in your wallet. Nothing was charged — you can try again.'); }
+      else if (kind === 'timeout') { setError(lang === 'ar' ? 'انتهت مهلة تأكيد العملية في المحفظة. حاول مرة أخرى.' : 'The wallet confirmation timed out. Please try again.'); }
+      else if (kind === 'not_connected') { setError(t(lang, 'miningFeeConnectFirst')); }
+      else { console.error('mining_fee_payment_flow_failed', e); setError(t(lang, 'miningFeePaymentFailed')); }
     } finally {
       setBusy(false);
     }

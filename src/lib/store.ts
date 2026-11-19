@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Lang } from './i18n';
+import { Lang, loadLang } from './i18n';
 import { PACKAGES, packageTotal, UPGRADE_DURATION_MS, type UpgradePackage, type CryptoWallet } from './wallets';
 import { generateMockLeaderboard, getMonthKey } from './tournaments';
 import { COINS_PER_USD, type WithdrawalRecord } from './withdraw';
@@ -231,8 +231,9 @@ export const useGame = create<GameState>()(
       cycleEndsAt: null,
       lastTickAt: null,
 
-      setLang: (l) => set({ lang: l, languagePreferenceSet: true }),
-      setLangFromTelegram: (l) => { if (!get().languagePreferenceSet) set({ lang: l }); },
+      // Load the language pack first, then switch: t() is synchronous and must never see a half-loaded pack.
+      setLang: (l) => { set({ languagePreferenceSet: true }); void loadLang(l).then(() => set({ lang: l })).catch(() => set({ lang: 'en' })); },
+      setLangFromTelegram: (l) => { if (!get().languagePreferenceSet) void loadLang(l).then(() => { if (!get().languagePreferenceSet) set({ lang: l }); }).catch(() => undefined); },
       completeOnboarding: () => set({ onboarded: true }),
       acceptDisclaimer: () => set({ acceptedDisclaimer: true }),
       toggleSound: () => set((s) => ({ sound: !s.sound })),

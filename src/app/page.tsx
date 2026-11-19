@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useGame } from '@/lib/store';
-import { dirOf } from '@/lib/i18n';
+import { dirOf, isLangLoaded, loadLang } from '@/lib/i18n';
 import { TopBar } from '@/components/aram/TopBar';
 import { BottomNav, type Tab } from '@/components/aram/BottomNav';
 import { PumpScreen } from '@/components/aram/screens/PumpScreen';
@@ -43,11 +43,17 @@ export default function Home() {
   const setLangFromTelegram = useGame((s) => s.setLangFromTelegram);
   const addReferral = useGame((s) => s.addReferral);
 
+  // The active language pack is a lazy chunk: wait for it once so the first paint is never in the wrong language.
+  const [, setPackTick] = useState(0);
+  useEffect(() => { let alive = true; void loadLang(lang).then(() => { if (alive) setPackTick((n) => n + 1); }).catch(() => undefined); return () => { alive = false; }; }, [lang]);
+  const packReady = isLangLoaded(lang);
+
   const [tab, setTab] = useState<Tab>('pump');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tournamentsOpen, setTournamentsOpen] = useState(false);
   const [shortsOpen, setShortsOpen] = useState(false);
   const [openStoreProductRequest, setOpenStoreProductRequest] = useState(0);
+  const [openStoreProductId, setOpenStoreProductId] = useState('plane_tips');
   const [openColorWheelRequest, setOpenColorWheelRequest] = useState(0);
 
   // Keep every opened section mounted so returning to it is immediate.
@@ -59,6 +65,7 @@ export default function Home() {
 
   useEffect(() => {
     const openPlaneTipsStore = () => {
+      setOpenStoreProductId('plane_tips');
       setOpenStoreProductRequest((current) => current + 1);
       navigateToTab('store');
     };
@@ -114,6 +121,8 @@ export default function Home() {
     document.documentElement.lang = lang;
   }, [lang]);
 
+  if (!packReady) return <div className="aram-app aram-bg" aria-busy="true" />;
+
   if (!onboarded) {
     return (
       <div className="aram-app aram-bg">
@@ -135,12 +144,12 @@ export default function Home() {
       />
 
       <main className="min-h-0 min-w-0 flex-1 overflow-hidden overscroll-contain">
-        {visitedTabs.has('pump') && <section className={tab === 'pump' ? 'h-full' : 'hidden'}><PumpScreen onGoToStore={() => navigateToTab('store')} onGoToArena={() => navigateToTab('arena')} onOpenShorts={() => setShortsOpen(true)} initData={initData} isVerified={isVerified} /></section>}
-        {visitedTabs.has('wallet') && <section className={tab === 'wallet' ? 'h-full' : 'hidden'}><WalletScreen /></section>}
-        {visitedTabs.has('tasks') && <section className={tab === 'tasks' ? 'h-full' : 'hidden'}><TasksScreen initData={initData} isVerified={isVerified} /></section>}
-        {visitedTabs.has('friends') && <section className={tab === 'friends' ? 'h-full' : 'hidden'}><FriendsScreen /></section>}
-        {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} openProductRequest={openStoreProductRequest} /></section>}
-        {visitedTabs.has('arena') && <section className={tab === 'arena' ? 'h-full' : 'hidden'}><ArenaHubScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} openColorWheelRequest={openColorWheelRequest} /></section>}
+        {visitedTabs.has('pump') && <section className={tab === 'pump' ? 'h-full tab-enter' : 'hidden'}><PumpScreen onGoToStore={() => navigateToTab('store')} onGoToArena={() => navigateToTab('arena')} onOpenShorts={() => setShortsOpen(true)} initData={initData} isVerified={isVerified} /></section>}
+        {visitedTabs.has('wallet') && <section className={tab === 'wallet' ? 'h-full tab-enter' : 'hidden'}><WalletScreen /></section>}
+        {visitedTabs.has('tasks') && <section className={tab === 'tasks' ? 'h-full tab-enter' : 'hidden'}><TasksScreen initData={initData} isVerified={isVerified} /></section>}
+        {visitedTabs.has('friends') && <section className={tab === 'friends' ? 'h-full tab-enter' : 'hidden'}><FriendsScreen /></section>}
+        {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full tab-enter' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} openProductRequest={openStoreProductRequest} openProductId={openStoreProductId} /></section>}
+        {visitedTabs.has('arena') && <section className={tab === 'arena' ? 'h-full tab-enter' : 'hidden'}><ArenaHubScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} openColorWheelRequest={openColorWheelRequest} active={tab === 'arena'} onGoToStore={(productId) => { if (productId) { setOpenStoreProductId(productId); setOpenStoreProductRequest((current) => current + 1); } navigateToTab('store'); }} /></section>}
         {visitedTabs.has('swap') && <section className={tab === 'swap' ? 'h-full' : 'hidden'}><SwapScreen initData={initData} isVerified={isVerified} /></section>}
       </main>
 

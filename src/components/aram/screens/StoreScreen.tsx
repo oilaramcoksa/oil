@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TonConnectUI } from '@tonconnect/ui';
+import type { TonConnectUI } from '@tonconnect/ui';
+import { getTonConnectUI } from '@/lib/ton-connect';
 import { beginCell } from '@ton/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/lib/store';
@@ -15,7 +16,7 @@ import { toast } from 'sonner';
 import { TadsWidget } from 'react-tads-widget';
 import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
 
-export function StoreScreen({ initData, isVerified, openProductRequest = 0 }: { initData: string; isVerified: boolean; openProductRequest?: number }) {
+export function StoreScreen({ initData, isVerified, openProductRequest = 0, openProductId = 'plane_tips' }: { initData: string; isVerified: boolean; openProductRequest?: number; openProductId?: string }) {
   const lang = useGame((s) => s.lang);
   const upgrades = useGame((s) => s.upgrades);
   const { haptic, notify } = useTelegram();
@@ -40,14 +41,9 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0 }: { 
 
   useEffect(() => {
     let alive = true;
-    let connector: TonConnectUI | null = null;
     let unsubscribe: (() => void) | undefined;
-    void import('@tonconnect/ui').then(({ TonConnectUI: TonConnect }) => {
+    void getTonConnectUI().then((connector) => {
       if (!alive) return;
-      connector = new TonConnect({
-        manifestUrl: new URL('/api/mining/activation/tonconnect-manifest.json', window.location.origin).toString(),
-        restoreConnection: true,
-      });
       setTonConnector(connector);
       setTonConnected(Boolean(connector.connected));
       unsubscribe = connector.onStatusChange((account) => {
@@ -205,7 +201,7 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0 }: { 
 
   useEffect(() => {
     if (!openProductRequest) return;
-    const product = shopParts.find((part) => part.id === 'plane_tips');
+    const product = shopParts.find((part) => part.id === openProductId);
     if (product) {
       setSelectedPart(product);
       setPartFailed(false);

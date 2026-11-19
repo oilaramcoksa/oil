@@ -1,0 +1,16 @@
+import en from './en';
+// المهندس محمد حماد — language pack (loaded on demand)
+type Dict = Record<string, string>;
+const bn: Dict = { ...en,
+  navArena: 'গেম',
+  appName: 'Aramco Oil', appTagline: 'তেল উত্তোলন করুন · কয়েন সংগ্রহ করুন',
+  settingsTitle: 'সেটিংস', language: 'ভাষা', sound: 'শব্দ', vibration: 'কম্পন', about: 'সম্পর্কে', back: 'ফিরে যান',
+  balance: 'ব্যালেন্স', coins: 'কয়েন', oil: 'তেল', speed: 'গতি', settings: 'সেটিংস', leaderboard: 'লিডারবোর্ড',
+  navWallet: 'ওয়ালেট', navTasks: 'কাজ', navPump: 'পাম্প', navFriends: 'বন্ধু', navStore: 'দোকান', navSwap: 'বদল',
+  swapTitle: 'কয়েন বিনিময়', tapToPump: 'পাম্পে চাপ দিন', sell: 'বিক্রি', startMining: 'মাইনিং শুরু করুন',
+  tasksTitle: 'কাজ', dailyTasks: 'দৈনিক কাজ', weeklyTasks: 'সাপ্তাহিক কাজ', friendsTitle: 'বন্ধু',
+  inviteLink: 'আমন্ত্রণ লিংক', copyLink: 'লিংক কপি করুন', yourReferrals: 'আপনার রেফারেল', noReferrals: 'এখনও কোনো রেফারেল নেই',
+  speedPartsTitle: 'আপগ্রেড স্টোর', autoSellPart: "স্বয়ংক্রিয় বিক্রি", autoSellDescription: "গেম না খুলেই ৩০ দিন প্রতি ১২ ঘণ্টার খনন চক্র শেষে তেল স্বয়ংক্রিয়ভাবে বিক্রি করে। আগে থেকে একটি খনন চক্র চালু থাকতে হবে।", autoSellDuration: "৩০ দিন", crashRecentRounds: 'শেষ ১০ রাউন্ড',
+};
+
+export default bn;
