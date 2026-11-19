@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTelegram } from '@/hooks/use-telegram';
 import { toast } from 'sonner';
 import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
-import { showActionInterstitial } from '@/lib/action-ad';
 
 type AdProgress = { used: number; limit: number; remaining: number; cooldownUntil: number | null; locked: boolean; rewardPerAd: number; totalCycleReward: number };
 
@@ -285,7 +284,6 @@ export function TasksScreen({ initData, isVerified }: { initData: string; isVeri
   const handleClaim = async (id: string) => {
     if (claimAdBusyRef.current) return;
     claimAdBusyRef.current = true;
-    await showActionInterstitial();
     const r = claimTask(id);
     claimAdBusyRef.current = false;
     if (r.ok) {
