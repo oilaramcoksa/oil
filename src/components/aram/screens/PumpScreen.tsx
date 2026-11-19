@@ -175,6 +175,17 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   };
 
   const rewardActionAd = async (purpose: 'sell_action' | 'mining_start') => {
+    // Both buttons share one server-side 12-hour window. During the window,
+    // continue the requested game action immediately without opening another ad.
+    const statusResponse = await fetch('/api/ads/action-reward', {
+      method: 'GET',
+      headers: { 'x-telegram-init-data': initData },
+      cache: 'no-store',
+    });
+    if (statusResponse.ok) {
+      const status = await statusResponse.json() as { canWatchAd?: boolean };
+      if (status.canWatchAd === false) return;
+    }
     const result = await watchMonetagRewardedAd({
       initData,
       requestVar: purpose,
