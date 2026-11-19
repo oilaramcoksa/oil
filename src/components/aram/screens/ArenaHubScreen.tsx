@@ -1,6 +1,6 @@
 // المهندس محمد حماد
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { useGame } from '@/lib/store';
@@ -150,14 +150,17 @@ function Overlay({title,onBack,bg,children}:{title:string;onBack:()=>void;bg:str
  </motion.div>;
 }
 
-export function ArenaHubScreen({initData,isVerified,telegramUserId,openColorWheelRequest,active=true,onGoToStore}:{initData:string;isVerified:boolean;telegramUserId:string;openColorWheelRequest:number;active?:boolean;onGoToStore:(productId?:string)=>void}) {
+export function ArenaHubScreen({initData,isVerified,telegramUserId,openColorWheelRequest,resetToHomeRequest=0,active=true,onGoToStore}:{initData:string;isVerified:boolean;telegramUserId:string;openColorWheelRequest:number;resetToHomeRequest?:number;active?:boolean;onGoToStore:(productId?:string)=>void}) {
  const lang=useGame(s=>s.lang); const w=WORDS[lang]??WORDS.en; const x=EXTRA[lang]??EXTRA.en;
  const [section,setSection]=useState<Section>('home');
  const [luckyOpen,setLuckyOpen]=useState(false);
+ const wasActive=useRef(active);
  const reduce=Boolean(useReducedMotion());
  const rtl=lang==='ar'||lang==='ur';
  useEffect(()=>{const requested=new URLSearchParams(window.location.search).get('tab');if(requested==='crash')setSection('crash');else if(requested==='arena')setSection('arena');else if(requested==='colors')setSection('colors');},[]);
  useEffect(()=>{if(openColorWheelRequest>0)setSection('colors');},[openColorWheelRequest]);
+ useEffect(()=>{if(resetToHomeRequest>0){setSection('home');setLuckyOpen(false);}},[resetToHomeRequest]);
+ useEffect(()=>{if(active&&!wasActive.current){setSection('home');setLuckyOpen(false);}wasActive.current=active;},[active]);
  useEffect(()=>{const openCrash=()=>setSection('crash');window.addEventListener('open-crash-game',openCrash);return()=>window.removeEventListener('open-crash-game',openCrash);},[]);
  useEffect(()=>{const toHome=()=>{setSection('home');setLuckyOpen(false);};window.addEventListener('open-plane-tips-store',toHome);return()=>window.removeEventListener('open-plane-tips-store',toHome);},[]);
  const back=()=>setSection('home');
@@ -182,7 +185,7 @@ export function ArenaHubScreen({initData,isVerified,telegramUserId,openColorWhee
    <GameCard variant="row" index={3} rtl={rtl} accent="#10b981" title={w[5]} tag={x.store} play={x.play} onOpen={()=>goStore()}><StoreArt/></GameCard>
     <GameCard variant="row" index={4} rtl={rtl} accent="#f97316" title={ARENA_TITLE[lang]??ARENA_TITLE.en} tag={x.wheel} play={x.play} onOpen={()=>setSection('arena')}><div className="grid h-14 w-14 place-items-center rounded-2xl bg-black/30 text-3xl">⚔️</div></GameCard>
   </div>
-  <DailyDollarAds/>
+  <DailyDollarAds initData={initData} isVerified={isVerified}/>
   {showColors&&<Overlay title={w[6]} onBack={back} bg="#130c22"><ColorWheelScreen initData={initData} isVerified={isVerified}/></Overlay>}
   {showArena&&<Overlay title={w[6]} onBack={back} bg="#130c22"><ArenaScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId}/></Overlay>}
   {showCrash&&<Overlay title={w[6]} onBack={back} bg="#130c22"><div className="h-full overflow-y-auto overscroll-contain px-3 pb-6 pt-3"><CrashGameScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} onBuyTokens={()=>goStore('arena_tokens_10000')} buyingTokens={false}/></div></Overlay>}
