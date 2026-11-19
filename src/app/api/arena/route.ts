@@ -359,18 +359,21 @@ export async function POST(req: NextRequest) {
   const identity = verifiedPlayerFromRequest(req);
   if (!identity) return jsonError('telegram_auth_required', 401);
 
-  let body: { amount?: unknown; action?: unknown };
+  let body: { amount?: unknown; action?: unknown; roundId?: unknown };
   try {
     body = await req.json();
   } catch {
     return jsonError('invalid_body');
   }
   if (body.action !== 'cancel' && !validAmount(body.amount)) return jsonError('minimum_100_required');
+  if (body.action === 'cancel' && body.roundId !== undefined && (typeof body.roundId !== 'string' || body.roundId.length < 1 || body.roundId.length > 64)) return jsonError('invalid_round');
 
   try {
     await ensureDatabaseSchema();
     const db = getTurso();
-    await settleDueRounds(db);
+    // Cancellation must run before settlement: GET polling may have already auto-cancelled
+    // and refunded a one-player round at its deadline. The cancel path below is idempotent.
+    if (body.action !== 'cancel') await settleDueRounds(db);
 
     const playerId = String(identity.id);
     const player = await db.execute({
@@ -382,16 +385,27 @@ export async function POST(req: NextRequest) {
     if (body.action === 'cancel') {
       const tx = await db.transaction('write');
       try {
-        const active = await tx.execute({
-          sql: "SELECT id FROM arena_rounds WHERE status='open' ORDER BY created_at DESC LIMIT 1",
-        });
+        const active = typeof body.roundId === 'string'
+          ? await tx.execute({ sql: 'SELECT id,status FROM arena_rounds WHERE id=?', args: [body.roundId] })
+          : await tx.execute({ sql: "SELECT id,status FROM arena_rounds WHERE status IN ('open','cancelled') ORDER BY created_at DESC LIMIT 1" });
         if (!active.rows.length) { await tx.rollback(); return jsonError('no_cancellable_round', 409); }
         const roundId = String(active.rows[0].id);
+        const roundStatus = String(active.rows[0].status);
         const entryResult = await tx.execute({
           sql: 'SELECT amount,purchased_amount,wallet_amount FROM arena_entries WHERE round_id=? AND telegram_id=?',
           args: [roundId, playerId],
         });
         if (!entryResult.rows.length) { await tx.rollback(); return jsonError('entry_not_found', 404); }
+        // A concurrent state poll may already have auto-cancelled and refunded this
+        // single-player round. Since status and refunds commit in the same transaction,
+        // returning success here is safe and prevents a false cancellation error.
+        if (roundStatus === 'cancelled') {
+          const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [playerId] });
+          const bet = await tx.execute({ sql: 'SELECT balance FROM bet_token_balances WHERE telegram_id=?', args: [playerId] });
+          await tx.commit();
+          return NextResponse.json({ ok: true, cancelled: true, alreadyCancelled: true, balance: Number(wallet.rows[0]?.coins_balance ?? 0), betBalance: Number(bet.rows[0]?.balance ?? 0) }, { headers: { 'Cache-Control': 'no-store, private' } });
+        }
+        if (roundStatus !== 'open') { await tx.rollback(); return jsonError('cancellation_locked_second_player_joined', 409); }
         const countResult = await tx.execute({
           sql: 'SELECT COUNT(*) AS count FROM arena_entries WHERE round_id=?',
           args: [roundId],
