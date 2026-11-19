@@ -258,7 +258,7 @@ export async function POST(req: NextRequest) {
       firstBet = Number(count.rows[0]?.count ?? 0) === 1;
       if (firstBet) {
         await tx.execute({
-          sql: "UPDATE color_wheel_rounds SET starts_at=? WHERE id=? AND status='open' AND starts_at IS NULL',
+          sql: "UPDATE color_wheel_rounds SET starts_at=? WHERE id=? AND status='open' AND starts_at IS NULL",
           args: [Date.now() + BETTING_MS, roundId],
         });
       }
