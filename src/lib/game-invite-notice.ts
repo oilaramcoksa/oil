@@ -64,7 +64,7 @@ export async function broadcastGameInvite(
         copy[2] + ' <b>(' + gameName + ')</b>',
         '',
         copy[3],
-      ].join('\\n');
+      ].join('\n');
       try {
         const response = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
           method: 'POST',
