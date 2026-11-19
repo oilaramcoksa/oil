@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Play, ShieldCheck } from 'lucide-react';
 import { watchMonetagRewardedAd } from '@/lib/monetag-reward';
+import { useGame } from '@/lib/store';
+import { t } from '@/lib/i18n';
 
 type Props = {
   initData: string;
@@ -16,6 +18,7 @@ type Props = {
 };
 
 export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loadingLabel, onRewarded, onError, rewardPurpose = 'coins' }: Props) {
+  const lang = useGame((state) => state.lang);
   const [busy, setBusy] = useState(false);
   const [cycle, setCycle] = useState<{ used: number; remaining: number; cooldownUntil: number | null } | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -75,7 +78,7 @@ export function HybridRewardedAd({ initData, isVerified, title, actionLabel, loa
       </button>
       {rewardPurpose === 'coins' && <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-amber-900/60">
         <span>{cycle ? `${cycle.used}/30` : '…/30'}</span>
-        <span>{cycle ? `المتبقي: ${cycle.remaining}` : title}</span>
+        <span>{cycle ? `${t(lang, 'remaining')}: ${cycle.remaining}` : title}</span>
       </div>}
     </div>
   );
