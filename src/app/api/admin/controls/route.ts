@@ -248,6 +248,7 @@ export async function GET(req: NextRequest) {
           });
         }
         entries.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+        entries = entries.slice(0,300);
       } else {
         entries = (ledger?.rows ?? []).map((row) => ({
           id:String(row.id),asset:String(row.asset),entryType:String(row.entry_type),
