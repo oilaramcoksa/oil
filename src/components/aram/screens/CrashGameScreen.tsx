@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Volume2, VolumeX, Loader2, Users, Clock3, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
-import { t } from '@/lib/i18n';
+import { t, dirOf } from '@/lib/i18n';
 
 type CrashBet = {
   telegramId: string; username: string; amount: number; status: 'active' | 'cashed_out' | 'lost';
@@ -275,7 +275,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   }, [explosionKey, round?.status, state?.previousRound?.crashedAt]);
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-3 pb-8 text-[#f8e7c6]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="mx-auto w-full max-w-md space-y-3 pb-8 text-[#f8e7c6]" dir={dirOf(lang)}>
       <section className="rounded-2xl border border-amber-300/20 bg-[#111a35] p-3 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
           <div><div className="text-lg font-black">{lang === 'ar' ? 'ARMCOFLY · لعبة الطائرة' : lang === 'ru' ? 'ARMCOFLY · АВИАКРАШ' : 'ARMCOFLY · CRASH'}</div><div className="text-[10px] text-amber-100/60">{lang === 'ar' ? 'اسحب أرباحك قبل الانفجار' : lang === 'ru' ? 'Заберите выигрыш до крушения' : 'Cash out before the crash'}</div></div>
