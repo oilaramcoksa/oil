@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Coins, Loader2, History, Timer, Trophy } from 'lucide-react';
+import { Coins, Loader2, History, Timer, Trophy, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
 import { dirOf, type Lang } from '@/lib/i18n';
@@ -108,6 +108,8 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
  };
  const presets=[{label:'½',value:Math.max(100,Math.floor(Number(amount||100)/2))},{label:'×2',value:Math.max(100,Number(amount||100)*2)},{label:'MAX',value:state?.balance??0}];
  const history=state?.history??[];
+ const currentBets=state?.bets??[];
+ const lastRoundResults=state?.lastRoundResults;
  const ownBet=state?.ownBet;
  const canBet=Boolean(state&&isVerified&&!ownBet&&!loading&&state.round.status==='open'&&(state.round.startsAt===null||state.round.startsAt>Date.now()));
  const wheelGradient=useMemo(()=>`conic-gradient(from -12deg,${COLORS.map((color,index)=>`${META[color].hex} ${index*24}deg ${(index+1)*24}deg`).join(',')})`,[]);
@@ -144,15 +146,15 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
     <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/50"><Timer size={12}/>{isSpinning?c[11]:(state?.bets.length??0)===0?c[12]:c[13]}</div>
    </section>
    <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
-    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><Users size={14}/> {resultCopy.players}</h3><span className="text-[10px] text-amber-300">{state?.bets.length??0}</span></div>
-    {!state?.bets.length?<p className="py-3 text-center text-[11px] text-white/40">{resultCopy.empty}</p>:<div className="space-y-2">{state.bets.map(bet=><div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-black/15 px-2.5 py-2">
+    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><Users size={14}/> {resultCopy.players}</h3><span className="text-[10px] text-amber-300">{currentBets.length}</span></div>
+    {currentBets.length===0?<p className="py-3 text-center text-[11px] text-white/40">{resultCopy.empty}</p>:<div className="space-y-2">{currentBets.map(bet=><div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-black/15 px-2.5 py-2">
       <div className="flex min-w-0 items-center gap-2">{bet.photoUrl?<img src={bet.photoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover"/>:<span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black">{bet.username.slice(0,1).toUpperCase()}</span>}<div className="min-w-0"><b className="block truncate text-[11px]">{bet.username}</b><span className="text-[9px] text-white/45">{colorLabel(bet.color)}</span></div></div>
       <b className="shrink-0 text-xs text-amber-300">{bet.amount.toLocaleString()} {c[29]}</b>
     </div>)}</div>}
    </section>
-   {state?.lastRoundResults&&<section className="rounded-2xl border border-amber-300/20 bg-[#282522] p-3">
-    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-amber-100"><Trophy size={14}/> {resultCopy.round}</h3><span className="rounded-lg px-2 py-1 text-[9px] font-black" style={{background:META[state.lastRoundResults.winningColor].hex,color:'#21180e'}}>{colorLabel(state.lastRoundResults.winningColor)}</span></div>
-    <div className="space-y-2">{state.lastRoundResults.bets.map(bet=>{const net=bet.outcome==='win'?bet.payout-bet.amount:-bet.amount;return <div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl bg-black/20 px-2.5 py-2">
+   {lastRoundResults&&<section className="rounded-2xl border border-amber-300/20 bg-[#282522] p-3">
+    <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-amber-100"><Trophy size={14}/> {resultCopy.round}</h3><span className="rounded-lg px-2 py-1 text-[9px] font-black" style={{background:META[lastRoundResults.winningColor].hex,color:'#21180e'}}>{colorLabel(state.lastRoundResults.winningColor)}</span></div>
+    <div className="space-y-2">{lastRoundResults.bets.map(bet=>{const net=bet.outcome==='win'?bet.payout-bet.amount:-bet.amount;return <div key={bet.telegramId} className="flex items-center justify-between gap-2 rounded-xl bg-black/20 px-2.5 py-2">
       <div className="flex min-w-0 items-center gap-2">{bet.photoUrl?<img src={bet.photoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover"/>:<span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black">{bet.username.slice(0,1).toUpperCase()}</span>}<div className="min-w-0"><b className="block truncate text-[11px]">{bet.username}</b><span className="text-[9px] text-white/45">{colorLabel(bet.color)} · {bet.amount.toLocaleString()} {c[29]}</span></div></div>
       <div className="shrink-0 text-end"><b className={net>=0?'text-sm text-emerald-300':'text-sm text-rose-300'}>{net>=0?'+':''}{net.toLocaleString()}</b><div className="text-[9px] text-white/45">{net>=0?resultCopy.won:resultCopy.lost}</div></div>
     </div>})}</div>
