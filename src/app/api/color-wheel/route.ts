@@ -150,6 +150,22 @@ export async function GET(req: NextRequest) {
       sql: 'UPDATE players SET username=COALESCE(?,username),first_name=COALESCE(?,first_name),last_name=COALESCE(?,last_name),photo_url=COALESCE(?,photo_url) WHERE telegram_id=?',
       args: [identity.username ?? null, identity.first_name ?? null, identity.last_name ?? null, identity.photo_url ?? null, playerId],
     });
+    if (req.nextUrl.searchParams.get('invite') === '1') {
+      const active = await db.execute("SELECT id,status,starts_at FROM color_wheel_rounds WHERE status IN ('open','spinning') ORDER BY created_at DESC LIMIT 1");
+      if (!active.rows.length) return NextResponse.json({ round: null, bets: [], ownBet: null }, { headers: { 'Cache-Control': 'no-store, private' } });
+      const inviteRoundId = String(active.rows[0].id);
+      const inviteBets = await db.execute({
+        sql: `SELECT b.telegram_id,p.username,p.first_name FROM color_wheel_bets b
+          JOIN players p ON p.telegram_id=b.telegram_id WHERE b.round_id=? ORDER BY b.created_at LIMIT 10`,
+        args: [inviteRoundId],
+      });
+      const inviteList = inviteBets.rows.map(row => ({ telegramId: String(row.telegram_id), username: String(row.username || row.first_name || 'Player') }));
+      return NextResponse.json({
+        round: { id: inviteRoundId, status: String(active.rows[0].status), startsAt: active.rows[0].starts_at == null ? null : Number(active.rows[0].starts_at) },
+        bets: inviteList,
+        ownBet: inviteList.find(entry => entry.telegramId === playerId) ?? null,
+      }, { headers: { 'Cache-Control': 'no-store, private' } });
+    }
     const round = await advanceRound(db);
     const roundId = String(round.id);
     const [wallet, betsResult, historyResult, winnersResult] = await Promise.all([
