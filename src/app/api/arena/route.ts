@@ -459,12 +459,12 @@ export async function POST(req: NextRequest) {
       }
       };
       let lastError: unknown;
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < 5; attempt++) {
         try { return await runCancel(); }
         catch (error) {
           lastError = error;
           console.error('arena_cancel_attempt_failed', { attempt, error });
-          await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+          await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
         }
       }
       console.error('arena_cancel_failed', lastError);
