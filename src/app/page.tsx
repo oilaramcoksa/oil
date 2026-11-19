@@ -7,12 +7,12 @@ import { dirOf } from '@/lib/i18n';
 import { TopBar } from '@/components/aram/TopBar';
 import { BottomNav, type Tab } from '@/components/aram/BottomNav';
 import { PumpScreen } from '@/components/aram/screens/PumpScreen';
-import { WalletScreen } from '@/components/aram/screens/WalletScreen';
-import { TasksScreen } from '@/components/aram/screens/TasksScreen';
-import { FriendsScreen } from '@/components/aram/screens/FriendsScreen';
-import { StoreScreen } from '@/components/aram/screens/StoreScreen';
-import { ArenaHubScreen } from '@/components/aram/screens/ArenaHubScreen';
-import { SwapScreen } from '@/components/aram/screens/SwapScreen';
+const WalletScreen = dynamic(() => import('@/components/aram/screens/WalletScreen').then((m) => m.WalletScreen));
+const TasksScreen = dynamic(() => import('@/components/aram/screens/TasksScreen').then((m) => m.TasksScreen));
+const FriendsScreen = dynamic(() => import('@/components/aram/screens/FriendsScreen').then((m) => m.FriendsScreen));
+const StoreScreen = dynamic(() => import('@/components/aram/screens/StoreScreen').then((m) => m.StoreScreen));
+const ArenaHubScreen = dynamic(() => import('@/components/aram/screens/ArenaHubScreen').then((m) => m.ArenaHubScreen));
+const SwapScreen = dynamic(() => import('@/components/aram/screens/SwapScreen').then((m) => m.SwapScreen));
 
 
 
