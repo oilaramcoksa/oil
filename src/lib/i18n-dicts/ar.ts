@@ -454,7 +454,7 @@ const ar: Dict = {
   txArenaPrize: 'جائزة ساحة الحظ',
   txArenaRefund: 'استرداد مشاركة الساحة',
   txLedger: 'حركة رصيد',
-  txReferralCommission: '+{amount} من إحالة صديق',
+  txReferralCommission: 'إحالة صديق',
   arenaJoin: 'دخول الجولة',
   arenaMax: 'الكل',
   arenaWaiting: 'بانتظار لاعب آخر',
