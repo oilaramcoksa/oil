@@ -124,7 +124,7 @@ export default function Home() {
 
   return (
     <div className="aram-app aram-bg flex flex-col" dir={dirOf(lang)}>
-      {tab === 'pump' && <MonetagInAppAds enabled={tab === 'pump'} />}
+      <MonetagInAppAds enabled />
       {isVerified && user && <GameCloudSync initData={initData} userId={user.id} userName={user.username || user.first_name || 'Player'} />}
       {isVerified && <AdminNotices initData={initData} isVerified={isVerified} />}
       {isVerified && user && <ArenaInviteNotice initData={initData} isVerified={isVerified} telegramUserId={String(user.id)} onGoToArena={() => { navigateToTab('arena'); setOpenColorWheelRequest((current) => current + 1); }} />}
