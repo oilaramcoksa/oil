@@ -111,6 +111,12 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
               sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_prize',?,?,'color_wheel_round',?,?,?)",
               args: [randomUUID(), String(bet.telegram_id), payout, Number(credited.rows[0].coins_balance), String(round.id), `color_wheel_prize:${round.id}:${String(bet.telegram_id)}`, JSON.stringify({ color: winningColor, stake: Number(bet.amount), multiplier: MULTIPLIERS[winningColor] })],
             });
+            const monthKey = new Date().toISOString().slice(0, 7);
+            await tx.execute({
+              sql: `INSERT INTO player_monthly_stats(telegram_id,month_key,coins_earned) VALUES(?,?,?)
+                ON CONFLICT(telegram_id,month_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned,updated_at=CURRENT_TIMESTAMP`,
+              args: [String(bet.telegram_id), monthKey, payout],
+            });
             await tx.execute({
               sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'color_wheel_prize',?,?,?)",
               args: [randomUUID(), String(bet.telegram_id), payout, JSON.stringify({ roundId: String(round.id), color: winningColor }), `event:color_wheel_prize:${round.id}:${String(bet.telegram_id)}`],
@@ -274,6 +280,12 @@ export async function POST(req: NextRequest) {
       await tx.execute({
         sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_bet',?,?,'color_wheel_round',?,?,?)",
         args: [randomUUID(), playerId, -Number(body.amount), newBalance, roundId, `color_wheel_bet:${roundId}:${playerId}`, JSON.stringify({ color: body.color })],
+      });
+      const monthKey = new Date().toISOString().slice(0, 7);
+      await tx.execute({
+        sql: `INSERT INTO player_monthly_stats(telegram_id,month_key,coins_spent) VALUES(?,?,?)
+          ON CONFLICT(telegram_id,month_key) DO UPDATE SET coins_spent=coins_spent+excluded.coins_spent,updated_at=CURRENT_TIMESTAMP`,
+        args: [playerId, monthKey, Number(body.amount)],
       });
       await tx.execute({
         sql: "INSERT INTO color_wheel_bets(id,round_id,telegram_id,color,amount) VALUES(?,?,?,?,?)",
