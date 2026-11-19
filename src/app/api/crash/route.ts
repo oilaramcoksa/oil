@@ -190,17 +190,18 @@ export async function POST(req: NextRequest) {
         const betBalance = Number(betWallet.rows[0]?.balance ?? 0);
         const normalBalance = Number(normal.rows[0]?.coins_balance ?? 0);
         const amount = Number(body.amount);
-        const purchasedAmount = betBalance >= amount ? amount : 0;
-        const walletAmount = purchasedAmount === 0 && normalBalance >= amount ? amount : 0;
-        if (!purchasedAmount && !walletAmount) throw new Error('insufficient_balance');
-        if (purchasedAmount) {
-          const debit = await tx.execute({ sql: 'UPDATE bet_token_balances SET balance=balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND balance>=? RETURNING balance', args: [amount, playerId, amount] });
+        const purchasedAmount = Math.min(betBalance, amount);
+        const walletAmount = amount - purchasedAmount;
+        if (normalBalance < walletAmount) throw new Error('insufficient_balance');
+        if (purchasedAmount > 0) {
+          const debit = await tx.execute({ sql: 'UPDATE bet_token_balances SET balance=balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND balance>=? RETURNING balance', args: [purchasedAmount, playerId, purchasedAmount] });
           if (!debit.rows.length) throw new Error('insufficient_balance');
-          await tx.execute({ sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'stake',?,?, 'crash_round',?,?,?)", args: [randomUUID(), playerId, -amount, Number(debit.rows[0].balance), roundId, `crash_bet:${roundId}:${playerId}`, JSON.stringify({ roundId })] });
-        } else {
-          const debit = await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=coins_balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance>=? RETURNING coins_balance', args: [amount, playerId, amount] });
+          await tx.execute({ sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'stake',?,?, 'crash_round',?,?,?)", args: [randomUUID(), playerId, -purchasedAmount, Number(debit.rows[0].balance), roundId, `crash_bet:${roundId}:${playerId}`, JSON.stringify({ roundId, totalStake: amount, purchasedAmount, walletAmount })] });
+        }
+        if (walletAmount > 0) {
+          const debit = await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=coins_balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance>=? RETURNING coins_balance', args: [walletAmount, playerId, walletAmount] });
           if (!debit.rows.length) throw new Error('insufficient_balance');
-          await tx.execute({ sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','crash_bet',?,?, 'crash_round',?,?,?)", args: [randomUUID(), playerId, -amount, Number(debit.rows[0].coins_balance), roundId, `crash_bet:${roundId}:${playerId}`, JSON.stringify({ roundId })] });
+          await tx.execute({ sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','crash_bet',?,?, 'crash_round',?,?,?)", args: [randomUUID(), playerId, -walletAmount, Number(debit.rows[0].coins_balance), roundId, `crash_bet:${roundId}:${playerId}`, JSON.stringify({ roundId, totalStake: amount, purchasedAmount, walletAmount })] });
         }
         await tx.execute({
           sql: "INSERT INTO crash_bets(id,round_id,telegram_id,username,amount,purchased_amount,wallet_amount,status) VALUES(?,?,?,?,?,?,?,'active')",
@@ -248,15 +249,25 @@ export async function POST(req: NextRequest) {
         args: [acceptedMultiplier, payout, String(wager.id)],
       });
       if (!marked.rows.length) throw new Error('cashout_already_processed');
+      const purchasedAmount = Number(wager.purchased_amount ?? 0);
+      const walletAmount = Number(wager.wallet_amount ?? 0) || (purchasedAmount === 0 ? Number(wager.amount) : 0);
+      const netWinnings = Math.max(0, payout - Number(wager.amount));
+      if (purchasedAmount > 0) {
+        const restored = await tx.execute({ sql: 'UPDATE bet_token_balances SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING balance', args: [purchasedAmount, playerId] });
+        if (!restored.rows.length) throw new Error('bet_token_wallet_missing');
+        await tx.execute({ sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'crash_round',?,?,?)", args: [randomUUID(), playerId, purchasedAmount, Number(restored.rows[0].balance), roundId, `crash_stake_return:${roundId}:${playerId}`, JSON.stringify({ reason: 'cashed_out_stake_return' })] });
+      }
+      const walletCredit = walletAmount + netWinnings;
       const before = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [playerId] });
       if (!before.rows.length) throw new Error('player_not_found');
-      const afterBalance = Number(before.rows[0].coins_balance) + payout;
-      await tx.execute({
-        sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','crash_payout',?,?, 'crash_round',?,?,?)",
-        args: [randomUUID(), playerId, payout, afterBalance, roundId, `crash_payout:${roundId}:${playerId}`, JSON.stringify({ roundId, stake: Number(wager.amount), multiplier: acceptedMultiplier })],
-      });
-      await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?', args: [payout, payout, playerId] });
-      await tx.execute({ sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'crash_payout',?,?,?)", args: [randomUUID(), playerId, payout, JSON.stringify({ roundId, multiplier: acceptedMultiplier }), `event:crash_payout:${roundId}:${playerId}`] });
+      const afterBalance = Number(before.rows[0].coins_balance) + walletCredit;
+      if (walletCredit > 0) {
+        await tx.execute({ sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','crash_payout',?,?, 'crash_round',?,?,?)", args: [randomUUID(), playerId, walletCredit, afterBalance, roundId, `crash_payout:${roundId}:${playerId}`, JSON.stringify({ roundId, stake: Number(wager.amount), purchasedStake: purchasedAmount, walletStake: walletAmount, netWinnings, grossPayout: payout, multiplier: acceptedMultiplier })] });
+        const credited = await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance', args: [walletCredit, netWinnings, playerId] });
+        if (!credited.rows.length) throw new Error('player_not_found');
+      }
+      await tx.execute({ sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'crash_payout',?,?,?)", args: [randomUUID(), playerId, netWinnings, JSON.stringify({ roundId, multiplier: acceptedMultiplier, stake: Number(wager.amount), purchasedStake: purchasedAmount, walletStake: walletAmount, grossPayout: payout, netWinnings }), `event:crash_payout:${roundId}:${playerId}`] });
+      if (netWinnings > 0) await tx.execute({ sql: `INSERT INTO player_monthly_stats(telegram_id,month_key,coins_earned) VALUES(?,?,?) ON CONFLICT(telegram_id,month_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned,updated_at=CURRENT_TIMESTAMP`, args: [playerId, new Date().toISOString().slice(0,7), netWinnings] });
       await tx.commit();
       return NextResponse.json({ ok: true, action: 'cashout', payout, multiplier: acceptedMultiplier }, { headers: { 'Cache-Control': 'no-store' } });
     } catch (error) {

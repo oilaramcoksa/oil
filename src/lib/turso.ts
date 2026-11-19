@@ -716,8 +716,8 @@ export async function ensureDatabaseSchema(): Promise<void> {
           AND NOT EXISTS (
             SELECT 1 FROM ledger_entries
             WHERE telegram_id=NEW.telegram_id AND asset='coins'
-              AND entry_type IN ('admin_grant','oil_sale','arena_winner_stake_return','arena_prize','crash_payout','daily_login_reward','lucky_box_reward','lucky_wheel')
-              AND reference_type IN ('admin','oil_sale','arena_round','crash_round','daily_login','lucky_box','lucky_wheel')
+              AND entry_type IN ('admin_grant','oil_sale','arena_winner_stake_return','arena_prize','crash_payout','color_wheel_prize','daily_login_reward','lucky_box_reward','lucky_wheel')
+              AND reference_type IN ('admin','oil_sale','arena_round','crash_round','color_wheel_round','daily_login','lucky_box','lucky_wheel')
               AND amount=(NEW.coins_balance-OLD.coins_balance)
               AND balance_after=NEW.coins_balance
           )
@@ -725,7 +725,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
           SELECT CASE WHEN
             COALESCE((SELECT SUM(amount) FROM ledger_entries
               WHERE telegram_id=NEW.telegram_id AND asset='coins' AND amount>0
-                AND entry_type NOT IN ('opening_balance','withdrawal_refund','admin_grant','oil_sale','arena_winner_stake_return','arena_prize','crash_payout','daily_login_reward','lucky_box_reward','lucky_wheel')
+                AND entry_type NOT IN ('opening_balance','withdrawal_refund','admin_grant','oil_sale','arena_winner_stake_return','arena_prize','crash_payout','color_wheel_prize','daily_login_reward','lucky_box_reward','lucky_wheel')
                 AND datetime(created_at)>=datetime('now','-24 hours')),0)
             + (NEW.coins_balance-OLD.coins_balance) > ${dailyTierSql}
           THEN RAISE(ABORT,'daily_coin_limit_reached') END;
