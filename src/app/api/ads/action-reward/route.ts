@@ -26,9 +26,11 @@ export async function GET(req: NextRequest) {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`);
     const telegramId = String(user.id);
+    const purpose = new URL(req.url).searchParams.get('purpose') ?? '';
+    if (purpose !== 'sell_action' && purpose !== 'mining_start') return fail('invalid_ad_purpose');
     const latest = await db.execute({
-      sql: "SELECT CAST(strftime('%s', created_at) AS INTEGER) * 1000 AS created_at_ms FROM monetag_action_ad_claims WHERE telegram_id=? AND purpose IN ('sell_action','mining_start') ORDER BY created_at DESC LIMIT 1",
-      args: [telegramId],
+      sql: "SELECT CAST(strftime('%s', created_at) AS INTEGER) * 1000 AS created_at_ms FROM monetag_action_ad_claims WHERE telegram_id=? AND purpose=? ORDER BY created_at DESC LIMIT 1",
+      args: [telegramId, purpose],
     });
     const lastAt = Number(latest.rows[0]?.created_at_ms ?? 0);
     const cooldownMs = 12 * 60 * 60 * 1000;
@@ -84,11 +86,11 @@ export async function POST(req: NextRequest) {
       if (!verified.rows.length) { await tx.rollback(); return fail('monetag_postback_not_verified', 409); }
 
 
-      // One shared 12-hour cooldown across mining-start and sell action ads.
+      // Keep an independent 12-hour cooldown for each explicit player action.
       if (purpose === 'sell_action' || purpose === 'mining_start') {
         const recentClaim = await tx.execute({
-          sql: "SELECT id FROM monetag_action_ad_claims WHERE telegram_id=? AND purpose IN ('sell_action','mining_start') AND created_at >= datetime('now','-12 hours') LIMIT 1",
-          args: [telegramId],
+          sql: "SELECT id FROM monetag_action_ad_claims WHERE telegram_id=? AND purpose=? AND created_at >= datetime('now','-12 hours') LIMIT 1",
+          args: [telegramId, purpose],
         });
         if (recentClaim.rows.length) {
           await tx.rollback();
