@@ -77,11 +77,24 @@ export function ArenaInviteNotice({ initData, isVerified, telegramUserId, onGoTo
     setInvite(null);
   };
 
-  const copy = lang === 'ar'
-    ? { title: 'لاعب ينتظرك في الألعاب!', body: (name: string) => `${name} دخل عجلة الألوان وينتظر انضمامك إلى الجولة.`, action: 'العب الآن' }
-    : lang === 'ru'
-      ? { title: 'Игрок ждёт тебя в играх!', body: (name: string) => `${name} сделал ставку в цветном колесе и ждёт тебя.`, action: 'Играть сейчас' }
-      : { title: 'A player is waiting in Games!', body: (name: string) => `${name} placed a color-wheel bet and is waiting for you to join.`, action: 'Play now' };
+  const copies: Record<typeof lang,{title:string;body:(name:string)=>string;action:string;close:string}> = {
+    ar:{title:'لاعب ينتظرك في الألعاب!',body:(name)=>`${name} دخل عجلة الألوان وينتظر انضمامك إلى الجولة.`,action:'العب الآن',close:'إغلاق الإشعار'},
+    en:{title:'A player is waiting in Games!',body:(name)=>`${name} placed a color-wheel bet and is waiting for you to join.`,action:'Play now',close:'Close notification'},
+    ru:{title:'Игрок ждёт тебя в играх!',body:(name)=>`${name} сделал ставку в цветном колесе и ждёт тебя.`,action:'Играть сейчас',close:'Закрыть уведомление'},
+    es:{title:'¡Un jugador te espera en Juegos!',body:(name)=>`${name} apostó en la ruleta de colores y espera que te unas.`,action:'Jugar ahora',close:'Cerrar notificación'},
+    pt:{title:'Um jogador espera por você em Jogos!',body:(name)=>`${name} apostou na roleta de cores e está esperando você entrar.`,action:'Jogar agora',close:'Fechar notificação'},
+    fr:{title:'Un joueur vous attend dans Jeux !',body:(name)=>`${name} a parié sur la roue des couleurs et attend votre arrivée.`,action:'Jouer maintenant',close:'Fermer la notification'},
+    de:{title:'Ein Spieler wartet in Spiele auf dich!',body:(name)=>`${name} hat beim Farbrad gesetzt und wartet auf deinen Beitritt.`,action:'Jetzt spielen',close:'Benachrichtigung schließen'},
+    tr:{title:'Oyunlar’da bir oyuncu seni bekliyor!',body:(name)=>`${name} renk çarkına bahis yaptı ve katılmanı bekliyor.`,action:'Şimdi oyna',close:'Bildirimi kapat'},
+    zh:{title:'有玩家正在游戏中等你！',body:(name)=>`${name} 已在颜色转盘下注，正等你加入这一轮。`,action:'立即游戏',close:'关闭通知'},
+    hi:{title:'गेम्स में एक खिलाड़ी आपका इंतज़ार कर रहा है!',body:(name)=>`${name} ने रंगीन व्हील पर दांव लगाया है और आपके जुड़ने की प्रतीक्षा कर रहा है।`,action:'अभी खेलें',close:'सूचना बंद करें'},
+    id:{title:'Seorang pemain menunggumu di Permainan!',body:(name)=>`${name} memasang taruhan di Roda Warna dan menunggumu bergabung.`,action:'Main sekarang',close:'Tutup notifikasi'},
+    bn:{title:'গেমসে একজন খেলোয়াড় আপনার জন্য অপেক্ষা করছে!',body:(name)=>`${name} রঙের চাকায় বাজি ধরেছে এবং আপনার যোগ দেওয়ার অপেক্ষায় আছে।`,action:'এখনই খেলুন',close:'বিজ্ঞপ্তি বন্ধ করুন'},
+    ja:{title:'ゲームでプレイヤーが待っています！',body:(name)=>`${name} がカラーホイールにベットし、あなたの参加を待っています。`,action:'今すぐプレイ',close:'通知を閉じる'},
+    ko:{title:'게임에서 플레이어가 기다리고 있어요!',body:(name)=>`${name}님이 컬러 휠에 베팅하고 참여를 기다리고 있습니다.`,action:'지금 플레이',close:'알림 닫기'},
+    ur:{title:'کھیلوں میں ایک کھلاڑی آپ کا منتظر ہے!',body:(name)=>`${name} نے رنگوں کے پہیے پر شرط لگائی ہے اور آپ کے شامل ہونے کا انتظار کر رہا ہے۔`,action:'ابھی کھیلیں',close:'اطلاع بند کریں'},
+  };
+  const copy = copies[lang] ?? copies.en;
 
   return (
     <AnimatePresence>
@@ -95,7 +108,7 @@ export function ArenaInviteNotice({ initData, isVerified, telegramUserId, onGoTo
           role="status"
           aria-live="polite"
           className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+12px)] z-[120] mx-auto max-w-md overflow-hidden rounded-2xl border border-amber-300/70 bg-gradient-to-br from-[#fff8e8] via-[#ffedc5] to-[#f8d79a] p-3 text-[#542b12] shadow-[0_16px_48px_rgba(35,20,5,.32)]"
-          dir={lang === 'ar' ? 'rtl' : 'ltr'}
+          dir={lang === 'ar' || lang === 'ur' ? 'rtl' : 'ltr'}
         >
           <div className="flex items-start gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-lg shadow-orange-900/20">
@@ -116,7 +129,7 @@ export function ArenaInviteNotice({ initData, isVerified, telegramUserId, onGoTo
             <button
               type="button"
               onClick={close}
-              aria-label={lang === 'ar' ? 'إغلاق الإشعار' : lang === 'ru' ? 'Закрыть' : 'Close notification'}
+              aria-label={copy.close}
               className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-black/5 text-[#80502a] transition hover:bg-black/10"
             >
               <X size={15} />
@@ -127,7 +140,7 @@ export function ArenaInviteNotice({ initData, isVerified, telegramUserId, onGoTo
               initial={{ scaleX: 1 }}
               animate={{ scaleX: 0 }}
               transition={{ duration: 10, ease: 'linear' }}
-              style={{ transformOrigin: lang === 'ar' ? 'right' : 'left' }}
+              style={{ transformOrigin: lang === 'ar' || lang === 'ur' ? 'right' : 'left' }}
               className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-600"
             />
           </div>

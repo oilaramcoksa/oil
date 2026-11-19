@@ -194,6 +194,84 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({products:rows.rows},{headers:{'Cache-Control':'no-store'}});
     }
 
+    if (section === 'playerBalanceHistory') {
+      const playerId = (req.nextUrl.searchParams.get('telegramId') ?? '').trim();
+      const asset = req.nextUrl.searchParams.get('asset') ?? '';
+      if (!/^\\d{1,24}$/.test(playerId) || !['coins','oil','usd'].includes(asset)) return fail('invalid_balance_history_request');
+      const [player, ledger] = await Promise.all([
+        db.execute({
+          sql: `SELECT p.telegram_id,p.username,p.first_name,p.last_name,
+            COALESCE(w.coins_balance,0) AS coins_balance,COALESCE(w.coins_locked,0) AS coins_locked,
+            COALESCE(w.oil_balance,0) AS oil_balance,COALESCE(w.usd_micros,0) AS usd_micros, COALESCE(w.usd_locked_micros,0) AS usd_locked_micros,
+            COALESCE(w.usd_locked_micros,0) AS usd_locked_micros
+            FROM players p LEFT JOIN player_wallets w ON w.telegram_id=p.telegram_id
+            WHERE p.telegram_id=? LIMIT 1`,
+          args: [playerId],
+        }),
+        asset === 'usd'
+          ? Promise.resolve(null)
+          : db.execute({
+              sql: `SELECT id,asset,entry_type,amount,balance_after,reference_type,reference_id,metadata_json,created_at
+                FROM ledger_entries WHERE telegram_id=? AND asset=?
+                ORDER BY created_at DESC,rowid DESC LIMIT 300`,
+              args: [playerId, asset],
+            }),
+      ]);
+      if (!player.rows.length) return fail('player_not_found',404);
+      let entries: Array<Record<string, unknown>> = [];
+      if (asset === 'usd') {
+        const [swaps, withdrawals] = await Promise.all([
+          db.execute({sql:'SELECT id,coins,usd_micros,created_at FROM coin_swaps WHERE telegram_id=? ORDER BY created_at DESC LIMIT 300',args:[playerId]}),
+          db.execute({sql:'SELECT id,usd_micros,status,tron_address,tx_hash,admin_note,created_at,updated_at FROM usdt_withdrawal_requests WHERE telegram_id=? ORDER BY created_at DESC LIMIT 300',args:[playerId]}),
+        ]);
+        for (const row of swaps.rows as unknown as Array<Record<string,unknown>>) {
+          entries.push({
+            id:String(row.id),asset:'usd',entryType:'coin_swap_credit',amountMicros:Number(row.usd_micros),
+            coinsConverted:Number(row.coins),referenceType:'coin_swap',referenceId:String(row.id),
+            metadata:{coins:Number(row.coins),usdMicros:Number(row.usd_micros),rate:'1000 micro-USD per coin'},
+            createdAt:String(row.created_at),status:'completed',
+          });
+        }
+        for (const row of withdrawals.rows as unknown as Array<Record<string,unknown>>) {
+          const micros=Number(row.usd_micros);
+          const metadata={tronAddress:String(row.tron_address),txHash:row.tx_hash??null,adminNote:row.admin_note??null};
+          entries.push({
+            id:String(row.id)+':debit',asset:'usd',entryType:'usdt_withdrawal',amountMicros:-micros,
+            referenceType:'usdt_withdrawal',referenceId:String(row.id),metadata,
+            createdAt:String(row.created_at),status:String(row.status),
+          });
+          if(String(row.status)==='rejected') entries.push({
+            id:String(row.id)+':refund',asset:'usd',entryType:'usdt_withdrawal_refund',amountMicros:micros,
+            referenceType:'usdt_withdrawal',referenceId:String(row.id),
+            metadata:{...metadata,reason:String(row.admin_note??'')},
+            createdAt:String(row.updated_at),status:'refunded',
+          });
+        }
+        entries.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+        entries = entries.slice(0,300);
+      } else {
+        entries = (ledger?.rows ?? []).map((row) => ({
+          id:String(row.id),asset:String(row.asset),entryType:String(row.entry_type),
+          amount:Number(row.amount),balanceAfter:Number(row.balance_after),
+          referenceType:row.reference_type==null?null:String(row.reference_type),
+          referenceId:row.reference_id==null?null:String(row.reference_id),
+          metadata:(()=>{try{return row.metadata_json?JSON.parse(String(row.metadata_json)):null;}catch{return {raw:String(row.metadata_json)};}})(),
+          createdAt:String(row.created_at),
+        }));
+      }
+      const row=player.rows[0] as Record<string,unknown>;
+      return NextResponse.json({
+        player:{telegramId:String(row.telegram_id),name:String(row.first_name||row.username||row.telegram_id)},
+        asset,
+        wallet:{
+          coins:Number(row.coins_balance),coinsLocked:Number(row.coins_locked),
+          oil:Number(row.oil_balance),usdMicros:Number(row.usd_micros),usdLockedMicros:Number(row.usd_locked_micros),
+        },
+        entries,
+        limit:300,
+      },{headers:{'Cache-Control':'no-store, private'}});
+    }
+
     if (section === 'players') {
       const like = `%${query.replace(/[%_]/g, '')}%`;
       const rows = await db.execute({
