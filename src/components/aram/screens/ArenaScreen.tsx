@@ -321,6 +321,8 @@ export function ArenaScreen({
     ? Math.max(0.2, (round.spinStartedAt + 7_000 - now) / 1_000)
     : 7;
 
+  if (gameMode === 'crash') return <div className="h-full min-h-0 w-full overflow-y-auto"><CrashGameScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} onBuyTokens={() => void buyArenaTokens()} buyingTokens={buyingTokens} /></div>;
+
   if (gameMode === 'store') return (
     <div className="h-full w-full overflow-y-auto px-4 py-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <section className="mx-auto max-w-md rounded-3xl border border-emerald-700/20 bg-gradient-to-br from-emerald-50 to-teal-100 p-5 text-[#174d3c] shadow-xl">
