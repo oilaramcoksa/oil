@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftRight, ArrowDownToLine, Coins, DollarSign, RefreshCw, Wallet, ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/lib/store';
-import { t } from '@/lib/i18n';
+import { t, dirOf } from '@/lib/i18n';
 import { showActionInterstitial } from '@/lib/action-ad';
 
 type Withdrawal = { id: string; usdMicros: number; tronAddress: string; status: 'pending'|'paid'|'rejected'; txHash: string|null; adminNote: string|null; createdAt: number; updatedAt: number };
@@ -90,14 +90,14 @@ export function SwapScreen({ initData, isVerified }: { initData: string; isVerif
   const statusLabel = (status: Withdrawal['status']) => status === 'paid' ? t(lang, 'swapPaid') : status === 'rejected' ? t(lang, 'swapRejected') : t(lang, 'swapPending');
 
   return (
-    <div className="h-full min-h-0 w-full overflow-y-auto overscroll-contain px-3 pt-3 pb-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="h-full min-h-0 w-full overflow-y-auto overscroll-contain px-3 pt-3 pb-6" dir={dirOf(lang)}>
       <div className="mx-auto w-full max-w-md space-y-3">
         <header className="flex items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg"><ArrowLeftRight size={22}/></div>
           <div><h2 className="text-xl font-black text-[#542b12]">{t(lang, 'swapTitle')}</h2><p className="text-xs font-bold text-amber-900/60">{t(lang, 'swapRate')}</p></div>
         </header>
         <section className="aram-card rounded-2xl p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between"><h3 className="font-black text-[#633715]">{t(lang, 'swapConvert')}</h3><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">100,000 عملة = 100 دولار</span></div>
+          <div className="mb-2 flex items-center justify-between"><h3 className="font-black text-[#633715]">{t(lang, 'swapConvert')}</h3><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">{t(lang, 'swapConversionHint')}</span></div>
           <label className="mb-1 block text-xs font-bold text-amber-900/70">{t(lang, 'swapCoinsInput')}</label>
           <div className="flex gap-2"><input inputMode="numeric" type="number" min="1" step="1" value={coinsInput} onChange={(e) => setCoinsInput(e.target.value)} placeholder="100000" className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-3 text-lg font-black text-[#542b12] outline-none focus:border-amber-500"/><button type="button" onClick={() => setCoinsInput(String(wallet.coins))} className="rounded-xl bg-amber-100 px-3 text-xs font-black text-amber-900">{t(lang, 'swapMax')}</button></div>
           <div className="my-3 flex items-center justify-center gap-2 text-amber-700"><ArrowDownToLine size={16}/><span className="text-xs font-bold">{t(lang, 'swapYouReceive')}</span></div>
