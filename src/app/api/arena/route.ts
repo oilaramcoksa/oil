@@ -66,8 +66,12 @@ function chooseOutcome(entries: ArenaEntryRow[], total: number, roundId: string,
   for (const entry of entries) { cumulative += entry.amount; if (target < cumulative) { winner = entry; break; } }
   const winnerIndex = entries.findIndex((entry) => entry.telegram_id === winner.telegram_id);
   const beforeWinner = entries.slice(0, winnerIndex).reduce((sum, entry) => sum + entry.amount, 0);
-  const winnerCenter = 90 + ((beforeWinner + winner.amount / 2) / total) * 270;
-  const stopDegrees = (360 - winnerCenter + 360) % 360;
+  // The CSS wheel uses conic-gradient(from -90deg): the 25% house
+  // sector occupies [-90deg, 0deg], so player sectors start at 0deg.
+  // The pointer is fixed at 0deg (top); rotate the wheel by the inverse
+  // of the selected player's actual sector midpoint.
+  const winnerCenter = ((beforeWinner + winner.amount / 2) / total) * 270;
+  const stopDegrees = (360 - winnerCenter) % 360;
   return { seed, winnerType: 'player' as const, winnerId: winner.telegram_id, stopDegrees };
 }
 
