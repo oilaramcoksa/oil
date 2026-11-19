@@ -639,6 +639,7 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
   singleBalance: "(من رصيد واحد)",
   swapConversionHint: "100,000 عملة = 100 دولار",
   on: "على",
+  adminNotice: "إشعار من الإدارة",
 };
 
 const en: Dict = {
@@ -1243,6 +1244,7 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
   singleBalance: '(from one balance)',
   swapConversionHint: '100,000 coins = $100',
   on: 'on',
+  adminNotice: 'Admin notice',
 };
 
 const ru: Dict = {
@@ -1847,6 +1849,7 @@ shortsVideoDescription: "Хочу познакомить вас с Aramco Oil �
   singleBalance: '(из одного баланса)',
   swapConversionHint: '100 000 монет = 100 $',
   on: 'на',
+  adminNotice: 'Уведомление администрации',
 };
 
 
