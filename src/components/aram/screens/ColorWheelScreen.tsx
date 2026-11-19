@@ -44,7 +44,7 @@ export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:
   animatedRound.current=round.id;
   const remaining=Math.max(500,Math.min(7000,(round.spinStartedAt??Date.now())+7000-Date.now()));
   setSpinDuration(remaining);
-  const center=round.winningSector*SECTOR_DEG+SECTOR_DEG/2;
+  const center=round.winningSector*SECTOR_DEG;
   const target=((360-center)%360);
   setRotation(current=>current+360*8+target);
  },[state?.round?.id,state?.round?.status,state?.round?.winningSector,state?.round?.spinStartedAt]);
@@ -78,7 +78,7 @@ export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:
    <section className="rounded-2xl border border-white/10 bg-[#25282b] p-3 shadow-lg">
     <div className="mb-2 flex items-center justify-between"><div className="flex items-center gap-2 text-xs font-black text-white/65"><Trophy size={15} className="text-amber-300"/> آخر فائزين</div><span className="text-[10px] text-white/35">ARMCO OIL</span></div>
     <div className="grid grid-cols-2 gap-2">
-     {[0,1].map(index=>{const winner=state?.winners[index];return <div key={winner?.roundId??index} className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-black/20 p-2">
+     {[0,1].map(index=>{const winner=state?.winners[index];return <div key={winner?winner.roundId+':'+winner.telegramId:index} className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-black/20 p-2">
       {winner?.photoUrl?<img src={winner.photoUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover"/>:<div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-sm font-black">{winner?.username?.slice(0,1)??'?'}</div>}
       <div className="min-w-0 flex-1"><div className="truncate text-[11px] font-bold">{winner?.username??'بانتظار فائز'}</div><div className="text-[9px] text-white/40">فاز بالجولة</div></div>
       <b className="shrink-0 text-[11px] text-amber-300">+{(winner?.payout??0).toLocaleString()}</b>
