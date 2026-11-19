@@ -206,11 +206,14 @@ export async function POST(req: NextRequest) {
         });
         const revenueCoins = Math.max(0, Number(dailyRevenue.rows[0]?.total ?? 0));
         const targetCommission = Math.floor(revenueCoins * 0.05);
+        // Reconcile against actual immutable ledger credits, not the cached
+        // daily target. Older capped commissions may have been recorded as a
+        // target without ever reaching the inviter's wallet.
         const prior = await tx.execute({
-          sql: "SELECT commission_coins FROM referral_daily_commissions WHERE referee_telegram_id=? AND day_key=?",
-          args: [id, saleDay],
+          sql: "SELECT COALESCE(SUM(amount),0) AS total FROM ledger_entries WHERE telegram_id=? AND asset='coins' AND entry_type='referral_commission' AND reference_type='referral' AND reference_id=? AND date(created_at)=date('now')",
+          args: [referrerId, id],
         });
-        const alreadyCredited = Number(prior.rows[0]?.commission_coins ?? 0);
+        const alreadyCredited = Number(prior.rows[0]?.total ?? 0);
         await tx.execute({ sql: 'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)', args: [referrerId] });
         // Referral commission is not subject to the inviter's gameplay reward cap.
         // It is a platform-funded 5% share of this qualified friend's oil-sale coins.
