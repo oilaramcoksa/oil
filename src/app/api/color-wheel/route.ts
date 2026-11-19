@@ -48,6 +48,10 @@ async function ensureColorTables(db: ReturnType<typeof getTurso>) {
       await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_color_wheel_one_active ON color_wheel_rounds((1)) WHERE status IN ('open','spinning')");
       await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_history ON color_wheel_rounds(status, completed_at DESC)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_color_wheel_bets_round ON color_wheel_bets(round_id, created_at)');
+      const betColumns = await db.execute('PRAGMA table_info(color_wheel_bets)');
+      const existingColumns = new Set(betColumns.rows.map((row) => String(row.name)));
+      if (!existingColumns.has('purchased_amount')) await db.execute('ALTER TABLE color_wheel_bets ADD COLUMN purchased_amount INTEGER NOT NULL DEFAULT 0 CHECK(purchased_amount >= 0)');
+      if (!existingColumns.has('wallet_amount')) await db.execute('ALTER TABLE color_wheel_bets ADD COLUMN wallet_amount INTEGER NOT NULL DEFAULT 0 CHECK(wallet_amount >= 0)');
     })();
   }
   try {
@@ -107,32 +111,32 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
       if (current.rows.length) {
         const winningColor = String(current.rows[0].winning_color) as Color;
         const bets = await tx.execute({
-          sql: 'SELECT id,telegram_id,color,amount FROM color_wheel_bets WHERE round_id=? AND outcome=\'pending\' ORDER BY created_at,telegram_id',
+          sql: 'SELECT id,telegram_id,color,amount,purchased_amount,wallet_amount FROM color_wheel_bets WHERE round_id=? AND outcome=\'pending\' ORDER BY created_at,telegram_id',
           args: [String(round.id)],
         });
         for (const bet of bets.rows) {
           const won = String(bet.color) === winningColor;
           const payout = won ? Math.floor(Number(bet.amount) * MULTIPLIERS[winningColor]) : 0;
           if (payout > 0) {
-            const credited = await tx.execute({
-              sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance',
-              args: [payout, payout, String(bet.telegram_id)],
-            });
-            if (!credited.rows.length) throw new Error('color_wheel_player_wallet_missing');
-            await tx.execute({
-              sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_prize',?,?,'color_wheel_round',?,?,?)",
-              args: [randomUUID(), String(bet.telegram_id), payout, Number(credited.rows[0].coins_balance), String(round.id), `color_wheel_prize:${round.id}:${String(bet.telegram_id)}`, JSON.stringify({ color: winningColor, stake: Number(bet.amount), multiplier: MULTIPLIERS[winningColor] })],
-            });
-            const monthKey = new Date().toISOString().slice(0, 7);
-            await tx.execute({
-              sql: `INSERT INTO player_monthly_stats(telegram_id,month_key,coins_earned) VALUES(?,?,?)
-                ON CONFLICT(telegram_id,month_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned,updated_at=CURRENT_TIMESTAMP`,
-              args: [String(bet.telegram_id), monthKey, payout],
-            });
-            await tx.execute({
-              sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'color_wheel_prize',?,?,?)",
-              args: [randomUUID(), String(bet.telegram_id), payout, JSON.stringify({ roundId: String(round.id), color: winningColor }), `event:color_wheel_prize:${round.id}:${String(bet.telegram_id)}`],
-            });
+            const purchasedAmount = Number(bet.purchased_amount ?? 0);
+            const walletAmount = Number(bet.wallet_amount ?? 0) || (purchasedAmount === 0 ? Number(bet.amount) : 0);
+            const netWinnings = Math.max(0, payout - Number(bet.amount));
+            if (purchasedAmount > 0) {
+              const restored = await tx.execute({ sql: 'UPDATE bet_token_balances SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING balance', args: [purchasedAmount, String(bet.telegram_id)] });
+              if (!restored.rows.length) throw new Error('color_wheel_bet_wallet_missing');
+              await tx.execute({ sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'color_wheel_round',?,?,?)", args: [randomUUID(), String(bet.telegram_id), purchasedAmount, Number(restored.rows[0].balance), String(round.id), `color_wheel_stake_return:${round.id}:${String(bet.telegram_id)}`, JSON.stringify({ reason: 'winning_stake_return' })] });
+            }
+            const walletCredit = walletAmount + netWinnings;
+            if (walletCredit > 0) {
+              const credited = await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance', args: [walletCredit, netWinnings, String(bet.telegram_id)] });
+              if (!credited.rows.length) throw new Error('color_wheel_player_wallet_missing');
+              await tx.execute({ sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_prize',?,?,'color_wheel_round',?,?,?)", args: [randomUUID(), String(bet.telegram_id), walletCredit, Number(credited.rows[0].coins_balance), String(round.id), `color_wheel_prize:${round.id}:${String(bet.telegram_id)}`, JSON.stringify({ color: winningColor, stake: Number(bet.amount), purchasedStake: purchasedAmount, walletStake: walletAmount, returnedWalletStake: walletAmount, netWinnings, grossPayout: payout, multiplier: MULTIPLIERS[winningColor] })] });
+            }
+            if (netWinnings > 0) {
+              const monthKey = new Date().toISOString().slice(0, 7);
+              await tx.execute({ sql: `INSERT INTO player_monthly_stats(telegram_id,month_key,coins_earned) VALUES(?,?,?) ON CONFLICT(telegram_id,month_key) DO UPDATE SET coins_earned=coins_earned+excluded.coins_earned,updated_at=CURRENT_TIMESTAMP`, args: [String(bet.telegram_id), monthKey, netWinnings] });
+            }
+            await tx.execute({ sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'color_wheel_prize',?,?,?)", args: [randomUUID(), String(bet.telegram_id), netWinnings, JSON.stringify({ roundId: String(round.id), color: winningColor, stake: Number(bet.amount), purchasedStake: purchasedAmount, walletStake: walletAmount, grossPayout: payout, netWinnings }), `event:color_wheel_prize:${round.id}:${String(bet.telegram_id)}`] });
           }
           await tx.execute({
             sql: "UPDATE color_wheel_bets SET outcome=?,payout=? WHERE id=? AND outcome='pending'",
@@ -186,8 +190,9 @@ export async function GET(req: NextRequest) {
     }
     const round = await advanceRound(db);
     const roundId = String(round.id);
-    const [wallet, betsResult, historyResult, winnersResult, lastRoundBetsResult] = await Promise.all([
+    const [wallet, betWallet, betsResult, historyResult, winnersResult, lastRoundBetsResult] = await Promise.all([
       db.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [playerId] }),
+      db.execute({ sql: 'SELECT balance FROM bet_token_balances WHERE telegram_id=?', args: [playerId] }),
       db.execute({
         sql: `SELECT b.telegram_id,b.color,b.amount,b.payout,b.outcome,p.username,p.first_name,p.photo_url
           FROM color_wheel_bets b JOIN players p ON p.telegram_id=b.telegram_id
@@ -263,6 +268,7 @@ export async function GET(req: NextRequest) {
         winningColor: round.winning_color == null ? null : String(round.winning_color),
       },
       balance: Number(wallet.rows[0]?.coins_balance ?? 0),
+      betBalance: Number(betWallet.rows[0]?.balance ?? 0),
       bets,
       ownBet,
       winners,
@@ -305,29 +311,36 @@ export async function POST(req: NextRequest) {
       playerName = String(profile.rows[0].display_name);
       const existing = await tx.execute({ sql: 'SELECT id FROM color_wheel_bets WHERE round_id=? AND telegram_id=?', args: [roundId, playerId] });
       if (existing.rows.length) throw new Error('already_bet');
-      const debit = await tx.execute({
-        sql: 'UPDATE player_wallets SET coins_balance=coins_balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance>=? RETURNING coins_balance',
-        args: [Number(body.amount), playerId, Number(body.amount)],
-      });
-      if (!debit.rows.length) throw new Error('insufficient_balance');
-      newBalance = Number(debit.rows[0].coins_balance);
-      await tx.execute({
-        sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_bet',?,?,'color_wheel_round',?,?,?)",
-        args: [randomUUID(), playerId, -Number(body.amount), newBalance, roundId, `color_wheel_bet:${roundId}:${playerId}`, JSON.stringify({ color: body.color })],
-      });
+      const amount = Number(body.amount);
+      const betWallet = await tx.execute({ sql: 'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,0) ON CONFLICT(telegram_id) DO UPDATE SET updated_at=CURRENT_TIMESTAMP RETURNING balance', args: [playerId] });
+      const wallet = await tx.execute({ sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?', args: [playerId] });
+      const purchasedAvailable = Number(betWallet.rows[0]?.balance ?? 0);
+      const walletAvailable = Number(wallet.rows[0]?.coins_balance ?? 0);
+      const purchasedAmount = Math.min(purchasedAvailable, amount);
+      const walletAmount = amount - purchasedAmount;
+      if (walletAvailable < walletAmount) throw new Error('insufficient_balance');
+      const normalDebit = await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=coins_balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance>=? RETURNING coins_balance', args: [walletAmount, playerId, walletAmount] });
+      if (walletAmount > 0 && !normalDebit.rows.length) throw new Error('insufficient_balance');
+      newBalance = Number(normalDebit.rows[0]?.coins_balance ?? walletAvailable);
+      if (walletAmount > 0) await tx.execute({ sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_bet',?,?,'color_wheel_round',?,?,?)", args: [randomUUID(), playerId, -walletAmount, newBalance, roundId, `color_wheel_bet:${roundId}:${playerId}`, JSON.stringify({ color: body.color, totalStake: amount, purchasedAmount, walletAmount })] });
+      if (purchasedAmount > 0) {
+        const purchasedDebit = await tx.execute({ sql: 'UPDATE bet_token_balances SET balance=balance-?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND balance>=? RETURNING balance', args: [purchasedAmount, playerId, purchasedAmount] });
+        if (!purchasedDebit.rows.length) throw new Error('insufficient_balance');
+        await tx.execute({ sql: "INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'stake',?,?, 'color_wheel_round',?,?,?)", args: [randomUUID(), playerId, -purchasedAmount, Number(purchasedDebit.rows[0].balance), roundId, `color_wheel_bet:${roundId}:${playerId}`, JSON.stringify({ color: body.color, totalStake: amount, purchasedAmount, walletAmount })] });
+      }
       const monthKey = new Date().toISOString().slice(0, 7);
       await tx.execute({
         sql: `INSERT INTO player_monthly_stats(telegram_id,month_key,coins_spent) VALUES(?,?,?)
           ON CONFLICT(telegram_id,month_key) DO UPDATE SET coins_spent=coins_spent+excluded.coins_spent,updated_at=CURRENT_TIMESTAMP`,
-        args: [playerId, monthKey, Number(body.amount)],
+        args: [playerId, monthKey, walletAmount],
       });
       await tx.execute({
-        sql: "INSERT INTO color_wheel_bets(id,round_id,telegram_id,color,amount) VALUES(?,?,?,?,?)",
-        args: [randomUUID(), roundId, playerId, body.color, Number(body.amount)],
+        sql: "INSERT INTO color_wheel_bets(id,round_id,telegram_id,color,amount,purchased_amount,wallet_amount) VALUES(?,?,?,?,?,?,?)",
+        args: [randomUUID(), roundId, playerId, body.color, amount, purchasedAmount, walletAmount],
       });
       await tx.execute({
         sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'color_wheel_bet',?,?,?)",
-        args: [randomUUID(), playerId, -Number(body.amount), JSON.stringify({ roundId, color: body.color }), `event:color_wheel_bet:${roundId}:${playerId}`],
+        args: [randomUUID(), playerId, -Number(body.amount), JSON.stringify({ roundId, color: body.color, purchasedAmount, walletAmount }), `event:color_wheel_bet:${roundId}:${playerId}`],
       });
       const count = await tx.execute({ sql: 'SELECT COUNT(*) AS count FROM color_wheel_bets WHERE round_id=?', args: [roundId] });
       firstBet = Number(count.rows[0]?.count ?? 0) === 1;
@@ -343,7 +356,7 @@ export async function POST(req: NextRequest) {
       throw error;
     }
     if (firstBet) await broadcastGameInvite(db, { game: 'colors', roundId, playerId, playerName });
-    return NextResponse.json({ ok: true, balance: newBalance, roundId }, { headers: { 'Cache-Control': 'no-store, private' } });
+    return NextResponse.json({ ok: true, balance: newBalance, betBalance: Number((await db.execute({ sql: 'SELECT balance FROM bet_token_balances WHERE telegram_id=?', args: [playerId] })).rows[0]?.balance ?? 0), roundId }, { headers: { 'Cache-Control': 'no-store, private' } });
   } catch (error) {
     const code = error instanceof Error ? error.message : '';
     if (code === 'insufficient_balance') return jsonError('insufficient_balance', 409);
