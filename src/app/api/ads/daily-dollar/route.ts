@@ -60,8 +60,8 @@ async function snapshot(telegramId: string) {
   }
   if (!row) {
     const partial = await db.execute({
-      sql: 'SELECT day_key,views,paid_at,claimed_at,last_view_at,updated_at FROM daily_monetag_ad_progress WHERE telegram_id=? AND paid_at IS NULL AND views<? ORDER BY updated_at DESC LIMIT 1',
-      args: [telegramId, LIMIT],
+      sql: "SELECT day_key,views,paid_at,claimed_at,last_view_at,updated_at FROM daily_monetag_ad_progress WHERE telegram_id=? AND paid_at IS NULL AND views<? AND updated_at>COALESCE((SELECT MAX(COALESCE(claimed_at,paid_at)) FROM daily_monetag_ad_progress WHERE telegram_id=? AND paid_at IS NOT NULL),'1970-01-01') ORDER BY updated_at DESC LIMIT 1",
+      args: [telegramId, LIMIT, telegramId],
     });
     row = partial.rows[0] ?? null;
   }
@@ -130,8 +130,8 @@ export async function POST(req: NextRequest) {
         });
         const cycle = pending.rows[0];
         if (!cycle) {
-          const current = await snapshot(telegramId);
           await tx.rollback();
+          const current = await snapshot(telegramId);
           if (current.completed || current.cooldownUntil) {
             return NextResponse.json({ ok: true, alreadyClaimed: true, progress: current }, { headers: { 'Cache-Control': 'no-store' } });
           }
@@ -187,8 +187,8 @@ export async function POST(req: NextRequest) {
       });
       if (pending.rows.length) { await tx.rollback(); return fail('daily_ad_limit_reached', 429); }
       const partial = await tx.execute({
-        sql: 'SELECT day_key,views,last_view_at FROM daily_monetag_ad_progress WHERE telegram_id=? AND paid_at IS NULL AND views<? ORDER BY updated_at DESC LIMIT 1',
-        args: [telegramId, LIMIT],
+        sql: "SELECT day_key,views,last_view_at FROM daily_monetag_ad_progress WHERE telegram_id=? AND paid_at IS NULL AND views<? AND updated_at>COALESCE((SELECT MAX(COALESCE(claimed_at,paid_at)) FROM daily_monetag_ad_progress WHERE telegram_id=? AND paid_at IS NOT NULL),'1970-01-01') ORDER BY updated_at DESC LIMIT 1",
+        args: [telegramId, LIMIT, telegramId],
       });
       let cycle = partial.rows[0] ?? null;
       if (!cycle) {
