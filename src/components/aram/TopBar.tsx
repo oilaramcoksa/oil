@@ -64,7 +64,7 @@ export function TopBar({ onOpenSettings, onOpenTournaments }: Props) {
                     setLangOpen(false);
                     haptic('light');
                   }}
-                  className={`w-full px-4 py-2.5 text-sm flex items-center gap-2.5 whitespace-nowrap transition-colors ${
+                  className={`relative w-full min-h-14 px-4 py-3 text-sm flex items-center gap-3 justify-end whitespace-nowrap text-right transition-colors border-b border-amber-100/[0.06] last:border-b-0 ${
                     lang === l.code
                       ? 'bg-amber-500/20 text-amber-300 font-black'
                       : 'text-amber-100 hover:bg-white/10 font-bold'
