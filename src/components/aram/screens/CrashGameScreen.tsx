@@ -203,7 +203,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     if (action === 'bet') {
       const value = Number(amount);
       if (!Number.isSafeInteger(value) || value < 100 || value > totalAvailableBalance) {
-        toast.error(lang === 'ar' ? 'المبلغ غير صالح أو لا يوجد رصيد كافٍ في محفظة واحدة' : lang === 'ru' ? 'Неверная сумма или недостаточно средств на одном кошельке' : 'Invalid amount or insufficient total balance');
+        toast.error(lang === 'ar' ? 'المبلغ غير صالح أو الرصيد الإجمالي غير كافٍ' : lang === 'ru' ? 'Неверная сумма или недостаточно общего баланса' : 'Invalid amount or insufficient total balance');
         return;
       }
     }
