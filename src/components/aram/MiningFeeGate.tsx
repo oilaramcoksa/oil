@@ -24,8 +24,6 @@ type Status = {
   savedWalletAddress?: string;
 };
 
-const MANIFEST = '/api/mining/activation/tonconnect-manifest.json';
-
 export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
   const lang = useGame((s) => s.lang);
   const [status, setStatus] = useState<Status | null>(null);
@@ -199,7 +197,7 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
         </button>
         {pendingPaymentId ? (
           <button onClick={retryPaymentVerification} disabled={busy} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f7c34d] to-[#ed8b22] py-3 font-black text-[#4c2908] shadow-lg disabled:opacity-50">
-            {busy ? <Loader2 className="animate-spin" size={18}/> : <CheckCircle2 size={18}/>} {busy ? t(lang, 'miningFeePay') : t(lang, 'miningFeeVerifyError')}
+            {busy ? <Loader2 className="animate-spin" size={18}/> : <CheckCircle2 size={18}/>} {busy ? t(lang, 'miningFeePay') : lang === 'ar' ? 'تحقق من وصول الدفع' : lang === 'ru' ? 'Проверить оплату' : 'Check payment status'}
           </button>
         ) : (
           <button onClick={payAndActivate} disabled={!address || busy || !status.destination} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f7c34d] to-[#ed8b22] py-3 font-black text-[#4c2908] shadow-lg disabled:opacity-50">
