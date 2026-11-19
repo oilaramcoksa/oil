@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { t, dirOf } from '@/lib/i18n';
+import { getTonConnectUI } from '@/lib/ton-connect';
 import { ShieldCheck, Wallet, Loader2, CheckCircle2 } from 'lucide-react';
 
 type Props = {
@@ -33,6 +34,7 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
   const [savedAddress, setSavedAddress] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [pendingPaymentId, setPendingPaymentId] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -50,29 +52,36 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
 
   useEffect(() => {
     let alive = true;
-    let connector: import('@tonconnect/ui').TonConnectUI | null = null;
     let unsubscribe: (() => void) | undefined;
-    void import('@tonconnect/ui').then(({ TonConnectUI }) => {
+    void getTonConnectUI().then((connector) => {
       if (!alive) return;
-      connector = new TonConnectUI({
-        manifestUrl: new URL(MANIFEST, window.location.origin).toString(),
-        restoreConnection: true,
-      });
       setWallet(connector);
-      unsubscribe = connector.onStatusChange(w => {
-        const connected = w?.account?.address || '';
+      const syncWallet = (connected: string) => {
         if (!alive) return;
         setAddress(connected);
-        if (connected) {
-          setSavedAddress(connected);
-          void fetch('/api/mining/activation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
-            body: JSON.stringify({ action: 'save_wallet', walletAddress: connected }),
-          }).catch(error => console.error('ton_wallet_save_failed', error));
-        }
+        if (!connected) return;
+        void fetch('/api/mining/activation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
+          body: JSON.stringify({ action: 'save_wallet', walletAddress: connected }),
+          cache: 'no-store',
+        }).then(async (response) => {
+          if (!response.ok) throw new Error('wallet_save_failed');
+          if (alive) setSavedAddress(connected);
+        }).catch((error) => {
+          console.error('ton_wallet_save_failed', error);
+          if (alive) setError(t(lang, 'miningFeeWalletUiError'));
+        });
+      };
+      // Read the already-restored session immediately; the callback alone may
+      // not emit the current account on every TON Connect UI version.
+      const currentAddress = connector.account?.address ?? '';
+      setAddress(currentAddress);
+      if (currentAddress) syncWallet(currentAddress);
+      unsubscribe = connector.onStatusChange((account) => {
+        syncWallet(account?.account?.address ?? '');
       });
-    }).catch(error => {
+    }).catch((error) => {
       console.error('ton_connect_ui_init_failed', error);
       if (alive) setError(t(lang, 'miningFeeWalletUiError'));
     });
@@ -82,20 +91,46 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
     };
   }, [initData, lang]);
 
+  async function verifyPayment(paymentId: string) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      const response = await fetch('/api/mining/activation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
+        body: JSON.stringify({ action: 'verify', paymentId }),
+        cache: 'no-store',
+      });
+      const data = await response.json();
+      if (response.ok && data.activated) {
+        setPendingPaymentId('');
+        onActivated();
+        return true;
+      }
+      if (response.status !== 202 && data.error !== 'payment_not_found_yet') {
+        throw new Error(data.error || 'mining_fee_verify_failed');
+      }
+    }
+    setPendingPaymentId(paymentId);
+    setError(t(lang, 'miningFeeTransferPending'));
+    return false;
+  }
+
   async function payAndActivate() {
     if (!wallet || !status?.destination || !address) {
       setError(t(lang, 'miningFeeConnectFirst'));
       return;
     }
-    setBusy(true); setError('');
+    setBusy(true);
+    setError('');
     try {
       const createResponse = await fetch('/api/mining/activation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
         body: JSON.stringify({ action: 'create', walletAddress: address }),
+        cache: 'no-store',
       });
       const created = await createResponse.json();
-      if (!createResponse.ok) throw new Error(t(lang, 'miningFeeCreateError'));
+      if (!createResponse.ok) throw new Error(created.error || 'mining_fee_create_failed');
       const { comment } = await import('@ton/ton');
       const note = comment('ARMCO MINING ' + created.paymentId).toBoc().toString('base64');
       try {
@@ -105,7 +140,6 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
           messages: [{ address: created.destination, amount: created.amountNanoton, payload: note }],
         });
       } catch (sendError) {
-        // Wallet rejection does not create a payment; release the unused intent.
         await fetch('/api/mining/activation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
@@ -113,25 +147,25 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
         }).catch(() => undefined);
         throw sendError;
       }
-
-      let activated = false;
-      for (let attempt = 0; attempt < 8; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 2500));
-        const response = await fetch('/api/mining/activation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initData },
-          body: JSON.stringify({ action: 'verify', paymentId: created.paymentId }),
-        });
-        const data = await response.json();
-        if (response.ok && data.activated) { activated = true; break; }
-        if (response.status !== 202 && data.error !== 'payment_not_found_yet') {
-          throw new Error(t(lang, 'miningFeeVerifyError'));
-        }
-      }
-      if (!activated) throw new Error(t(lang, 'miningFeeTransferPending'));
-      onActivated();
+      setPendingPaymentId(created.paymentId);
+      await verifyPayment(created.paymentId);
     } catch (e) {
+      console.error('mining_fee_payment_flow_failed', e);
       setError(t(lang, 'miningFeePaymentFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function retryPaymentVerification() {
+    if (!pendingPaymentId || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await verifyPayment(pendingPaymentId);
+    } catch (e) {
+      console.error('mining_fee_payment_recheck_failed', e);
+      setError(t(lang, 'miningFeeVerifyError'));
     } finally {
       setBusy(false);
     }
@@ -163,9 +197,15 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
         <button onClick={() => wallet?.openModal()} disabled={!wallet || busy || !!address} className="w-full rounded-xl border border-[#d49b37] bg-white/65 py-3 font-black text-[#805016] shadow-sm disabled:opacity-50">
           {address ? t(lang, 'miningFeeConnected') : savedAddress ? t(lang, 'miningFeeReconnect') : t(lang, 'miningFeeConnect')}
         </button>
-        <button onClick={payAndActivate} disabled={!address || busy || !status.destination} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f7c34d] to-[#ed8b22] py-3 font-black text-[#4c2908] shadow-lg disabled:opacity-50">
-          {busy ? <Loader2 className="animate-spin" size={18}/> : <Wallet size={18}/>} {t(lang, 'miningFeePay')}
-        </button>
+        {pendingPaymentId ? (
+          <button onClick={retryPaymentVerification} disabled={busy} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f7c34d] to-[#ed8b22] py-3 font-black text-[#4c2908] shadow-lg disabled:opacity-50">
+            {busy ? <Loader2 className="animate-spin" size={18}/> : <CheckCircle2 size={18}/>} {busy ? t(lang, 'miningFeePay') : t(lang, 'miningFeeVerifyError')}
+          </button>
+        ) : (
+          <button onClick={payAndActivate} disabled={!address || busy || !status.destination} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f7c34d] to-[#ed8b22] py-3 font-black text-[#4c2908] shadow-lg disabled:opacity-50">
+            {busy ? <Loader2 className="animate-spin" size={18}/> : <Wallet size={18}/>} {t(lang, 'miningFeePay')}
+          </button>
+        )}
         {error && <p className="mt-3 rounded-xl border border-red-300 bg-red-50 p-3 text-center text-xs font-bold text-red-700">{error}</p>}
         {!status.destination && <p className="mt-3 text-center text-xs font-bold text-red-700">{t(lang, 'miningFeeReceiverMissing')}</p>}
         <p className="mt-4 text-center text-[10px] leading-5 text-[#98744a]">{t(lang, 'miningFeeSafety')}</p>
