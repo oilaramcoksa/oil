@@ -106,7 +106,7 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
    await refresh().catch(()=>undefined);
   }finally{setLoading(false)}
  };
- const totalBalance=(totalBalance)+(state?.betBalance??0);
+ const totalBalance=(state?.balance??0)+(state?.betBalance??0);
  const presets=[{label:'½',value:Math.max(100,Math.floor(Number(amount||100)/2))},{label:'×2',value:Math.max(100,Number(amount||100)*2)},{label:'MAX',value:totalBalance}];
  const history=state?.history??[];
  const currentBets=state?.bets??[];
