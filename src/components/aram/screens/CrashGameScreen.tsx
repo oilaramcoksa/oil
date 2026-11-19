@@ -38,6 +38,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const lang = useGame((s) => s.lang);
   const soundEnabled = useGame((s) => s.sound);
   const [state, setState] = useState<CrashState | null>(EMPTY);
+  const [screenActive, setScreenActive] = useState(true);
   const [amount, setAmount] = useState('100');
   const [loading, setLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<'bet' | 'cashout' | null>(null);
@@ -86,13 +87,20 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   }, [initData, isVerified]);
 
   useEffect(() => {
-    if (!isVerified) return;
+    if (!isVerified || !screenActive) return;
     let alive = true;
     const poll = async () => { try { if (alive) await refresh(); } catch (e) { console.error('crash_refresh_failed', e); } };
     void poll();
     const timer = window.setInterval(() => void poll(), 500);
     return () => { alive = false; window.clearInterval(timer); };
-  }, [isVerified, refresh]);
+  }, [isVerified, refresh, screenActive]);
+
+  useEffect(() => {
+    const onVisibility = () => setScreenActive(document.visibilityState === 'visible');
+    onVisibility();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 50);
