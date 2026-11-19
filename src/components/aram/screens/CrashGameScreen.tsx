@@ -40,6 +40,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const [state, setState] = useState<CrashState | null>(EMPTY);
   const [amount, setAmount] = useState('100');
   const [loading, setLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'bet' | 'cashout' | null>(null);
   const [tipLoading, setTipLoading] = useState(false);
   const [tipRemaining, setTipRemaining] = useState(0);
   const [tipResult, setTipResult] = useState<PlaneRecommendation | null>(null);
@@ -52,15 +53,27 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
   const actionLock = useRef(false);
   const playedExplosionFor = useRef<string | null>(null);
   const headers = useMemo(() => ({ 'X-Telegram-Init-Data': initData }), [initData]);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!isVerified || !initData) return;
+  const refresh = useCallback((): Promise<void> => {
+    if (!isVerified || !initData) return Promise.resolve();
+    // Share one in-flight request between the regular poll, countdown nudge and user actions.
+    // This prevents overlapping GETs from returning out of order and replacing newer round state.
+    if (refreshInFlight.current) return refreshInFlight.current;
     const requestStartedAt = Date.now();
-    const response = await fetch('/api/crash', { headers, cache: 'no-store' });
-    if (!response.ok) throw new Error('crash_state_failed');
-    const data = await response.json() as CrashState;
-    setState(data);
-    setServerOffset(data.serverTime - (requestStartedAt + Date.now()) / 2);
+    const request = (async () => {
+      try {
+        const response = await fetch('/api/crash', { headers, cache: 'no-store' });
+        if (!response.ok) throw new Error('crash_state_failed');
+        const data = await response.json() as CrashState;
+        setState(data);
+        setServerOffset(data.serverTime - (requestStartedAt + Date.now()) / 2);
+      } finally {
+        refreshInFlight.current = null;
+      }
+    })();
+    refreshInFlight.current = request;
+    return request;
   }, [headers, initData, isVerified]);
 
   useEffect(() => {
@@ -196,8 +209,9 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     }
     actionLock.current = true;
     setLoading(true);
+    setPendingAction(action);
     try {
-      const response = await fetch('/api/crash', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...(action === 'bet' ? { amount: Number(amount) } : {}) }) });
+      const response = await fetch('/api/crash', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...(action === 'bet' ? { amount: Number(amount) } : { roundId: state?.round.id }) }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         const messages: Record<string,string> = {
@@ -211,12 +225,17 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
       }
       if (action === 'bet') { toast.success(lang === 'ar' ? 'تم تسجيل رهانك للجولة القادمة' : lang === 'ru' ? 'Ваша ставка принята' : 'Your bet is registered'); playTone(560); }
       else { toast.success((lang === 'ar' ? 'تم السحب عند ' : lang === 'ru' ? 'Вы вывели средства при ' : 'Cashed out at ') + Number(data.multiplier).toFixed(2) + 'x · +' + fmt(Number(data.payout))); playTone(880, 0.2); }
+      // Let any poll that began before this action finish, then fetch a fresh authoritative state.
+      const pendingRefresh = refreshInFlight.current;
+      if (pendingRefresh) await pendingRefresh.catch(() => undefined);
       await refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : (lang === 'ru' ? 'Не удалось выполнить действие. Попробуйте ещё раз.' : 'crash_action_failed'));
       if (action === 'cashout') playTone(180, 0.25);
+      const pendingRefreshAfterError = refreshInFlight.current;
+      if (pendingRefreshAfterError) await pendingRefreshAfterError.catch(() => undefined);
       await refresh().catch(() => undefined);
-    } finally { actionLock.current = false; setLoading(false); }
+    } finally { actionLock.current = false; setLoading(false); setPendingAction(null); }
   };
 
   const usePlaneTip = async () => {
@@ -397,7 +416,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
               <div className="mt-1 text-[10px] font-bold text-white/80">{liveMultiplier.toFixed(2)}x · {lang === 'ar' ? 'يتحدث لحظيًا' : lang === 'ru' ? 'Текущая сумма' : 'Live value'}</div>
             </div>
             <button onClick={() => void act('cashout')} disabled={!canCashout} className="min-h-[58px] shrink-0 rounded-xl border border-white/40 bg-white px-5 text-base font-black text-emerald-800 shadow-lg transition active:scale-[.97] disabled:opacity-50">
-              {loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? 'اسحب أرباحك' : lang === 'ru' ? 'ЗАБРАТЬ ВЫИГРЫШ' : 'CASH OUT')}
+              {pendingAction === 'cashout' ? (lang === 'ar' ? 'جارٍ تأكيد السحب…' : lang === 'ru' ? 'ПОДТВЕРЖДЕНИЕ ВЫВОДА…' : 'CONFIRMING CASHOUT…') : loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? 'اسحب أرباحك' : lang === 'ru' ? 'ЗАБРАТЬ ВЫИГРЫШ' : 'CASH OUT')}
             </button>
           </div>
         </section>
