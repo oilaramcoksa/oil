@@ -99,10 +99,10 @@ export function ColorWheelScreen({initData,isVerified,telegramUserId}:{initData:
      <div className="absolute -top-0.5 left-1/2 z-20 -translate-x-1/2 drop-shadow-[0_3px_5px_rgba(0,0,0,.8)]"><div className="h-0 w-0 border-x-[15px] border-t-[28px] border-x-transparent border-t-orange-400"/></div>
      <div className="absolute left-1/2 top-1/2 z-10 flex h-[35%] w-[35%] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-[5px] border-[#47494b] bg-[radial-gradient(circle_at_35%_30%,#34383c,#111315_70%)] shadow-[0_4px_18px_rgba(0,0,0,.7),inset_0_2px_8px_rgba(255,255,255,.08)]">
       <span className="text-4xl font-black tabular-nums text-white drop-shadow-lg">{isSpinning?'':countdown}</span>
-      <span className="mt-1 text-[9px] font-bold text-white/45">{isSpinning?'تدور الآن':state?.round.startsAt===null?'بانتظار أول لاعب':'العد التنازلي'}</span>
+      <span className="mt-1 text-[9px] font-bold text-white/45">{isSpinning?'تدور الآن':(state?.bets.length??0)===0?'بانتظار أول رهان':'العد التنازلي'}</span>
      </div>
     </div>
-    <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/50"><Timer size={12}/>{isSpinning?'تحديد اللون الفائز...':state?.round.startsAt===null?'ضع أول رهان لبدء الجولة':'تُغلق الرهانات عند انتهاء العداد'}</div>
+    <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-white/50"><Timer size={12}/>{isSpinning?'تحديد اللون الفائز...':(state?.bets.length??0)===0?'ضع أول رهان وشارك في الجولة':'تُغلق الرهانات عند انتهاء العداد'}</div>
    </section>
    <section className="rounded-2xl border border-white/10 bg-[#222528] p-3">
     <div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-black text-white/75"><History size={14}/> نتائج الجولات السابقة</h3><span className="text-[10px] text-white/35">{history.length}</span></div>
