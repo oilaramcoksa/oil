@@ -193,6 +193,11 @@ export function DailyDollarAds() {
   const dailyWait = secondsLeft(progress?.cooldownUntil, now);
   const rewardReady = progress?.rewardReady === true;
   const rewardClaimed = progress?.rewardClaimed === true || progress?.completed === true;
+
+  useEffect(() => {
+    if (rewardClaimed && dailyWait === 0) void load().catch(() => undefined);
+  }, [dailyWait, rewardClaimed, load]);
+  const rewardClaimed = progress?.rewardClaimed === true || progress?.completed === true;
   const progressColor = rewardClaimed ? 'bg-emerald-400' : 'bg-emerald-400';
 
   return <>
@@ -217,7 +222,7 @@ export function DailyDollarAds() {
 
       <button type="button" onClick={() => void watch()} disabled={busy || claimBusy || loading || !progress || !initData || progress.remaining <= 0 || rewardReady || adWait > 0 || dailyWait > 0} className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl bg-[#ffa75e] px-4 py-4 text-base font-black text-[#24170e] shadow-lg transition active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-45">
         {busy ? <Loader2 size={20} className="animate-spin"/> : adWait > 0 || dailyWait > 0 ? <Clock size={20}/> : rewardClaimed ? <CheckCircle2 size={20}/> : <Play size={20}/>}
-        {busy ? words[3] : adWait > 0 ? extra.cooldown + ' ' + clock(adWait) : dailyWait > 0 ? extra.nextCycle + ' ' + clock(dailyWait) : rewardClaimed ? extra.claimed : rewardReady ? extra.rewardTitle : words[2]}
+        {busy ? words[3] : dailyWait > 0 ? extra.nextCycle + ' ' + clock(dailyWait) : adWait > 0 ? extra.cooldown + ' ' + clock(adWait) : rewardClaimed ? extra.claimed : rewardReady ? extra.rewardTitle : words[2]}
       </button>
       <p className="mt-2 text-center text-[10px] text-white/35">{dailyWait > 0 ? extra.waitDaily : adWait > 0 ? extra.waitAd : words[12]}</p>
     </motion.section>
