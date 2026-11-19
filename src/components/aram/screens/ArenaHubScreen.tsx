@@ -51,7 +51,7 @@ export function ArenaHubScreen({initData,isVerified,telegramUserId,openColorWhee
   </div>
   <div className="fixed inset-0 z-50 bg-[#fff5e4]" style={{display:section==='wheel'||section==='crash'||section==='store'?'block':'none',pointerEvents:section==='wheel'||section==='crash'||section==='store'?'auto':'none'}}>
     <div className="sticky top-0 z-50 px-3 pt-2 pb-1 bg-[#fff5e4]"><button type="button" onClick={back} className="group flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/70 bg-gradient-to-r from-[#fff7e8] via-white to-[#fff1d8] px-4 py-2.5 text-sm font-black text-amber-950 shadow-sm"><ArrowLeft size={17}/>{w[6]}</button></div>
-    <div className="h-[calc(100%-56px)]"><ArenaScreen key="persistent-arena" initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} initialGameMode="wheel"/></div>
+    <div className="h-[calc(100%-56px)]"><ArenaScreen key="persistent-arena" initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} initialGameMode={section === 'crash' ? 'crash' : section === 'store' ? 'store' : 'wheel'}/></div>
   </div>
  </div>;
 }
