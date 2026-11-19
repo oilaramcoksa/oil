@@ -26,11 +26,12 @@ const WORDS:Record<Lang,string[]> = {
  ko:['게임','게임을 선택하세요','행운의 휠','ARMCOFLY','컬러 휠','상점','게임으로 돌아가기','게임 규칙 확인 필요','영상의 컬러 게임','베팅 시간 15초','노랑, 보라, 초록'],
  ur:['گیمز','ایک گیم منتخب کریں','لکی وہیل','ARMCOFLY','کلر وہیل','اسٹور','گیمز پر واپس','گیم کے اصولوں کی تصدیق درکار ہے','ویڈیو والا کلر گیم','15 سیکنڈ بیٹنگ کا وقت','پیلا، جامنی اور سبز'],
 };
-export function ArenaHubScreen({initData,isVerified,telegramUserId}:{initData:string;isVerified:boolean;telegramUserId:string}) {
+export function ArenaHubScreen({initData,isVerified,telegramUserId,openColorWheelRequest}:{initData:string;isVerified:boolean;telegramUserId:string;openColorWheelRequest:number}) {
  const lang=useGame(s=>s.lang); const w=WORDS[lang]??WORDS.en;
  const [section,setSection]=useState<Section>('home');
  const rtl=lang==='ar'||lang==='ur';
  useEffect(()=>{const requested=new URLSearchParams(window.location.search).get('tab');if(requested==='crash')setSection('crash');else if(requested==='arena'||requested==='colors')setSection('colors');},[]);
+ useEffect(()=>{if(openColorWheelRequest>0)setSection('colors');},[openColorWheelRequest]);
  const back=()=>setSection('home');
  if(section==='colors') return <div className="h-full min-h-0 overflow-hidden"><div className="sticky top-0 z-50 px-3 pt-2 pb-1"><button type="button" onClick={back} className="group flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/70 bg-gradient-to-r from-[#fff7e8] via-white to-[#fff1d8] px-4 py-2.5 text-sm font-black text-amber-950 shadow-[0_5px_0_rgba(146,83,25,.16),0_10px_22px_rgba(120,53,15,.12)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"><ArrowLeft size={17}/>{w[6]}</button></div><ColorWheelScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId}/></div>;
  if(section==='crash'||section==='store') return <div className="h-full min-h-0 overflow-hidden"><div className="sticky top-0 z-50 px-3 pt-2 pb-1"><button type="button" onClick={back} className="group flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/70 bg-gradient-to-r from-[#fff7e8] via-white to-[#fff1d8] px-4 py-2.5 text-sm font-black text-amber-950 shadow-[0_5px_0_rgba(146,83,25,.16),0_10px_22px_rgba(120,53,15,.12)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"><ArrowLeft size={17}/>{w[6]}</button></div><ArenaScreen key={section} initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} initialGameMode={section}/></div>;
