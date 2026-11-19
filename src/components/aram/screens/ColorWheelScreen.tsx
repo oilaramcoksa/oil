@@ -85,13 +85,21 @@ export function ColorWheelScreen({initData,isVerified}:{initData:string;isVerifi
  const [rotation,setRotation]=useState(0);
  const [spinDuration,setSpinDuration]=useState(7000);
  const animatedRound=useRef<string|null>(null);
+ const refreshInFlight=useRef<Promise<void>|null>(null);
  const headers=useMemo(()=>({'X-Telegram-Init-Data':initData}),[initData]);
- const refresh=useCallback(async()=>{
-  if(!initData||!isVerified)return;
-  const response=await fetch('/api/color-wheel',{headers,cache:'no-store'});
-  const data=await response.json();
-  if(!response.ok)throw new Error(data.error||'color_wheel_unavailable');
-  setState(data as WheelState);
+ const refresh=useCallback(():Promise<void>=>{
+  if(!initData||!isVerified)return Promise.resolve();
+  if(refreshInFlight.current)return refreshInFlight.current;
+  const request=(async()=>{
+   try{
+    const response=await fetch('/api/color-wheel',{headers,cache:'no-store'});
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'color_wheel_unavailable');
+    setState(data as WheelState);
+   }finally{refreshInFlight.current=null}
+  })();
+  refreshInFlight.current=request;
+  return request;
  },[headers,initData,isVerified]);
  useEffect(()=>{
   let alive=true;
