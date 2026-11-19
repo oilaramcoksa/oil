@@ -41,18 +41,6 @@ type ArenaState = {
   lastResult: LastResult | null;
 };
 
-function wheelStopForWinner(entries: Entry[], winnerType: string | null, winnerTelegramId: string | null): number {
-  if (winnerType === 'house') return 45;
-  if (!winnerTelegramId || entries.length === 0) return 0;
-  const winnerIndex = entries.findIndex((entry) => entry.telegramId === winnerTelegramId);
-  if (winnerIndex < 0) return 0;
-  const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
-  if (total <= 0) return 0;
-  const beforeWinner = entries.slice(0, winnerIndex).reduce((sum, entry) => sum + entry.amount, 0);
-  const winnerCenter = ((beforeWinner + entries[winnerIndex].amount / 2) / total) * 270;
-  return (360 - winnerCenter) % 360;
-}
-
 const EMPTY_STATE: ArenaState = { round: null, balance: 0, betBalance: 0, entries: [], lastResult: null };
 
 export function ArenaScreen({
@@ -205,18 +193,9 @@ export function ArenaScreen({
     ? Math.max(0, Math.ceil((round.startsAt - now) / 1000))
     : null;
   const isSpinning = round?.status === 'spinning' || replaying;
-  // Derive the visual stop from the recorded winner and the exact same
-  // entry order/weights used to draw the sectors. This also corrects replay
-  // positioning for historical rounds saved with the old 90-degree offset.
-  const displayStop = replaying && state.lastResult
-    ? wheelStopForWinner(state.lastResult.entries, state.lastResult.winnerType, state.lastResult.winnerTelegramId)
-    : round
-      ? round.winnerTelegramId
-        ? wheelStopForWinner(displayedEntries, round.winnerType, round.winnerTelegramId)
-        : (round.wheelStopDegrees ?? 0)
-      : state.lastResult
-        ? wheelStopForWinner(state.lastResult.entries, state.lastResult.winnerType, state.lastResult.winnerTelegramId)
-        : 0;
+  const displayStop = replaying
+    ? (state.lastResult?.wheelStopDegrees ?? 0)
+    : round ? (round.wheelStopDegrees ?? 0) : (state.lastResult?.wheelStopDegrees ?? 0);
   const wheelColors = ['#2457f5', '#8b5cf6', '#0ea5e9', '#10b981', '#ec4899', '#ef4444', '#14b8a6', '#6366f1'];
   const wheelEntries = [
     { id: 'house', label: t(lang, 'arenaAdminSlice'), weight: 25, house: true, photoUrl: null, color: '#f59e0b' },
