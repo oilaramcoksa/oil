@@ -632,6 +632,8 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
   miningFeePaymentFailed: "فشلت عملية التفعيل",
   miningFeeReceiverMissing: "إعداد محفظة استقبال رسوم التعدين غير مكتمل على الخادم.",
   miningFeeSafety: "لن نطلب منك العبارة السرية أو المفاتيح الخاصة. وافق على التحويل من داخل تطبيق المحفظة فقط. رسوم التفعيل تُدفع مرة واحدة للحساب مدى الحياة.",
+  dataStorage: "كيفية تخزين بياناتك",
+  dataStorageText: "تُحفظ بيانات تقدمك وأرصدتك في قاعدة بيانات Turso الآمنة المرتبطة بحساب تيليجرام الخاص بك، لتتمكن من متابعة اللعب من أجهزتك المختلفة.",
 };
 
 const en: Dict = {
@@ -1042,7 +1044,7 @@ const en: Dict = {
   hours: 'h',
   minutes: 'm',
   dataStorage: 'How your data is stored',
-  dataStorageText: 'Currently: your data is stored locally on your device (localStorage). In production: data will be stored in a secure database linked to your Telegram ID, so you can play from any device and keep your progress.',
+  dataStorageText: 'Your game progress and balances are stored in the secure Turso database linked to your Telegram account, so you can continue playing across your devices.',
 
   confirm: 'Confirm',
   cancel: 'Cancel',
@@ -1641,7 +1643,7 @@ const ru: Dict = {
   hours: 'ч',
   minutes: 'мин',
   dataStorage: 'Как хранятся данные',
-  dataStorageText: 'Сейчас: данные хранятся локально на вашем устройстве (localStorage). В продакшене: данные будут в защищённой базе, привязанной к вашему Telegram ID, чтобы играть с любого устройства.',
+  dataStorageText: 'Ваш игровой прогресс и балансы хранятся в защищённой базе Turso, связанной с вашим аккаунтом Telegram, поэтому вы можете продолжать игру на разных устройствах.',
 
   confirm: 'Подтвердить',
   cancel: 'Отмена',
