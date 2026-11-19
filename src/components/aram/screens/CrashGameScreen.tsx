@@ -175,7 +175,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     // Let each parachute finish its full descent even while the 500ms game-state polling continues.
     window.setTimeout(() => setParachuteEvents((current) => current.filter((event) => !events.some((item) => item.id === event.id))), 7600);
   }, [state]);
-  const maxSingleWallet = Math.max(state?.balance ?? 0, state?.betBalance ?? 0);
+  const totalAvailableBalance = (state?.balance ?? 0) + (state?.betBalance ?? 0);
   // The API remains the authority for Telegram verification and round timing; the UI only gates on an open betting phase and one entry per round.
   const canBet = Boolean(round?.status === 'countdown' && secondsLeft > 0 && !ownBet && !loading && initData);
   const canCashout = Boolean(round?.status === 'running' && ownBet?.status === 'active' && !loading);
@@ -202,8 +202,8 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
     if (loading || actionLock.current) return;
     if (action === 'bet') {
       const value = Number(amount);
-      if (!Number.isSafeInteger(value) || value < 100 || (value > (state?.betBalance ?? 0) && value > (state?.balance ?? 0))) {
-        toast.error(lang === 'ar' ? 'المبلغ غير صالح أو لا يوجد رصيد كافٍ في محفظة واحدة' : lang === 'ru' ? 'Неверная сумма или недостаточно средств на одном кошельке' : 'Invalid amount or insufficient balance in one wallet');
+      if (!Number.isSafeInteger(value) || value < 100 || value > totalAvailableBalance) {
+        toast.error(lang === 'ar' ? 'المبلغ غير صالح أو لا يوجد رصيد كافٍ في محفظة واحدة' : lang === 'ru' ? 'Неверная сумма или недостаточно средств на одном кошельке' : 'Invalid amount or insufficient total balance');
         return;
       }
     }
@@ -216,7 +216,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
       if (!response.ok) {
         const messages: Record<string,string> = {
           betting_closed: lang === 'ar' ? 'أُغلق باب المشاركة لهذه الجولة' : lang === 'ru' ? 'Приём ставок на этот раунд завершён' : 'Betting is closed for this round',
-          insufficient_balance: lang === 'ar' ? 'الرصيد غير كافٍ في محفظة واحدة' : lang === 'ru' ? 'Недостаточно средств на одном кошельке' : 'Insufficient balance in one wallet',
+          insufficient_balance: lang === 'ar' ? 'الرصيد الإجمالي غير كافٍ' : lang === 'ru' ? 'Недостаточно общего баланса' : 'Insufficient balance in one wallet',
           already_joined: lang === 'ar' ? 'شاركت بالفعل في هذه الجولة' : lang === 'ru' ? 'Вы уже участвуете в этом раунде' : 'You already joined this round',
           round_crashed: lang === 'ar' ? 'انفجرت الطائرة قبل قبول السحب؛ خسرت الرهان' : lang === 'ru' ? 'Самолёт разбился до подтверждения вывода; ставка проиграна' : 'The plane crashed before cashout was accepted',
           bet_not_found: lang === 'ar' ? 'لم تشارك في هذه الجولة' : lang === 'ru' ? 'В этом раунде ваша ставка не найдена' : 'No bet found for this round',
@@ -475,7 +475,7 @@ export function CrashGameScreen({ initData, isVerified, telegramUserId, onBuyTok
             <div className="mb-2 flex justify-between text-[10px] text-[#8e6a4b]"><span>{lang === 'ar' ? 'المحفظة العادية' : lang === 'ru' ? 'Кошелёк' : 'Wallet'}: {fmt(state?.balance ?? 0)}</span><span>{lang === 'ar' ? 'عملات الرهان' : lang === 'ru' ? 'Монеты для ставок' : 'Bet tokens'}: {fmt(state?.betBalance ?? 0)}</span></div>
             <input type="number" inputMode="numeric" min="100" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={!canBet} className="w-full rounded-xl border border-amber-900/15 bg-white p-3 font-black outline-none focus:border-amber-500 disabled:opacity-50"/>
             <div className="mt-2 grid grid-cols-4 gap-2">{[100,500,1000,5000].map((v) => <button key={v} onClick={() => setAmount(String(v))} disabled={!canBet} className="rounded-lg bg-amber-100 py-2 text-xs font-black disabled:opacity-40">{fmt(v)}</button>)}</div>
-            <button onClick={() => void act('bet')} disabled={!canBet || !Number.isSafeInteger(Number(amount)) || Number(amount) < 100 || (Number(amount) > (state?.balance ?? 0) && Number(amount) > (state?.betBalance ?? 0))} className="mt-3 w-full rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 py-3 font-black text-[#44240d] shadow-md disabled:opacity-40">{loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? (round?.status !== 'countdown' ? 'انتظر الجولة القادمة' : !initData ? 'افتح اللعبة من تيليجرام' : 'تأكيد الرهان') : lang === 'ru' ? (round?.status !== 'countdown' ? 'ОЖИДАЙТЕ СЛЕДУЮЩИЙ РАУНД' : 'СДЕЛАТЬ СТАВКУ') : (round?.status !== 'countdown' ? 'WAIT FOR NEXT ROUND' : 'PLACE BET'))}</button>
+            <button onClick={() => void act('bet')} disabled={!canBet || !Number.isSafeInteger(Number(amount)) || Number(amount) < 100 || Number(amount) > totalAvailableBalance} className="mt-3 w-full rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 py-3 font-black text-[#44240d] shadow-md disabled:opacity-40">{loading ? <Loader2 className="mx-auto animate-spin"/> : (lang === 'ar' ? (round?.status !== 'countdown' ? 'انتظر الجولة القادمة' : !initData ? 'افتح اللعبة من تيليجرام' : 'تأكيد الرهان') : lang === 'ru' ? (round?.status !== 'countdown' ? 'ОЖИДАЙТЕ СЛЕДУЮЩИЙ РАУНД' : 'СДЕЛАТЬ СТАВКУ') : (round?.status !== 'countdown' ? 'WAIT FOR NEXT ROUND' : 'PLACE BET'))}</button>
             <p className="mt-2 text-[9px] text-[#997454]">{lang === 'ar' ? 'يمكن استخدام رصيد عملات الرهان المشتراة أو المحفظة العادية، بشرط أن يغطي أحدهما كامل الرهان.' : lang === 'ru' ? 'Используйте купленные монеты для ставок или обычный кошелёк; один баланс должен покрывать всю ставку.' : 'Use purchased betting tokens or the regular wallet; one balance must cover the full stake.'}</p>
           </>
         )}
