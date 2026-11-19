@@ -68,6 +68,7 @@ export default function RootLayout({
       <head>
         {/* Telegram WebApp SDK */}
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+        <Script src="https://libtl.com/sdk.js" data-zone="12295910" data-sdk="show_12295910" strategy="afterInteractive" />
       </head>
       <body className="antialiased bg-background text-foreground aram-bg">
         {children}
