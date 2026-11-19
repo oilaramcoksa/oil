@@ -92,6 +92,7 @@ export async function GET(req: NextRequest) {
           arena_prize: 'txArenaPrize',
           arena_refund: 'txArenaRefund',
           tads_ad_reward: 'txAdReward',
+          referral_commission: 'txReferralCommission',
           sell: 'txSell',
           withdraw: 'txWithdraw',
           refund: 'txRefund',
