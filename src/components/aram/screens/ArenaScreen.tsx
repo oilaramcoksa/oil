@@ -47,13 +47,15 @@ export function ArenaScreen({
   initData,
   isVerified,
   telegramUserId,
+  initialGameMode = 'wheel',
 }: {
   initData: string;
   isVerified: boolean;
   telegramUserId: string;
+  initialGameMode?: 'wheel' | 'crash' | 'store';
 }) {
   const lang = useGame((s) => s.lang);
-  const [gameMode, setGameMode] = useState<'wheel' | 'crash'>('wheel');
+  const [gameMode, setGameMode] = useState<'wheel' | 'crash' | 'store'>(initialGameMode);
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('tab') === 'crash') setGameMode('crash');
     const openCrash = () => setGameMode('crash');
@@ -297,6 +299,25 @@ export function ArenaScreen({
   const spinRemaining = replaying ? 7 : round?.spinStartedAt
     ? Math.max(0.2, (round.spinStartedAt + 7_000 - now) / 1_000)
     : 7;
+
+  if (gameMode === 'store') return (
+    <div className="h-full w-full overflow-y-auto px-4 py-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <section className="mx-auto max-w-md rounded-3xl border border-emerald-700/20 bg-gradient-to-br from-emerald-50 to-teal-100 p-5 text-[#174d3c] shadow-xl">
+        <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-700 text-white shadow-lg"><ShoppingCart size={38}/></div>
+        <h2 className="text-center text-2xl font-black">{t(lang, 'arenaBuyTokensStore')}</h2>
+        <p className="mt-2 text-center text-sm leading-6 text-emerald-900/70">{t(lang, 'arenaBuyTokenDescription')}</p>
+        <div className="my-5 rounded-2xl border border-emerald-800/10 bg-white/80 p-5 text-center">
+          <div className="text-4xl font-black tabular-nums">10,000</div>
+          <div className="mt-1 text-sm font-bold">{t(lang, 'arenaPurchasedBalance')}</div>
+          <div className="mt-3 text-2xl font-black text-emerald-700">1 TON</div>
+        </div>
+        <button type="button" onClick={() => void buyArenaTokens()} disabled={buyingTokens || !isVerified} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-4 font-black text-white shadow-lg disabled:opacity-50">
+          {buyingTokens ? <Loader2 size={18} className="animate-spin"/> : <ShoppingCart size={18}/>} {buyingTokens ? t(lang, 'paymentSentVerifying') : t(lang, 'arenaBuyTokensButton')}
+        </button>
+        <p className="mt-3 text-center text-[10px] leading-5 text-emerald-900/60">{t(lang, 'arenaBuyTokensFootnote')}</p>
+      </section>
+    </div>
+  );
 
   return (
     <div className="h-full w-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-x-none bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
