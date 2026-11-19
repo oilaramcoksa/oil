@@ -290,18 +290,27 @@ export function ArenaScreen({
     joinLock.current = true;
     setLoading(true);
     try {
-      const response = await fetch('/api/arena', {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel', roundId: round?.id }),
-      });
-      const data = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) {
+      let response: Response | null = null;
+      let data: { error?: string } = {};
+      // The round can transition while the player taps cancel. Retry transient
+      // server failures once; the endpoint is idempotent for already-refunded rounds.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        response = await fetch('/api/arena', {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'cancel', roundId: round?.id }),
+          cache: 'no-store',
+        });
+        data = await response.json().catch(() => ({})) as { error?: string };
+        if (response.ok || response.status < 500) break;
+        if (attempt === 0) await new Promise((resolve) => window.setTimeout(resolve, 400));
+      }
+      if (!response?.ok) {
         const code = data.error ?? '';
         if (code === 'cancellation_locked_second_player_joined') toast.error(t(lang, 'arenaCancelLocked'));
         else if (code === 'entry_not_found' || code === 'no_cancellable_round') toast.info(lang === 'ar' ? 'تم تحديث حالة الجولة، لا يوجد رهان قابل للإلغاء.' : 'The round was updated; there is no entry to cancel.');
-        else if (code === 'telegram_auth_required' || response.status === 401) toast.error(lang === 'ar' ? 'انتهت جلسة التطبيق. أغلق اللعبة وافتحها من البوت مرة أخرى.' : 'Your session expired. Close and reopen the app from the bot.');
-        else toast.error(t(lang, 'arenaCancelError'));
+        else if (code === 'telegram_auth_required' || response?.status === 401) toast.error(lang === 'ar' ? 'انتهت جلسة التطبيق. أغلق اللعبة وافتحها من البوت مرة أخرى.' : 'Your session expired. Close and reopen the app from the bot.');
+        else toast.error(lang === 'ar' ? 'تعذر الاتصال بخادم استرداد الرهان. حاول مرة أخرى بعد لحظات.' : t(lang, 'arenaCancelError'));
         await refresh().catch(() => undefined);
         return;
       }
