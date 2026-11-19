@@ -18,14 +18,14 @@ export function Onboarding() {
   const [step, setStep] = useState<0 | 1>(0);
 
   return (
-    <div className="aram-bg min-h-screen flex flex-col">
+    <div className="aram-bg h-[100dvh] min-h-[100svh] overflow-hidden flex flex-col">
       {/* Logo / brand */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+      <div className="flex-1 min-h-0 flex flex-col items-center px-6 pt-6 pb-2 text-center overflow-hidden">
         <motion.div
           initial={{ scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', damping: 14 }}
-          className="mb-4"
+          className="mb-3 shrink-0"
         >
           <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-[#2a1c0a] to-[#0c0703] flex items-center justify-center shadow-2xl border-2 border-amber-400/40">
             <Droplet className="w-12 h-12 text-amber-400" />
@@ -36,7 +36,7 @@ export function Onboarding() {
           initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.15 }}
-          className="text-3xl font-black text-[#2a1c0a] tracking-tight"
+          className="text-3xl font-black text-[#2a1c0a] tracking-tight shrink-0"
         >
           {t(lang, 'appName')}
         </motion.h1>
@@ -44,7 +44,7 @@ export function Onboarding() {
           initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.25 }}
-          className="text-sm font-bold text-amber-900/70 mt-1"
+          className="text-sm font-bold text-amber-900/70 mt-1 shrink-0"
         >
           {t(lang, 'appTagline')}
         </motion.p>
@@ -54,10 +54,10 @@ export function Onboarding() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="mt-8 w-full max-w-xs"
+            className="mt-5 w-full max-w-xs flex-1 min-h-0 flex flex-col"
           >
-            <div className="text-xs font-black text-amber-900/60 uppercase mb-2">{t(lang, 'chooseLang')}</div>
-            <div className="space-y-2">
+            <div className="text-xs font-black text-amber-900/60 uppercase mb-2 shrink-0">{t(lang, 'chooseLang')}</div>
+            <div className="space-y-2 flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
               {LANGS.map((l) => (
                 <button
                   key={l.code}
@@ -77,7 +77,7 @@ export function Onboarding() {
 
             <Button
               onClick={() => { haptic('medium'); setStep(1); }}
-              className="mt-4 w-full h-12 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-[#2a1c0a] font-black text-base shadow-lg"
+              className="mt-2 shrink-0 w-full h-12 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-[#2a1c0a] font-black text-base shadow-lg"
             >
               {t(lang, 'startBtn')}
               <ChevronRight className="w-4 h-4 ml-1" style={{ transform: lang === 'ar' ? 'scaleX(-1)' : 'none' }} />
@@ -124,7 +124,7 @@ export function Onboarding() {
         )}
       </div>
 
-      <div className="text-[10px] text-amber-900/40 font-bold text-center pb-4">
+      <div className="shrink-0 text-[10px] text-amber-900/40 font-bold text-center pb-2 pt-1">
         v1.0 · aramcooil
       </div>
     </div>
