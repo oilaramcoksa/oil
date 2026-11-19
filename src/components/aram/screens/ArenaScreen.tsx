@@ -10,6 +10,7 @@ import { useGame } from '@/lib/store';
 import { t, dirOf } from '@/lib/i18n';
 import { isValidArenaEntryAmount, MIN_ARENA_ENTRY } from '@/lib/arena-settlement.mjs';
 import { CrashGameScreen } from '@/components/aram/screens/CrashGameScreen';
+import { LuckyWheel } from '@/components/aram/LuckyWheel';
 
 type Entry = { telegramId: string; username: string; amount: number; photoUrl?: string | null };
 type Round = {
@@ -68,6 +69,7 @@ export function ArenaScreen({
 }) {
   const lang = useGame((s) => s.lang);
   const [gameMode, setGameMode] = useState<'wheel' | 'crash' | 'store'>(initialGameMode);
+  const [luckyWheelOpen, setLuckyWheelOpen] = useState(false);
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('tab') === 'crash') setGameMode('crash');
     const openCrash = () => setGameMode('crash');
@@ -343,7 +345,7 @@ export function ArenaScreen({
   return (
     <div className="h-full w-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-x-none bg-transparent px-3 pt-4 pb-6 text-[#542b12]" dir={dirOf(lang)}>
       <div className="mx-auto mb-3 grid w-full max-w-md grid-cols-2 gap-2 rounded-2xl border border-amber-900/10 bg-white/70 p-1.5 shadow-sm">
-        <button type="button" onClick={() => setGameMode('wheel')} className={`flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'wheel' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
+        <button type="button" onClick={() => setLuckyWheelOpen(true)} className="flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black text-[#8f6b4d]">
           <span>🎡</span>{lang === 'ar' ? 'عجلة الحظ' : lang === 'ru' ? 'Колесо удачи' : 'Lucky Wheel'}
         </button>
         <button type="button" onClick={() => setGameMode('crash')} className={`relative flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition-all ${gameMode === 'crash' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-[#42230c] shadow-md' : 'text-[#8f6b4d]'}`}>
@@ -364,7 +366,9 @@ export function ArenaScreen({
           <span>✈️</span>{lang === 'ar' ? 'ARMCOFLY' : 'ARMCOFLY'}
         </button>
       </div>
-      {gameMode === 'crash' ? <CrashGameScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} onBuyTokens={() => void buyArenaTokens()} buyingTokens={buyingTokens} /> : <div className="mx-auto w-full max-w-md">
+      <div className="relative">
+        <div className={gameMode === 'crash' ? 'hidden' : 'block'}>
+          <div className="mx-auto w-full max-w-md">
         <header className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-black tracking-tight">{t(lang, 'arenaTitle')}</h2>
@@ -693,7 +697,14 @@ export function ArenaScreen({
             <div className="mt-1 text-[10px] font-semibold text-amber-900/65">{state.lastResult.totalEntries.toLocaleString()}</div>
           </div>
         )}
-      </div>}
+
+          </div>
+        </div>
+        <div className={gameMode === 'crash' ? 'block' : 'hidden'}>
+          <CrashGameScreen initData={initData} isVerified={isVerified} telegramUserId={telegramUserId} onBuyTokens={() => void buyArenaTokens()} buyingTokens={buyingTokens} />
+        </div>
+        <LuckyWheel open={luckyWheelOpen} onClose={() => setLuckyWheelOpen(false)} />
+      </div>
     </div>
   );
 }
