@@ -374,7 +374,7 @@ function displayAdminValue(col:string,value:unknown):string{
  if(col==='provider')return raw==='tonconnect_auto'?'TON — تحقق آلي':raw;
  if(col==='status')return ({pending:'قيد المراجعة',confirmed:'مؤكد',rejected:'مرفوض',active:'نشط',paused:'متوقف',paid:'تم الدفع'} as Record<string,string>)[raw]??raw;
  if(col==='details_json'){
-   try{const parsed=JSON.parse(raw);if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))return Object.entries(parsed).map(([k,v])=>`${detailLabels[k]??k}: ${typeof v==='object'?JSON.stringify(v):String(v)}`).join('\\n');return JSON.stringify(parsed,null,2);}catch{return raw;}
+   try{const parsed=JSON.parse(raw);if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))return Object.entries(parsed).map(([k,v])=>`${detailLabels[k]??k}: ${typeof v==='object'?JSON.stringify(v):String(v)}`).join('\n');return JSON.stringify(parsed,null,2);}catch{return raw;}
  }
  return raw;
 }
