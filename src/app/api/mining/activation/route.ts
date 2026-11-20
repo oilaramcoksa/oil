@@ -172,7 +172,6 @@ export async function POST(req: NextRequest) {
         });
         if (Number(update.rowsAffected)!==1) { await tx.rollback(); return fail('activation_conflict',409); }
         // Expire legacy cycle state but preserve accumulated oil so it can be sold after activation.
-        const activationNow = Date.now();
         await tx.execute({
           sql: 'UPDATE player_game_state SET cycle_started_at=?,cycle_ends_at=?,last_tick_at=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
           args: [0, 0, 0, id],
