@@ -459,6 +459,8 @@ export async function POST(req: NextRequest) {
         }
         if (type==='free_part' && productId!=='any' && !ADMIN_SHOP_PARTS.includes(productId as typeof ADMIN_SHOP_PARTS[number])) { await tx.rollback(); return fail('invalid_promo_product'); }
         if (type==='free_package' && productId!=='any' && !PACKAGES.some(p=>p.id===productId)) { await tx.rollback(); return fail('invalid_promo_product'); }
+        const duplicate=await tx.execute({sql:'SELECT id FROM promo_codes WHERE code=? COLLATE NOCASE AND id<>? LIMIT 1',args:[code,id]});
+        if(duplicate.rows.length){await tx.rollback();return fail('promo_code_already_exists',409);}
         await tx.execute({sql:`INSERT INTO promo_codes(id,code,promo_type,product_id,reward_coins,per_user_limit,total_limit,starts_at,expires_at,active)
           VALUES(?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(id) DO UPDATE SET code=excluded.code,promo_type=excluded.promo_type,product_id=excluded.product_id,
