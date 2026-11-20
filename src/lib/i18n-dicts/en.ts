@@ -604,6 +604,19 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
   swapConversionHint: '100,000 coins = $100',
   on: 'on',
   adminNotice: 'Admin notice',
+  promoCodeTitle: "Promo code",
+  promoCodePlaceholder: "Enter promo code",
+  promoApply: "Apply",
+  promoApplying: "Applying…",
+  promoApplied: "Promo code applied and reward granted successfully",
+  promoInvalid: "Invalid or inactive promo code",
+  promoUserLimit: "You have reached your usage limit for this code",
+  promoTotalLimit: "This promo code has reached its total usage limit",
+  promoExpired: "This promo code has expired",
+  promoProductMismatch: "This code does not apply to the selected product",
+  promoMiningFeePaid: "Mining fee is already activated",
+  promoGenericError: "Could not redeem promo code",
+
 };
 
 export default en;
