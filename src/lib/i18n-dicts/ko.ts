@@ -11,6 +11,19 @@ const ko: Dict = { ...en,
   tasksTitle: '미션', dailyTasks: '일일 미션', weeklyTasks: '주간 미션', friendsTitle: '친구',
   inviteLink: '초대 링크', copyLink: '링크 복사', yourReferrals: '내 추천', noReferrals: '아직 추천한 친구가 없습니다',
   speedPartsTitle: '업그레이드 상점', autoSellPart: "자동 판매", autoSellDescription: "게임에 접속하지 않아도 30일 동안 12시간 채굴 주기가 끝날 때마다 석유를 자동 판매합니다. 채굴 주기가 먼저 시작되어 있어야 합니다.", autoSellDuration: "30일", crashRecentRounds: '최근 10라운드',
+  promoCodeTitle: "프로모션 코드",
+  promoCodePlaceholder: "프로모션 코드 입력",
+  promoApply: "적용",
+  promoApplying: "적용 중…",
+  promoApplied: "프로모션 코드가 적용되고 보상이 지급되었습니다",
+  promoInvalid: "유효하지 않거나 비활성화된 코드",
+  promoUserLimit: "이 코드의 사용 한도에 도달했습니다",
+  promoTotalLimit: "이 코드의 전체 사용 한도에 도달했습니다",
+  promoExpired: "프로모션 코드가 만료되었습니다",
+  promoProductMismatch: "선택한 상품에는 이 코드를 적용할 수 없습니다",
+  promoMiningFeePaid: "마이닝 수수료가 이미 활성화되었습니다",
+  promoGenericError: "프로모션 코드를 적용할 수 없습니다",
+
 };
 
 export default ko;
