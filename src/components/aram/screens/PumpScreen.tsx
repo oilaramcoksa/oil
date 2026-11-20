@@ -266,31 +266,52 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         </div>
       </div>
 
-      <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-t-2xl border-x border-t border-white/10 bg-[#39263e] px-1 shadow-[0_12px_30px_rgba(0,0,0,.35)]">
+      <div className="game-panel relative mx-auto w-full max-w-md overflow-hidden rounded-t-[26px] border border-violet-200/20 bg-gradient-to-b from-[#242044] via-[#201a38] to-[#130f24] px-1 shadow-[0_18px_38px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.18)]" style={{ perspective: '900px' }}>
         <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts}/>
-        <div className="pointer-events-none absolute inset-x-3 top-[67%] z-20 grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 shadow-lg backdrop-blur-sm">
-            <div className="flex items-center gap-1 text-[10px] font-bold text-white/60"><Gauge className="h-3 w-3 text-rose-400"/> {t(lang,'oilPerTap')}</div>
-            <div className="text-base font-black tabular-nums text-white">{perTap.toLocaleString()}</div>
-          </div>
-          <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 shadow-lg backdrop-blur-sm">
-            <div className="flex items-center gap-1 text-[10px] font-bold text-white/60"><Droplet className="h-3 w-3 text-amber-400"/> {t(lang,'oil')}</div>
-            <div className="text-base font-black tabular-nums text-white">{oil.toFixed(5)}</div>
-          </div>
+        <div className="pointer-events-none absolute left-[2.5%] top-[16%] z-20 flex w-[27%] max-w-[132px] flex-col gap-2">
+          <motion.div
+            initial={{ opacity: 0, x: -18, rotateY: 24, scale: .88 }}
+            animate={{ opacity: 1, x: 0, rotateY: 7, scale: 1, y: [0, -3, 0] }}
+            transition={{ opacity: { duration: .45 }, x: { duration: .45, type: 'spring', stiffness: 150 }, rotateY: { duration: .5 }, y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' } }}
+            className="rounded-xl border border-cyan-200/35 bg-gradient-to-br from-[#252a46]/95 via-[#15172d]/95 to-[#090d20]/95 px-2 py-2 shadow-[0_8px_0_rgba(4,8,24,.8),0_12px_24px_rgba(0,0,0,.48),inset_0_1px_0_rgba(255,255,255,.22)] backdrop-blur-md"
+            style={{ transformStyle: 'preserve-3d' }}
+          >
+            <div className="flex items-center gap-1 text-[9px] font-black leading-tight text-slate-300"><Droplet className="h-3 w-3 shrink-0 text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,.8)]"/> <span>{t(lang,'oil')}</span></div>
+            <motion.div key={oil.toFixed(5)} initial={{ scale: 1.12, color: '#fde68a' }} animate={{ scale: 1, color: '#ffffff' }} transition={{ duration: .25 }} className="mt-1 text-right text-[clamp(13px,3.5vw,17px)] font-black tabular-nums tracking-tight drop-shadow-[0_2px_5px_rgba(0,0,0,.8)]">{oil.toFixed(5)}</motion.div>
+            <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10"><motion.div animate={{ width: `${Math.max(2, Math.min(100, oilRatio * 100))}%` }} transition={{ duration: .5 }} className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-200 shadow-[0_0_8px_rgba(251,191,36,.9)]"/></div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: -18, rotateY: 24, scale: .88 }}
+            animate={{ opacity: 1, x: 0, rotateY: 7, scale: 1, y: [0, -3, 0] }}
+            transition={{ opacity: { delay: .12, duration: .45 }, x: { delay: .12, duration: .45, type: 'spring', stiffness: 150 }, rotateY: { delay: .12, duration: .5 }, y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: .5 } }}
+            className="rounded-xl border border-rose-200/35 bg-gradient-to-br from-[#39243a]/95 via-[#21172d]/95 to-[#100d20]/95 px-2 py-2 shadow-[0_8px_0_rgba(12,5,20,.8),0_12px_24px_rgba(0,0,0,.48),inset_0_1px_0_rgba(255,255,255,.22)] backdrop-blur-md"
+            style={{ transformStyle: 'preserve-3d' }}
+          >
+            <div className="flex items-center gap-1 text-[9px] font-black leading-tight text-slate-300"><Gauge className="h-3 w-3 shrink-0 text-rose-400 drop-shadow-[0_0_5px_rgba(251,113,133,.8)]"/> <span>{t(lang,'oilPerTap')}</span></div>
+            <div className="mt-1 text-right text-[clamp(13px,3.5vw,17px)] font-black tabular-nums tracking-tight text-white drop-shadow-[0_2px_5px_rgba(0,0,0,.8)]">{perTap.toLocaleString()}</div>
+            <div className="mt-1 text-right text-[8px] font-bold text-rose-200/65">{lang === 'ar' ? 'لكل ضغطة' : 'PER TAP'}</div>
+          </motion.div>
         </div>
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: [0, -2, 0] }}
+          transition={{ opacity: { duration: .4 }, y: { duration: 2.8, repeat: Infinity, ease: 'easeInOut' } }}
+          className="pointer-events-none absolute right-3 top-3 z-20 rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-[9px] font-black text-white/85 shadow-lg backdrop-blur-md"
+        >
+          <span className={active ? 'mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'mr-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-400'}/>
+          {active ? (lang === 'ar' ? 'المضخة تعمل' : 'PUMP LIVE') : (lang === 'ar' ? 'المضخة متوقفة' : 'PUMP IDLE')}
+        </motion.div>
         {shortsVisible&&<motion.button type="button" onClick={event=>{event.stopPropagation();haptic('medium');onOpenShorts();}} initial={{scale:.8,opacity:0}} animate={{scale:[1,1.08,1],opacity:1,rotate:[0,-3,3,0]}} transition={{scale:{duration:1,repeat:Infinity},rotate:{duration:1,repeat:Infinity},opacity:{duration:.2}}} whileTap={{scale:.92}} className="absolute left-[2.5%] top-[25%] z-30 h-14 w-14 overflow-hidden rounded-2xl border-2 border-red-400 bg-black shadow-[0_0_20px_rgba(239,68,68,.65)]" aria-label={t(lang,'shortsTitle')}><img src="/images/shop/live.png" alt="" className="h-full w-full object-contain"/></motion.button>}
         <AnimatePresence>{floats.map(f=><motion.div key={f.id} initial={{opacity:1,y:0,scale:.8}} animate={{opacity:0,y:-80,scale:1.4}} exit={{opacity:0}} transition={{duration:1}} className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 text-xl font-black text-amber-300 drop-shadow-lg">+{f.v}</motion.div>)}</AnimatePresence>
-        {feeStatusReady&&!active&&<motion.div initial={{opacity:0}} animate={{opacity:1}} className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-black/60 px-5 py-3 backdrop-blur-sm"><Power className="h-5 w-5 text-red-400"/><div className="text-center"><div className="text-sm font-black text-red-300">{t(lang,'pumpOff')}</div><div className="text-[10px] font-bold text-amber-200/80">{t(lang,'tapToStart')}</div></div></div>
-        </motion.div>}
+
       </div>
 
       <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2 px-3 pb-2 pt-3">
-        <Button onClick={active?undefined:oil>0?handleSell:handleTap} disabled={active} className={`h-12 rounded-2xl border border-orange-200/40 font-black text-sm shadow-[0_4px_0_#a95620] transition-all ${active?'cursor-not-allowed bg-gradient-to-b from-[#b98a5c] to-[#936b49] text-white/80 opacity-80':'bg-gradient-to-b from-[#ffb24f] to-[#f28a30] text-white'}`}>
+        <Button onClick={active?undefined:oil>0?handleSell:handleTap} disabled={active} className={`game-cta h-14 rounded-2xl border border-orange-100/50 font-black text-sm shadow-[0_6px_0_#a95620,0_12px_24px_rgba(240,138,48,.25),inset_0_1px_0_rgba(255,255,255,.5)] transition-all ${active?'cursor-not-allowed bg-gradient-to-b from-[#b98a5c] to-[#936b49] text-white/80 opacity-80':'bg-gradient-to-b from-[#ffc36b] via-[#ff9d3d] to-[#ed7928] text-white'}`}>
           {active?<Clock className="mr-1.5 h-5 w-5 animate-pulse"/>:oil>0?<Droplet className="mr-1.5 h-5 w-5"/>:<Power className="mr-1.5 h-5 w-5"/>}
           {active?`${t(lang,'sellLocked')} · ${formatHHMMSS(secRem)}`:oil>0?t(lang,'sell'):t(lang,'startMining')}
         </Button>
-        <Button onClick={()=>{haptic('light');onGoToStore();}} className="h-12 rounded-2xl border border-cyan-200/40 bg-gradient-to-b from-[#34d0d0] to-[#16aeb7] text-base font-black text-white shadow-[0_4px_0_#087f88]">
+        <Button onClick={()=>{haptic('light');onGoToStore();}} className="h-14 rounded-2xl border border-cyan-100/50 bg-gradient-to-b from-[#4ce0df] via-[#25c6c8] to-[#109aa8] text-base font-black text-white shadow-[0_6px_0_#087f88,0_12px_24px_rgba(16,185,190,.22),inset_0_1px_0_rgba(255,255,255,.5)]">
           <ArrowUpRight className="mr-1.5 h-5 w-5"/>{t(lang,'upgrade')}
         </Button>
       </div>
