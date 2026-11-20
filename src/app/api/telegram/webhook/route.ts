@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
+import { notifyReferrerOfNewFriend } from '@/lib/referral-notification';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,11 +53,19 @@ export async function POST(req: NextRequest) {
       });
       const referrerId = referrer.rows[0]?.telegram_id?.toString();
       if (referrerId && referrerId !== newUserId) {
-        await db.execute({
+        const referralInsert = await db.execute({
           sql: `INSERT INTO referrals (id, referrer_telegram_id, referee_telegram_id)
                 VALUES (?, ?, ?) ON CONFLICT(referee_telegram_id) DO NOTHING`,
           args: [randomBytes(16).toString('hex'), referrerId, newUserId],
         });
+        if (Number(referralInsert.rowsAffected ?? 0) > 0) {
+          const friendName = message.from.username ? `@${message.from.username}` : [message.from.first_name, message.from.last_name].filter(Boolean).join(' ') || 'Friend';
+          try {
+            await notifyReferrerOfNewFriend(referrerId, friendName);
+          } catch (notificationError) {
+            console.error('referral_notification_failed', notificationError);
+          }
+        }
       }
     }
   } catch (error) {
