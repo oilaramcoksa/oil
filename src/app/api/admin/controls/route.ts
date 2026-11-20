@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
       } }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
-    if (section === 'crash') {
+    if (section === 'crash' || section === 'bets') {
       await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_rounds(
         id TEXT PRIMARY KEY,status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','spinning','completed')),
         starts_at INTEGER,spin_started_at INTEGER,winning_sector INTEGER,winning_color TEXT,
