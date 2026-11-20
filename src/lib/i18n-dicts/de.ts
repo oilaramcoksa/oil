@@ -11,6 +11,19 @@ const de: Dict = { ...en,
   tasksTitle: 'Aufgaben', dailyTasks: 'Tägliche Aufgaben', weeklyTasks: 'Wöchentliche Aufgaben', friendsTitle: 'Freunde',
   inviteLink: 'Einladungslink', copyLink: 'Link kopieren', yourReferrals: 'Deine Empfehlungen', noReferrals: 'Noch keine Empfehlungen',
   speedPartsTitle: 'Upgrade-Shop', autoSellPart: "Automatischer Verkauf", autoSellDescription: "Verkauft Öl 30 Tage lang am Ende jedes 12-Stunden-Förderzyklus automatisch, ohne das Spiel zu öffnen. Ein Förderzyklus muss aktiv sein.", autoSellDuration: "30 Tage", crashRecentRounds: 'Letzte 10 Runden',
+  promoCodeTitle: "Promo-Code",
+  promoCodePlaceholder: "Promo-Code eingeben",
+  promoApply: "Anwenden",
+  promoApplying: "Wird angewendet…",
+  promoApplied: "Promo-Code angewendet und Prämie gutgeschrieben",
+  promoInvalid: "Ungültiger oder inaktiver Promo-Code",
+  promoUserLimit: "Du hast das Nutzungslimit für diesen Code erreicht",
+  promoTotalLimit: "Das Gesamtnutzungslimit dieses Codes ist erreicht",
+  promoExpired: "Dieser Code ist abgelaufen",
+  promoProductMismatch: "Dieser Code gilt nicht für das ausgewählte Produkt",
+  promoMiningFeePaid: "Die Mining-Gebühr ist bereits aktiviert",
+  promoGenericError: "Promo-Code konnte nicht eingelöst werden",
+
 };
 
 export default de;
