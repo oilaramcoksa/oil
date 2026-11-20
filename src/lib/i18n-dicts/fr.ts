@@ -11,6 +11,19 @@ const fr: Dict = { ...en,
   tasksTitle: 'Missions', dailyTasks: 'Missions quotidiennes', weeklyTasks: 'Missions hebdomadaires', friendsTitle: 'Amis',
   inviteLink: 'Lien d’invitation', copyLink: 'Copier le lien', yourReferrals: 'Vos filleuls', noReferrals: 'Aucun filleul pour le moment',
   speedPartsTitle: 'Boutique des améliorations', autoSellPart: "Vente automatique", autoSellDescription: "Vend automatiquement le pétrole à la fin de chaque cycle minier de 12 heures pendant 30 jours, sans ouvrir le jeu. Un cycle doit être actif.", autoSellDuration: "30 jours", crashRecentRounds: '10 dernières manches',
+  promoCodeTitle: "Code promo",
+  promoCodePlaceholder: "Saisissez le code promo",
+  promoApply: "Appliquer",
+  promoApplying: "Application…",
+  promoApplied: "Code appliqué et récompense créditée",
+  promoInvalid: "Code invalide ou inactif",
+  promoUserLimit: "Vous avez atteint la limite d’utilisation de ce code",
+  promoTotalLimit: "La limite totale d’utilisations de ce code est atteinte",
+  promoExpired: "Ce code a expiré",
+  promoProductMismatch: "Ce code ne s’applique pas au produit sélectionné",
+  promoMiningFeePaid: "Les frais de minage sont déjà activés",
+  promoGenericError: "Impossible d’utiliser le code promo",
+
 };
 
 export default fr;
