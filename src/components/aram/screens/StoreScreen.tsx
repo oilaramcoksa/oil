@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { TonConnectUI } from '@tonconnect/ui';
 import { getTonConnectUI } from '@/lib/ton-connect';
 import { beginCell } from '@ton/core';
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { TadsWidget } from 'react-tads-widget';
 import { HybridRewardedAd } from '@/components/aram/HybridRewardedAd';
 
-export function StoreScreen({ initData, isVerified, openProductRequest = 0, openProductId = 'plane_tips' }: { initData: string; isVerified: boolean; openProductRequest?: number; openProductId?: string }) {
+export function StoreScreen({ initData, isVerified, openProductRequest = 0, openProductId = 'plane_tips', resetHomeRequest = 0 }: { initData: string; isVerified: boolean; openProductRequest?: number; openProductId?: string; resetHomeRequest?: number }) {
   const lang = useGame((s) => s.lang);
   const upgrades = useGame((s) => s.upgrades);
   const { haptic, notify } = useTelegram();
@@ -65,6 +65,20 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
   const [paymentFailed, setPaymentFailed] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [promoBusy, setPromoBusy] = useState(false);
+  const storeScrollRef = useRef<HTMLDivElement>(null);
+
+  // Tapping the Store tab always returns from a product/package detail to the store root.
+  useEffect(() => {
+    if (!resetHomeRequest) return;
+    if (!verifying && !partVerifying) {
+      setSelected(null);
+      setSelectedPart(null);
+      setPaymentFailed(false);
+      setPartFailed(false);
+      setPromoCode('');
+      storeScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [resetHomeRequest, verifying, partVerifying]);
 
   const openPackage = (p: UpgradePackage) => {
     haptic('medium');
@@ -238,7 +252,7 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
   };
 
   return (
-    <div dir={dirOf(lang)} className="h-full min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain px-3 pt-2 pb-6 aram-scroll" style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
+    <div ref={storeScrollRef} dir={dirOf(lang)} className="h-full min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain px-3 pt-2 pb-6 aram-scroll" style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
       {/* Title */}
       <div className="flex items-center gap-2 mb-3">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-lg">
