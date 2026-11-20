@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ensurePlayerSchema, getTurso } from '@/lib/turso';
 import { getStartParam, verifiedPlayerFromRequest } from '@/lib/telegram-player';
 import { randomBytes } from 'node:crypto';
+import { notifyReferrerOfNewFriend } from '@/lib/referral-notification';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,11 +47,19 @@ export async function GET(req: NextRequest) {
       const referrer = await db.execute({ sql: 'SELECT telegram_id FROM players WHERE referral_code = ?', args: [code] });
       const referrerId = referrer.rows[0]?.telegram_id?.toString();
       if (referrerId && referrerId !== telegramId) {
-        await db.execute({
+        const referralInsert = await db.execute({
           sql: `INSERT INTO referrals (id, referrer_telegram_id, referee_telegram_id)
                 VALUES (?, ?, ?) ON CONFLICT(referee_telegram_id) DO NOTHING`,
           args: [randomBytes(16).toString('hex'), referrerId, telegramId],
         });
+        if (Number(referralInsert.rowsAffected ?? 0) > 0) {
+          const friendName = identity.username ? `@${identity.username}` : [identity.first_name, identity.last_name].filter(Boolean).join(' ') || 'Friend';
+          try {
+            await notifyReferrerOfNewFriend(referrerId, friendName);
+          } catch (notificationError) {
+            console.error('referral_notification_failed', notificationError);
+          }
+        }
       }
     }
 
