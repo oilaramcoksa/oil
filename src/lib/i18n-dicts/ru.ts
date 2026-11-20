@@ -603,6 +603,19 @@ shortsVideoDescription: "Хочу познакомить вас с Aramco Oil �
   swapConversionHint: '100 000 монет = 100 $',
   on: 'на',
   adminNotice: 'Уведомление администрации',
+  promoCodeTitle: "Промокод",
+  promoCodePlaceholder: "Введите промокод",
+  promoApply: "Применить",
+  promoApplying: "Применение…",
+  promoApplied: "Промокод применён, награда успешно начислена",
+  promoInvalid: "Недействительный или отключённый промокод",
+  promoUserLimit: "Вы достигли лимита использования этого промокода",
+  promoTotalLimit: "Общий лимит использований промокода исчерпан",
+  promoExpired: "Срок действия промокода истёк",
+  promoProductMismatch: "Этот промокод не подходит для выбранного товара",
+  promoMiningFeePaid: "Плата за майнинг уже активирована",
+  promoGenericError: "Не удалось применить промокод",
+
 };
 
 export default ru;
