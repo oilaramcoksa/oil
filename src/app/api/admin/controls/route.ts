@@ -70,7 +70,6 @@ export async function GET(req: NextRequest) {
   if (!authorized(req)) return fail('unauthorized', 401);
   try {
     await ensureDatabaseSchema();
-    await ensurePromoSchema();
     const db = getTurso();
     const section = req.nextUrl.searchParams.get('section') ?? 'overview';
     const status = req.nextUrl.searchParams.get('status') ?? 'pending';
@@ -425,6 +424,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureDatabaseSchema();
+    await ensurePromoSchema();
     const db = getTurso();
     const tx = await db.transaction('write');
     try {
