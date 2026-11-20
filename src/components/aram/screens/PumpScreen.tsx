@@ -259,7 +259,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         <div className="flex min-w-0 flex-col gap-1 rounded-2xl border border-emerald-400/35 bg-gradient-to-br from-[#292015] to-[#15110d] px-3 py-2 shadow-[0_6px_18px_rgba(0,0,0,.35)]">
           <div className="text-[10px] font-bold text-emerald-200/80">{lang === 'ar' ? 'سرعة التعدين' : 'Mining speed'}</div>
           <div dir="ltr" className="text-lg font-black tabular-nums text-emerald-300">{coinsPerHour.toLocaleString()} <span className="text-[10px] text-emerald-100/65">{lang === 'ar' ? 'عملة/ساعة' : 'coins/hour'}</span></div>
-          {specialParts.vip_badge > 0 && <div className="w-fit rounded-lg border border-amber-300/60 bg-gradient-to-r from-amber-500/30 to-yellow-300/10 px-2 py-0.5 text-[10px] font-black text-amber-200 shadow-[0_0_12px_rgba(251,191,36,.15)]">👑 VIP</div>}
+          {specialParts.vip_badge && <div className="w-fit rounded-lg border border-amber-300/60 bg-gradient-to-r from-amber-500/30 to-yellow-300/10 px-2 py-0.5 text-[10px] font-black text-amber-200 shadow-[0_0_12px_rgba(251,191,36,.15)]">👑 VIP</div>}
         </div>
         <div className="flex min-w-0 flex-col justify-center rounded-2xl border border-amber-400/35 bg-gradient-to-br from-[#292015] to-[#15110d] px-3 py-2 shadow-[0_6px_18px_rgba(0,0,0,.35)]">
           <div className="text-[10px] font-bold text-amber-200/80">{t(lang,'coins')}</div>
