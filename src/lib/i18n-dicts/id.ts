@@ -11,6 +11,19 @@ const id: Dict = { ...en,
   tasksTitle: 'Tugas', dailyTasks: 'Tugas harian', weeklyTasks: 'Tugas mingguan', friendsTitle: 'Teman',
   inviteLink: 'Tautan undangan', copyLink: 'Salin tautan', yourReferrals: 'Referral Anda', noReferrals: 'Belum ada referral',
   speedPartsTitle: 'Toko peningkatan', autoSellPart: "Penjualan otomatis", autoSellDescription: "Menjual minyak secara otomatis di akhir setiap siklus penambangan 12 jam selama 30 hari tanpa membuka game. Siklus penambangan harus sudah aktif.", autoSellDuration: "30 hari", crashRecentRounds: '10 ronde terakhir',
+  promoCodeTitle: "Kode promo",
+  promoCodePlaceholder: "Masukkan kode promo",
+  promoApply: "Terapkan",
+  promoApplying: "Menerapkan…",
+  promoApplied: "Kode promo berhasil digunakan dan hadiah telah ditambahkan",
+  promoInvalid: "Kode promo tidak valid atau tidak aktif",
+  promoUserLimit: "Batas penggunaan kode ini untuk Anda telah tercapai",
+  promoTotalLimit: "Batas total penggunaan kode ini telah tercapai",
+  promoExpired: "Kode promo ini sudah kedaluwarsa",
+  promoProductMismatch: "Kode ini tidak berlaku untuk produk yang dipilih",
+  promoMiningFeePaid: "Biaya mining sudah diaktifkan",
+  promoGenericError: "Kode promo tidak dapat digunakan",
+
 };
 
 export default id;
