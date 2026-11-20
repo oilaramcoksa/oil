@@ -571,7 +571,7 @@ export async function POST(req: NextRequest) {
             if(purchased+wallet>0)refundedPlayers++;
           }
         } else if(game==='color_wheel'){
-          const round=await tx.execute({sql:"UPDATE color_wheel_rounds SET status='completed',winning_color='admin_cancelled',completed_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('open','spinning') RETURNING id",args:[roundId]});
+          const round=await tx.execute({sql:"UPDATE color_wheel_rounds SET status='completed',winning_color='admin_cancelled',completed_at=CURRENT_TIMESTAMP WHERE id=? AND status='open' RETURNING id",args:[roundId]});
           if(!round.rows.length){await tx.rollback();return fail('round_not_cancellable',409);}
           const bets=await tx.execute({sql:"SELECT telegram_id,amount,purchased_amount,wallet_amount FROM color_wheel_bets WHERE round_id=? AND outcome='pending'",args:[roundId]});
           for(const b of bets.rows){
