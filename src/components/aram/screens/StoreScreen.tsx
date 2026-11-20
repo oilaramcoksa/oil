@@ -62,7 +62,7 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
   const [partVerifying, setPartVerifying] = useState(false);
   const [partFailed, setPartFailed] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [paymentFailed, setPaymentFailed] = useState(false);
+  const [paymentFailed, setPaymentFailed] = useState(false);\n  const [promoCode, setPromoCode] = useState('');\n  const [promoBusy, setPromoBusy] = useState(false);
 
   const openPackage = (p: UpgradePackage) => {
     haptic('medium');
@@ -177,6 +177,26 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
         toast.error(t(lang, 'purchaseGenericError'));
       }
     }
+  };
+
+  const redeemStorePromo = async (productId:string) => {
+    const init = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData ?? '' : '';
+    if(!init){toast.error(t(lang,'telegramRequired'));return;}
+    if(!promoCode.trim()){toast.error(lang==='ar'?'أدخل كود البرومو أولاً':'Enter a promo code first');return;}
+    setPromoBusy(true);
+    try{
+      const response=await fetch('/api/promo-codes/redeem',{method:'POST',headers:{'Content-Type':'application/json','x-telegram-init-data':init},body:JSON.stringify({code:promoCode,productId}),cache:'no-store'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.error||'promo_redemption_failed');
+      toast.success(lang==='ar'?'تم تفعيل البرومو وإضافة المنتج مجانًا':'Promo applied. Product granted for free.');
+      setPromoCode('');
+      if(productId) setSelectedPart(null);
+      else setSelected(null);
+    }catch(e){
+      const msg=String((e as Error).message||'');
+      const messages:Record<string,string>={promo_invalid_or_inactive:'كود غير صحيح أو متوقف',promo_user_limit_reached:'استخدمت هذا الكود الحد المسموح لك',promo_total_limit_reached:'انتهت مرات استخدام هذا الكود',promo_expired:'انتهت صلاحية الكود',promo_product_mismatch:'هذا الكود لا ينطبق على المنتج المحدد',mining_fee_already_paid:'رسوم التعدين مفعّلة بالفعل'};
+      toast.error(lang==='ar'?(messages[msg]||'تعذر استخدام البرومو كود'):'Could not redeem promo code');
+    }finally{setPromoBusy(false);}
   };
 
   const confirmPaid = async () => {
