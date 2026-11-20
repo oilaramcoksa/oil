@@ -209,7 +209,8 @@ export default function AdminPage() {
   }
   const nav=[
     {id:'overview' as const,label:'الرئيسية',icon:LayoutDashboard},
-    {id:'players' as const,label:'اللاعبون',icon:Users},\n    {id:'bets' as const,label:'الرهانات والجولات',icon:Activity},
+    {id:'players' as const,label:'اللاعبون',icon:Users},
+    {id:'bets' as const,label:'الرهانات والجولات',icon:Activity},
     {id:'referrals' as const,label:'الإحالات',icon:Users},
     {id:'withdrawals' as const,label:'طلبات السحب',icon:Wallet},
     {id:'payments' as const,label:'المشتريات',icon:ShoppingBag},
