@@ -49,9 +49,9 @@ export const PumpScene3D = forwardRef<PumpScene3DHandle, PumpScene3DProps>(funct
   }), []);
 
   return (
-    <div className="relative w-full aspect-square max-h-[60vh] select-none touch-none">
+    <div className="relative h-full w-full select-none touch-none">
       <canvas ref={canvasRef} className="block h-full w-full" />
-      <div className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_60px_rgba(0,0,0,.55)]" />
+      <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_80px_rgba(0,0,0,.45)]" />
     </div>
   );
 });

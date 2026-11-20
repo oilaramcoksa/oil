@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PumpScene3D, type PumpScene3DHandle } from '../PumpScene3D';
 import { SellModal } from '../SellModal';
 import { Button } from '@/components/ui/button';
-import { Droplet, Gauge, ArrowUpRight, Clock, Power, Package } from 'lucide-react';
+import { Droplet, Gauge, ArrowUpRight, Clock, Power } from 'lucide-react';
 import {
   useGame,
   effectiveCapacity,
@@ -256,92 +256,78 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   }, []);
 
   return (
-    <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain bg-[#0e1018] pb-3 text-white">
-      <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2 px-3 pt-3 pb-2">
-        <div className="flex min-w-0 flex-col gap-1 rounded-2xl border border-emerald-400/35 bg-gradient-to-br from-[#292015] to-[#15110d] px-3 py-2 shadow-[0_6px_18px_rgba(0,0,0,.35)]">
-          <div className="text-[10px] font-bold text-emerald-200/80">{lang === 'ar' ? 'سرعة التعدين' : 'Mining speed'}</div>
-          <div dir="ltr" className="text-lg font-black tabular-nums text-emerald-300">{coinsPerHour.toLocaleString()} <span className="text-[10px] text-emerald-100/65">{lang === 'ar' ? 'عملة/ساعة' : 'coins/hour'}</span></div>
-          {specialParts.vip_badge && <div className="w-fit rounded-lg border border-amber-300/60 bg-gradient-to-r from-amber-500/30 to-yellow-300/10 px-2 py-0.5 text-[10px] font-black text-amber-200 shadow-[0_0_12px_rgba(251,191,36,.15)]">👑 VIP</div>}
-        </div>
-        <div className="flex min-w-0 flex-col justify-center rounded-2xl border border-amber-400/35 bg-gradient-to-br from-[#292015] to-[#15110d] px-3 py-2 shadow-[0_6px_18px_rgba(0,0,0,.35)]">
-          <div className="text-[10px] font-bold text-amber-200/80">{t(lang,'coins')}</div>
-          <div dir="ltr" className="text-lg font-black tabular-nums text-amber-200">{coins.toLocaleString()}</div>
-        </div>
-      </div>
-      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-2 px-3 py-2">
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-300/30 bg-[#24182c] px-3 py-2 shadow-lg">
-          <span className="text-lg">💵</span>
-          <div><div className="text-[9px] font-bold text-emerald-200/70">{t(lang,'coins')}</div><div className="text-sm font-black tabular-nums text-emerald-100">{coins.toLocaleString()}</div></div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={()=>{haptic('medium');onGoToArena();}} aria-label={t(lang,'arenaPromoTitle')} className="grid h-10 w-10 place-items-center rounded-xl border border-amber-300/30 bg-[#382b24] text-xl shadow-lg">🏆</button>
-          <button type="button" onClick={()=>{haptic('light');onGoToStore();}} aria-label={t(lang,'upgrade')} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-[#302b36] text-white shadow-lg"><Package className="h-5 w-5"/></button>
-        </div>
-      </div>
-
-      <div className="game-panel relative mx-auto w-full max-w-md overflow-hidden rounded-t-[26px] border border-violet-200/20 bg-gradient-to-b from-[#242044] via-[#201a38] to-[#130f24] px-1 shadow-[0_18px_38px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.18)]" style={{ perspective: '900px' }}>
+    <div className="relative h-full w-full overflow-hidden bg-[#0e1018] text-white">
+      {/* Full-screen 3D scene — fills the whole area between TopBar and BottomNav */}
+      <div className="absolute inset-0">
         <PumpScene3D ref={sceneRef} pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts}/>
-        <div className="pointer-events-none absolute left-[2.5%] top-[16%] z-20 flex w-[27%] max-w-[132px] flex-col gap-2">
-          <motion.div
-            initial={{ opacity: 0, x: -18, rotateY: 24, scale: .88 }}
-            animate={{ opacity: 1, x: 0, rotateY: 7, scale: 1, y: [0, -3, 0] }}
-            transition={{ opacity: { duration: .45 }, x: { duration: .45, type: 'spring', stiffness: 150 }, rotateY: { duration: .5 }, y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' } }}
-            className="rounded-xl border border-cyan-200/35 bg-gradient-to-br from-[#252a46]/95 via-[#15172d]/95 to-[#090d20]/95 px-2 py-2 shadow-[0_8px_0_rgba(4,8,24,.8),0_12px_24px_rgba(0,0,0,.48),inset_0_1px_0_rgba(255,255,255,.22)] backdrop-blur-md"
-            style={{ transformStyle: 'preserve-3d' }}
-          >
-            <div className="flex items-center gap-1 text-[9px] font-black leading-tight text-slate-300"><Droplet className="h-3 w-3 shrink-0 text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,.8)]"/> <span>{t(lang,'oil')}</span></div>
-            <motion.div key={oil.toFixed(5)} initial={{ scale: 1.12, color: '#fde68a' }} animate={{ scale: 1, color: '#ffffff' }} transition={{ duration: .25 }} className="mt-1 text-right text-[clamp(13px,3.5vw,17px)] font-black tabular-nums tracking-tight drop-shadow-[0_2px_5px_rgba(0,0,0,.8)]">{oil.toFixed(5)}</motion.div>
-            <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10"><motion.div animate={{ width: `${Math.max(2, Math.min(100, oilRatio * 100))}%` }} transition={{ duration: .5 }} className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-200 shadow-[0_0_8px_rgba(251,191,36,.9)]"/></div>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, x: -18, rotateY: 24, scale: .88 }}
-            animate={{ opacity: 1, x: 0, rotateY: 7, scale: 1, y: [0, -3, 0] }}
-            transition={{ opacity: { delay: .12, duration: .45 }, x: { delay: .12, duration: .45, type: 'spring', stiffness: 150 }, rotateY: { delay: .12, duration: .5 }, y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: .5 } }}
-            className="rounded-xl border border-rose-200/35 bg-gradient-to-br from-[#39243a]/95 via-[#21172d]/95 to-[#100d20]/95 px-2 py-2 shadow-[0_8px_0_rgba(12,5,20,.8),0_12px_24px_rgba(0,0,0,.48),inset_0_1px_0_rgba(255,255,255,.22)] backdrop-blur-md"
-            style={{ transformStyle: 'preserve-3d' }}
-          >
-            <div className="flex items-center gap-1 text-[9px] font-black leading-tight text-slate-300"><Gauge className="h-3 w-3 shrink-0 text-rose-400 drop-shadow-[0_0_5px_rgba(251,113,133,.8)]"/> <span>{t(lang,'oilPerTap')}</span></div>
-            <div className="mt-1 text-right text-[clamp(13px,3.5vw,17px)] font-black tabular-nums tracking-tight text-white drop-shadow-[0_2px_5px_rgba(0,0,0,.8)]">{perTap.toLocaleString()}</div>
-            <div className="mt-1 text-right text-[8px] font-bold text-rose-200/65">{lang === 'ar' ? 'لكل ضغطة' : 'PER TAP'}</div>
-          </motion.div>
-        </div>
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: [0, -2, 0] }}
-          transition={{ opacity: { duration: .4 }, y: { duration: 2.8, repeat: Infinity, ease: 'easeInOut' } }}
-          className="pointer-events-none absolute right-3 top-3 z-20 rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-[9px] font-black text-white/85 shadow-lg backdrop-blur-md"
-        >
-          <span className={active ? 'mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'mr-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-400'}/>
-          {active ? (lang === 'ar' ? 'المضخة تعمل' : 'PUMP LIVE') : (lang === 'ar' ? 'المضخة متوقفة' : 'PUMP IDLE')}
+      </div>
+
+      {/* legibility gradients so floating HUD reads over any sky */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/55 to-transparent"/>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-32 bg-gradient-to-t from-black/65 to-transparent"/>
+
+      {/* oil card — top-left, compact, tap-through */}
+      <motion.div
+        initial={{ opacity: 0, x: -16 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: .4 }}
+        className="pointer-events-none absolute left-2.5 top-2.5 z-20 w-[38%] max-w-[160px] rounded-xl border border-cyan-200/30 bg-black/45 px-2 py-1.5 backdrop-blur-md"
+      >
+        <div className="flex items-center gap-1 text-[9px] font-black leading-tight text-slate-200"><Droplet className="h-3 w-3 shrink-0 text-amber-300"/> <span>{t(lang,'oil')}</span></div>
+        <motion.div key={oil.toFixed(5)} initial={{ scale: 1.12, color: '#fde68a' }} animate={{ scale: 1, color: '#ffffff' }} transition={{ duration: .25 }} className="mt-0.5 text-right text-[clamp(13px,3.6vw,17px)] font-black tabular-nums tracking-tight drop-shadow-[0_2px_5px_rgba(0,0,0,.8)]">{oil.toFixed(5)}</motion.div>
+        <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/15"><motion.div animate={{ width: `${Math.max(2, Math.min(100, oilRatio * 100))}%` }} transition={{ duration: .5 }} className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-200 shadow-[0_0_8px_rgba(251,191,36,.9)]"/></div>
+        <div className="mt-1 flex items-center justify-between text-[8px] font-bold text-rose-200/75"><span className="flex items-center gap-0.5"><Gauge className="h-2.5 w-2.5"/>{t(lang,'oilPerTap')}</span><span className="tabular-nums text-white">{perTap.toLocaleString()}</span></div>
+        {specialParts.vip_badge && <div className="mt-1 w-fit rounded border border-amber-300/60 bg-amber-500/20 px-1 text-[8px] font-black text-amber-200">👑 VIP</div>}
+      </motion.div>
+
+      {/* coins + arena — top-right, compact */}
+      <div className="absolute right-2.5 top-2.5 z-20 flex items-center gap-1.5">
+        <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .4 }} className="flex items-center gap-1 rounded-lg border border-amber-300/35 bg-black/45 px-2 py-1 backdrop-blur-md">
+          <span className="text-[11px]">💰</span>
+          <span dir="ltr" className="text-[12px] font-black tabular-nums text-amber-200">{coins.toLocaleString()}</span>
         </motion.div>
-        {shortsVisible&&<motion.button type="button" onClick={event=>{event.stopPropagation();haptic('medium');onOpenShorts();}} initial={{scale:.8,opacity:0}} animate={{scale:[1,1.08,1],opacity:1,rotate:[0,-3,3,0]}} transition={{scale:{duration:1,repeat:Infinity},rotate:{duration:1,repeat:Infinity},opacity:{duration:.2}}} whileTap={{scale:.92}} className="absolute left-[2.5%] top-[25%] z-30 h-14 w-14 overflow-hidden rounded-2xl border-2 border-red-400 bg-black shadow-[0_0_20px_rgba(239,68,68,.65)]" aria-label={t(lang,'shortsTitle')}><img src="/images/shop/live.png" alt="" className="h-full w-full object-contain"/></motion.button>}
-        <AnimatePresence>{floats.map(f=><motion.div key={f.id} initial={{opacity:1,y:0,scale:.8}} animate={{opacity:0,y:-80,scale:1.4}} exit={{opacity:0}} transition={{duration:1}} className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 text-xl font-black text-amber-300 drop-shadow-lg">+{f.v}</motion.div>)}</AnimatePresence>
-
+        <button type="button" onClick={()=>{haptic('medium');onGoToArena();}} aria-label={t(lang,'arenaPromoTitle')} className="grid h-8 w-8 place-items-center rounded-lg border border-amber-300/30 bg-black/45 text-base backdrop-blur-md">🏆</button>
       </div>
 
-      <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2 px-3 pb-2 pt-3">
-        <Button onClick={active?undefined:oil>0?handleSell:handleTap} disabled={active} className={`game-cta h-14 rounded-2xl border border-orange-100/50 font-black text-sm shadow-[0_6px_0_#a95620,0_12px_24px_rgba(240,138,48,.25),inset_0_1px_0_rgba(255,255,255,.5)] transition-all ${active?'cursor-not-allowed bg-gradient-to-b from-[#b98a5c] to-[#936b49] text-white/80 opacity-80':'bg-gradient-to-b from-[#ffc36b] via-[#ff9d3d] to-[#ed7928] text-white'}`}>
-          {active?<Clock className="mr-1.5 h-5 w-5 animate-pulse"/>:oil>0?<Droplet className="mr-1.5 h-5 w-5"/>:<Power className="mr-1.5 h-5 w-5"/>}
-          {active?`${t(lang,'sellLocked')} · ${formatHHMMSS(secRem)}`:oil>0?t(lang,'sell'):t(lang,'startMining')}
-        </Button>
-        <Button onClick={()=>{haptic('light');onGoToStore();}} className="h-14 rounded-2xl border border-cyan-100/50 bg-gradient-to-b from-[#4ce0df] via-[#25c6c8] to-[#109aa8] text-base font-black text-white shadow-[0_6px_0_#087f88,0_12px_24px_rgba(16,185,190,.22),inset_0_1px_0_rgba(255,255,255,.5)]">
-          <ArrowUpRight className="mr-1.5 h-5 w-5"/>{t(lang,'upgrade')}
-        </Button>
-      </div>
+      {/* status pill — under coins */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: [0, -2, 0] }}
+        transition={{ opacity: { duration: .4 }, y: { duration: 2.8, repeat: Infinity, ease: 'easeInOut' } }}
+        className="pointer-events-none absolute right-2.5 top-12 z-20 rounded-full border border-white/20 bg-black/45 px-2 py-0.5 text-[9px] font-black text-white/85 backdrop-blur-md"
+      >
+        <span className={active ? 'mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'mr-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-400'}/>
+        {active ? (lang === 'ar' ? 'تعمل' : 'LIVE') : (lang === 'ar' ? 'متوقفة' : 'IDLE')}
+      </motion.div>
 
+      {/* shorts button */}
+      {shortsVisible&&<motion.button type="button" onClick={event=>{event.stopPropagation();haptic('medium');onOpenShorts();}} initial={{scale:.8,opacity:0}} animate={{scale:[1,1.08,1],opacity:1}} transition={{scale:{duration:1,repeat:Infinity},opacity:{duration:.2}}} whileTap={{scale:.92}} className="absolute left-2.5 top-[40%] z-30 h-11 w-11 overflow-hidden rounded-xl border-2 border-red-400 bg-black shadow-[0_0_18px_rgba(239,68,68,.6)]" aria-label={t(lang,'shortsTitle')}><img src="/images/shop/live.png" alt="" className="h-full w-full object-contain"/></motion.button>}
 
-      <div className="mx-auto -mt-1 w-full max-w-md px-3">
-        <div className="flex items-center justify-between rounded-xl border border-emerald-300/40 bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-2 text-white shadow-[0_4px_0_#087b50,0_8px_18px_rgba(0,0,0,.25)]">
-          <div className="flex items-center gap-2 text-xs font-black"><Clock className="h-4 w-4"/>{active?(lang==='ar'?'المضخة تعمل':'PUMP RUNNING'):(lang==='ar'?'الوقت المتبقي':'TIME LEFT')}</div>
-          <div className="text-lg font-black tabular-nums">{formatHHMMSS(secRem)}</div>
+      {/* tap reward floats */}
+      <AnimatePresence>{floats.map(f=><motion.div key={f.id} initial={{opacity:1,y:0,scale:.8}} animate={{opacity:0,y:-80,scale:1.4}} exit={{opacity:0}} transition={{duration:1}} className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 text-xl font-black text-amber-300 drop-shadow-lg">+{f.v}</motion.div>)}</AnimatePresence>
+
+      {/* bottom floating control cluster — compact, tap-through except controls */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-2.5 pb-2">
+        <div className="mx-auto flex max-w-md flex-col gap-1.5">
+          <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-xl border border-emerald-300/45 bg-gradient-to-b from-emerald-500/90 to-emerald-700/90 px-3 py-1.5 text-white shadow-[0_4px_0_#087b50,0_8px_18px_rgba(0,0,0,.3)] backdrop-blur-md">
+            <div className="flex items-center gap-1.5 text-[11px] font-black"><Clock className="h-3.5 w-3.5"/>{active?(lang==='ar'?'تعمل':'RUNNING'):(lang==='ar'?'المتبقي':'LEFT')}</div>
+            <div className="text-base font-black tabular-nums">{formatHHMMSS(secRem)}</div>
+            <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-50/90"><Gauge className="h-3 w-3"/>{coinsPerHour.toLocaleString()}</div>
+          </div>
+          <div className="pointer-events-auto h-1.5 overflow-hidden rounded-full bg-white/15"><motion.div animate={{width:`${cycleProgress*100}%`}} transition={{duration:.3}} className="h-full rounded-full bg-emerald-200"/></div>
+          <div className="pointer-events-auto grid grid-cols-2 gap-2">
+            <Button onClick={active?undefined:oil>0?handleSell:handleTap} disabled={active} className={`h-11 rounded-xl border text-[13px] font-black shadow-[0_4px_0_rgba(0,0,0,.25),inset_0_1px_0_rgba(255,255,255,.4)] ${active?'cursor-not-allowed border-white/10 bg-gradient-to-b from-[#b98a5c] to-[#936b49] text-white/80 opacity-80':'border-orange-100/50 bg-gradient-to-b from-[#ffc36b] via-[#ff9d3d] to-[#ed7928] text-white'}`}>
+              {active?<Clock className="mr-1 h-4 w-4 animate-pulse"/>:oil>0?<Droplet className="mr-1 h-4 w-4"/>:<Power className="mr-1 h-4 w-4"/>}
+              {active?t(lang,'sellLocked'):oil>0?t(lang,'sell'):t(lang,'startMining')}
+            </Button>
+            <Button onClick={()=>{haptic('light');onGoToStore();}} className="flex h-11 items-center justify-center rounded-xl border border-cyan-100/50 bg-gradient-to-b from-[#4ce0df] via-[#25c6c8] to-[#109aa8] text-[13px] font-black text-white shadow-[0_4px_0_#087f88,inset_0_1px_0_rgba(255,255,255,.4)]">
+              <ArrowUpRight className="mr-1 h-4 w-4"/>{t(lang,'upgrade')}
+            </Button>
+          </div>
+          <div className="pointer-events-auto"><HybridRewardedAd initData={initData} isVerified={isVerified} title={t(lang,'tadsWatchAdReward')} actionLabel={t(lang,'tadsWatchAdReward')} loadingLabel={t(lang,'tadsRewardLoading')} onRewarded={handleAdRewarded} onError={handleAdRewardError}/></div>
         </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><motion.div animate={{width:`${cycleProgress*100}%`}} transition={{duration:.3}} className="h-full rounded-full bg-emerald-200"/></div>
-        <div className="mt-1 flex items-center justify-between px-1 text-[10px] font-bold text-white/55"><span>{t(lang,'usingSpeed')}</span><span>{coinsPerHour.toLocaleString()} {t(lang,'coinsPerHour')}</span></div>
       </div>
 
-      <div className="mx-auto mt-1 w-full max-w-md px-3 pb-2">
-        <HybridRewardedAd initData={initData} isVerified={isVerified} title={t(lang,'tadsWatchAdReward')} actionLabel={t(lang,'tadsWatchAdReward')} loadingLabel={t(lang,'tadsRewardLoading')} onRewarded={handleAdRewarded} onError={handleAdRewardError}/>
-      </div>
       <SellModal open={sellOpen} onClose={()=>setSellOpen(false)} initData={initData} isVerified={isVerified}/>
       {feeGateOpen&&<MiningFeeGate initData={initData} onActivated={handleFeeActivated} onClose={()=>setFeeGateOpen(false)}/>}
     </div>

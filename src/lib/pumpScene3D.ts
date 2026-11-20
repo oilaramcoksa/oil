@@ -605,11 +605,22 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
   canvas.addEventListener('pointerup', onUp as any);
 
   // --- sizing ---
+  // Portrait (phone) vs landscape get different camera framing so the pumpjack
+  // + tank + sky always compose well. The framing only resets when the
+  // orientation actually flips, so free orbit between resizes is preserved.
+  let lastPortrait: boolean | null = null;
   function resize() {
     const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
     if (w === 0 || h === 0) return;
     camera.aspect = w / h; camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
+    const portrait = h > w;
+    if (lastPortrait !== portrait) {
+      lastPortrait = portrait;
+      if (portrait) { camera.position.set(48, 30, 60); controls.target.set(14, 6, 0); }
+      else { camera.position.set(37, 22, 46); controls.target.set(16, 8, 0); }
+      controls.update();
+    }
   }
   const ro = new ResizeObserver(() => resize());
   ro.observe(canvas);
