@@ -2,7 +2,7 @@ import { getTurso } from '@/lib/turso';
 
 const DIRECT_ENTRY_URL = 'https://t.me/armcooilbot?start=guest_gsasw02';
 
-const COPY: Record<string, { title: string; accepted: string; lifetime: string; invite: string; prize: string; personal: string; direct: string }> = {
+const COPY: Record<string, { title: string; accepted: string; lifetime: string; invite: string; personal: string; direct: string }> = {
   ar: {
     title: '🎉 صديق جديد قبل دعوتك!',
     accepted: '👤 صديقك <b>{name}</b> انضم إلى Armco Oil عبر رابط دعوتك.',
