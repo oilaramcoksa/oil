@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plane, Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle, Camera, ExternalLink, CheckCircle, XOctagon, MoreHorizontal, Download, Sparkles } from 'lucide-react';
 import { PACKAGES } from '@/lib/wallets';
 
-type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'crash' | 'audit' | 'promos';
+type Section = 'overview' | 'bets' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'crash' | 'audit' | 'promos';
 type Player = {telegram_id:string;username?:string|null;first_name?:string|null;last_name?:string|null;status:string;coins:number;oil:number;usd_micros?:number;usd_locked_micros?:number;coins_locked?:number;base_oil_per_tap:number;fee_exempt:number;mining_fee_paid_at?:string|null};
 type Row = Record<string, unknown>;
 const ADMIN_SHOP_PARTS = [
@@ -106,7 +106,7 @@ export default function AdminPage() {
       if(nextSection==='broadcasts') setBroadcastRows(data.broadcasts||[]);
       if(nextSection==='referrals') setReferralRows(data.referrals||[]);
       if(nextSection==='audit') setLogs(data.logs||[]);
-      if(nextSection==='crash'){setCrashRounds(data.crashRounds||[]);setActiveGameRounds(data.activeGameRounds||[]);}
+      if(nextSection==='crash'){setCrashRounds(data.crashRounds||[]);}\n      if(nextSection==='bets') setActiveGameRounds(data.activeGameRounds||[]);
       if(nextSection==='shorts'){setShortsRows(data.shorts||[]);setShortsContest(data.contest||null);}
       if(nextSection==='storyTasks') setStoryRows(data.storyTasks||[]);
     } catch(e){setError(e instanceof Error?e.message:'حدث خطأ');}
@@ -208,7 +208,7 @@ export default function AdminPage() {
   }
   const nav=[
     {id:'overview' as const,label:'الرئيسية',icon:LayoutDashboard},
-    {id:'players' as const,label:'اللاعبون',icon:Users},
+    {id:'players' as const,label:'اللاعبون',icon:Users},\n    {id:'bets' as const,label:'الرهانات والجولات',icon:Activity},
     {id:'referrals' as const,label:'الإحالات',icon:Users},
     {id:'withdrawals' as const,label:'طلبات السحب',icon:Wallet},
     {id:'payments' as const,label:'المشتريات',icon:ShoppingBag},
@@ -313,12 +313,12 @@ export default function AdminPage() {
             {!storyRows.length&&<div className="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 p-8 text-center text-sm text-slate-500">لا توجد طلبات في هذا التصنيف.</div>}
           </div>
         </section>}
-        {section==='crash'&&<section className="space-y-4">
-          <div className="rounded-2xl border border-amber-300/20 bg-gradient-to-r from-slate-900 to-indigo-950 p-5 text-white shadow-xl">
-            <div className="text-xl font-black">✈️ ARMCOFLY · سجل الجولات</div>
-            <p className="mt-1 text-xs text-white/60">نتائج آخر 100 جولة، رهانات المشاركين، الأرباح الصافية ونقطة انفجار الطائرة.</p>
-          </div>
+        {section==='bets'&&<section className="space-y-4">
           <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-slate-800"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-black text-rose-900">الرهانات والجولات القائمة · جميع الألعاب</h3><span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-800">{activeGameRounds.length} جولة نشطة</span></div>{activeGameRounds.length?<div className="space-y-2">{activeGameRounds.map(round=><article key={String(round.game)+String(round.id)} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-100 bg-white p-3"><div className="min-w-0"><b>{round.game==="arena"?"عجلة الساحة":round.game==="color_wheel"?"عجلة الألوان":"ARMCOFLY"}</b><p className="mt-1 break-all font-mono text-[10px] text-slate-500">{String(round.id)}</p><p className="mt-1 text-xs text-slate-600">{String(round.status)} · {Number(round.participants)} مشارك · {money(round.totalStakes)} عملة</p></div><div className="w-full space-y-2 rounded-xl bg-slate-50 p-3"><div className="text-xs font-black text-slate-700">رهانات اللاعبين وتوزيع مصدر الرصيد</div>{Array.isArray(round.players)&&round.players.length?round.players.map((player:Row,i:number)=><div key={String(player.telegramId)+i} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2 text-xs last:border-0"><div><b className="text-slate-800">{String(player.username)}</b><div className="font-mono text-[10px] text-slate-500">{String(player.telegramId)}</div></div><div className="text-left"><b className="text-slate-800">{money(player.amount)} عملة</b><div className="text-[10px] text-slate-500">محفظة: {money(player.walletAmount)} · رهان مشتَرى: {money(player.purchasedAmount)}</div></div></div>):<p className="text-xs text-slate-500">لا توجد رهانات مسجلة في الجولة.</p>}</div><button disabled={busy||!round.cancellable} onClick={()=>{const why=window.prompt("اكتب سبب إلغاء الجولة وإرجاع الرهانات");if(why&&why.trim()&&window.confirm("سيتم إلغاء الجولة وإرجاع رهان كل لاعب إلى مصدره الأصلي. هل تؤكد؟"))act({action:"cancel_game_round",game:round.game,roundId:round.id,reason:why.trim()});}} className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-black text-white disabled:opacity-40">{round.cancellable?"إلغاء الجولة وإرجاع الرهانات":"بدأ الدوران؛ الإلغاء غير متاح"}</button></article>)}</div>:<p className="rounded-xl bg-white p-4 text-center text-sm text-slate-600">لا توجد رهانات أو جولات نشطة يمكن إلغاؤها حاليًا.</p>}</section>
+
+        </section>}
+        {section==='crash'&&<section className="space-y-4">
+          <div className="rounded-2xl border border-amber-300/20 bg-gradient-to-r from-slate-900 to-indigo-950 p-5 text-white shadow-xl"><div className="text-xl font-black">✈️ ARMCOFLY · سجل الجولات</div><p className="mt-1 text-xs text-white/60">سجل نتائج الطائرة السابقة وتفاصيل المشاركين.</p></div>
           {crashRounds.map((round)=><article key={String(round.id)} className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-800 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div><div className="font-black">{round.cancellationReason?"تم إلغاء الجولة وإرجاع الرهانات":"الحالة: "+String(round.status)+" · "+Number(round.crashMultiplier).toFixed(2)+"x"}</div><div className="mt-1 text-[10px] text-slate-500">{String(round.createdAt)} · {String(round.id).slice(0,8)}</div></div>
