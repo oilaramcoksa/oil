@@ -140,6 +140,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (section === 'crash') {
+      await db.execute(`CREATE TABLE IF NOT EXISTS admin_cancelled_crash_rounds(round_id TEXT PRIMARY KEY,reason TEXT NOT NULL,admin_id TEXT NOT NULL DEFAULT 'admin',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
       const rounds = await db.execute(`SELECT r.id,r.status,r.betting_ends_at,r.started_at,r.crashed_at,r.crash_multiplier,r.seed_hash,r.created_at,c.reason AS cancellation_reason
         FROM crash_rounds r LEFT JOIN admin_cancelled_crash_rounds c ON c.round_id=r.id ORDER BY r.created_at DESC,r.rowid DESC LIMIT 100`);
       const [arenaActive,colorActive] = await Promise.all([
