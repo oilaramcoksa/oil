@@ -767,6 +767,52 @@ export const PumpScene = memo(function PumpScene({ pumping, oilRatio, onTap, par
           </g>
         </g>
 
+        {/* Active pump effects: rising exhaust and a blinking red service beacon. */}
+        {pumping && (
+          <g pointerEvents="none">
+            {/* Exhaust outlet mounted beside the pump motor. */}
+            <g>
+              <rect x="166" y="263" width="12" height="5" rx="1.5" fill="#52525B" stroke="#A1A1AA" strokeWidth="1" />
+              <rect x="169" y="259" width="6" height="6" rx="1" fill="#71717A" />
+              <path d="M170 260 L170 255 L175 255" fill="none" stroke="#D4D4D8" strokeWidth="2" strokeLinecap="round" />
+              {/* Layered smoke puffs drift upward and fade out, then loop. */}
+              <g fill="#D8E1E8" opacity="0">
+                <circle cx="173" cy="252" r="4">
+                  <animate attributeName="cy" values="252;226;207" dur="2.8s" begin="0s" repeatCount="indefinite" />
+                  <animate attributeName="cx" values="173;168;161" dur="2.8s" begin="0s" repeatCount="indefinite" />
+                  <animate attributeName="r" values="2;7;10" dur="2.8s" begin="0s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0;0.55;0" dur="2.8s" begin="0s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="173" cy="252" r="3">
+                  <animate attributeName="cy" values="252;230;211" dur="2.8s" begin="0.9s" repeatCount="indefinite" />
+                  <animate attributeName="cx" values="173;179;185" dur="2.8s" begin="0.9s" repeatCount="indefinite" />
+                  <animate attributeName="r" values="2;6;9" dur="2.8s" begin="0.9s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0;0.48;0" dur="2.8s" begin="0.9s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="173" cy="252" r="3">
+                  <animate attributeName="cy" values="252;226;205" dur="2.8s" begin="1.8s" repeatCount="indefinite" />
+                  <animate attributeName="cx" values="173;165;157" dur="2.8s" begin="1.8s" repeatCount="indefinite" />
+                  <animate attributeName="r" values="2;6;9" dur="2.8s" begin="1.8s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0;0.42;0" dur="2.8s" begin="1.8s" repeatCount="indefinite" />
+                </circle>
+              </g>
+            </g>
+
+            {/* Red rotating-machine warning beacon; completely off while idle. */}
+            <g transform="translate(184 258)">
+              <rect x="-7" y="3" width="14" height="4" rx="1.5" fill="#3F3F46" stroke="#A1A1AA" strokeWidth="0.8" />
+              <path d="M-5 3 L-4 -2 Q0 -6 4 -2 L5 3 Z" fill="#991B1B" stroke="#FCA5A5" strokeWidth="0.8" />
+              <path d="M-3 1 L-2 -2 Q0 -4 2 -2 L3 1 Z" fill="#EF4444">
+                <animate attributeName="opacity" values="0.45;1;0.45" dur="0.75s" repeatCount="indefinite" />
+              </path>
+              <ellipse cx="0" cy="-1" rx="9" ry="8" fill="#EF4444" opacity="0.22">
+                <animate attributeName="opacity" values="0.05;0.38;0.05" dur="0.75s" repeatCount="indefinite" />
+                <animate attributeName="rx" values="6;11;6" dur="0.75s" repeatCount="indefinite" />
+              </ellipse>
+            </g>
+          </g>
+        )}
+
         {/* === Heat shimmer (subtle) — above ground === */}
         <rect
           x="0"
