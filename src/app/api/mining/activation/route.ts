@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
         const activationNow = Date.now();
         await tx.execute({
           sql: 'UPDATE player_game_state SET cycle_started_at=?,cycle_ends_at=?,last_tick_at=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',
-          args: [activationNow - 43200000, activationNow - 1, activationNow - 1, id],
+          args: [0, 0, 0, id],
         });
         await tx.execute({
           sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
