@@ -187,7 +187,7 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
     if(!promoCode.trim()){toast.error(lang==='ar'?'أدخل كود البرومو أولاً':'Enter a promo code first');return;}
     setPromoBusy(true);
     try{
-      const response=await fetch('/api/promo-codes/redeem',{method:'POST',headers:{'Content-Type':'application/json','x-telegram-init-data':init},body:JSON.stringify({code:promoCode,productId}),cache:'no-store'});
+      const response=await fetch('/api/promo-codes/redeem',{method:'POST',headers:{'Content-Type':'application/json','x-telegram-init-data':init},body:JSON.stringify({code:promoCode,productId,expectedType:'store'}),cache:'no-store'});
       const data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.error||'promo_redemption_failed');
       toast.success(lang==='ar'?'تم تفعيل البرومو وإضافة المنتج مجانًا':'Promo applied. Product granted for free.');
