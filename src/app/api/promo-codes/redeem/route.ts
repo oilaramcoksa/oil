@@ -14,7 +14,7 @@ function fail(error:string,status=400){return NextResponse.json({error},{status,
 export async function POST(req:NextRequest){
   const user=getVerifiedTelegramUser(req);
   if(!user)return fail('telegram_auth_required',401);
-  let body:{code?:unknown;productId?:unknown};
+  let body:{code?:unknown;productId?:unknown;expectedType?:unknown};
   try{body=await req.json();}catch{return fail('invalid_body');}
   const code=String(body.code??'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,40);
   const productId=String(body.productId??'');
@@ -33,6 +33,9 @@ export async function POST(req:NextRequest){
       if(Number(used.rows[0]?.n??0)>=limit){await tx.rollback();return fail('promo_user_limit_reached',409);}
       if(promo.total_limit!=null && Number(promo.total_uses)>=Number(promo.total_limit)){await tx.rollback();return fail('promo_total_limit_reached',409);}
       const type=String(promo.promo_type); const configured=String(promo.product_id??'');
+      const expectedType=String(body.expectedType??'store');
+      if ((expectedType==='mining_fee' && type!=='mining_fee') || (expectedType==='store' && type==='mining_fee')) { await tx.rollback(); return fail('promo_context_mismatch',409); }
+      if (!['store','mining_fee'].includes(expectedType)) { await tx.rollback(); return fail('promo_context_invalid'); }
       if(type==='free_part' && (!PARTS.includes(productId) || (configured && configured!=='any' && configured!==productId))){await tx.rollback();return fail('promo_product_mismatch');}
       if(type==='free_package' && (!PACKAGES.some(p=>p.id===productId) || (configured && configured!=='any' && configured!==productId))){await tx.rollback();return fail('promo_product_mismatch');}
       if(type==='mining_fee'){
