@@ -11,6 +11,19 @@ const es: Dict = { ...en,
   tasksTitle: 'Tareas', dailyTasks: 'Tareas diarias', weeklyTasks: 'Tareas semanales', friendsTitle: 'Amigos',
   inviteLink: 'Enlace de invitación', copyLink: 'Copiar enlace', yourReferrals: 'Tus referidos', noReferrals: 'Aún no hay referidos',
   speedPartsTitle: 'Tienda de mejoras', autoSellPart: "Venta automática", autoSellDescription: "Vende el petróleo automáticamente al finalizar cada ciclo de minería de 12 horas durante 30 días, sin abrir el juego. Debe haber un ciclo activo.", autoSellDuration: "30 días", crashRecentRounds: 'Últimas 10 rondas',
+  promoCodeTitle: "Código promocional",
+  promoCodePlaceholder: "Introduce el código promocional",
+  promoApply: "Aplicar",
+  promoApplying: "Aplicando…",
+  promoApplied: "Código aplicado y recompensa acreditada",
+  promoInvalid: "Código no válido o inactivo",
+  promoUserLimit: "Has alcanzado el límite de uso de este código",
+  promoTotalLimit: "Se alcanzó el límite total de usos del código",
+  promoExpired: "Este código ha caducado",
+  promoProductMismatch: "Este código no se aplica al producto seleccionado",
+  promoMiningFeePaid: "La tarifa de minería ya está activada",
+  promoGenericError: "No se pudo canjear el código",
+
 };
 
 export default es;
