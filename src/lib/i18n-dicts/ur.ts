@@ -12,6 +12,19 @@ const ur: Dict = { ...en,
   inviteLink: 'دعوتی لنک', copyLink: 'لنک کاپی کریں', yourReferrals: 'آپ کے ریفرلز', noReferrals: 'ابھی کوئی ریفرل نہیں',
   speedPartsTitle: 'اپ گریڈ اسٹور', autoSellPart: "خودکار فروخت", autoSellDescription: "گیم کھولے بغیر 30 دن تک ہر 12 گھنٹے کے مائننگ سائیکل کے اختتام پر تیل خودکار فروخت کرتا ہے۔ مائننگ سائیکل پہلے سے فعال ہونا چاہیے۔", autoSellDuration: "30 دن", crashRecentRounds: 'آخری 10 راؤنڈ',
   on: 'پر',
+  promoCodeTitle: "پرومو کوڈ",
+  promoCodePlaceholder: "پرومو کوڈ درج کریں",
+  promoApply: "لاگو کریں",
+  promoApplying: "لاگو ہو رہا ہے…",
+  promoApplied: "پرومو کوڈ لاگو ہوگیا اور انعام شامل کردیا گیا",
+  promoInvalid: "غلط یا غیر فعال پرومو کوڈ",
+  promoUserLimit: "آپ اس کوڈ کے استعمال کی حد تک پہنچ گئے ہیں",
+  promoTotalLimit: "اس کوڈ کے کل استعمال کی حد پوری ہوچکی ہے",
+  promoExpired: "اس پرومو کوڈ کی میعاد ختم ہوچکی ہے",
+  promoProductMismatch: "یہ کوڈ منتخب پروڈکٹ پر لاگو نہیں ہوتا",
+  promoMiningFeePaid: "مائننگ فیس پہلے ہی فعال ہے",
+  promoGenericError: "پرومو کوڈ استعمال نہیں ہوسکا",
+
 };
 
 export default ur;
