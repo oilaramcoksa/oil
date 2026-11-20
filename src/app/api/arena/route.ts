@@ -129,15 +129,23 @@ async function cancelAndRefundRound(
         });
       }
       if (refund.walletAmount > 0) {
-        const balance = await tx.execute({
-          sql: "UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance",
-          args: [refund.walletAmount, refund.telegramId],
+        const current = await tx.execute({
+          sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',
+          args: [refund.telegramId],
         });
-        if (!balance.rows.length) throw new Error('player_wallet_not_found_for_arena_refund');
+        if (!current.rows.length) throw new Error('player_wallet_not_found_for_arena_refund');
+        const balanceAfter = Number(current.rows[0].coins_balance) + refund.walletAmount;
+        // Write the refund ledger marker before the wallet credit so the daily
+        // cap trigger recognizes this arena refund as exempt.
         await tx.execute({
           sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_refund',?,?, 'arena_round',?,?,?)",
-          args: [randomUUID(), refund.telegramId, refund.walletAmount, Number(balance.rows[0].coins_balance), roundId, `arena_cancel_wallet_refund:${roundId}:${refund.telegramId}`, JSON.stringify({ reason, purchasedRefund: refund.purchasedAmount })],
+          args: [randomUUID(), refund.telegramId, refund.walletAmount, balanceAfter, roundId, `arena_cancel_wallet_refund:${roundId}:${refund.telegramId}`, JSON.stringify({ reason, purchasedRefund: refund.purchasedAmount })],
         });
+        const credited = await tx.execute({
+          sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance=?',
+          args: [refund.walletAmount, refund.telegramId, Number(current.rows[0].coins_balance)],
+        });
+        if (Number(credited.rowsAffected) !== 1) throw new Error('player_wallet_refund_conflict');
       }
     }
     await tx.commit();
@@ -435,15 +443,23 @@ export async function POST(req: NextRequest) {
           });
         }
         if (walletAmount > 0) {
-          const restored = await tx.execute({
-            sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance',
-            args: [walletAmount, playerId],
+          const current = await tx.execute({
+            sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',
+            args: [playerId],
           });
-          if (!restored.rows.length) throw new Error('player_wallet_not_found_for_arena_refund');
+          if (!current.rows.length) throw new Error('player_wallet_not_found_for_arena_refund');
+          const balanceAfter = Number(current.rows[0].coins_balance) + walletAmount;
+          // Insert the refund ledger marker first; the daily-cap trigger checks
+          // it before allowing this arena_round wallet credit.
           await tx.execute({
             sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_refund',?,?, 'arena_round',?,?,?)",
-            args: [randomUUID(), playerId, walletAmount, Number(restored.rows[0].coins_balance), roundId, `arena_cancel_wallet_refund:${roundId}:${playerId}`, JSON.stringify({ reason: 'player_cancelled_waiting_round', purchasedRefund: purchasedAmount })],
+            args: [randomUUID(), playerId, walletAmount, balanceAfter, roundId, `arena_cancel_wallet_refund:${roundId}:${playerId}`, JSON.stringify({ reason: 'player_cancelled_waiting_round', purchasedRefund: purchasedAmount })],
           });
+          const restored = await tx.execute({
+            sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance=?',
+            args: [walletAmount, playerId, Number(current.rows[0].coins_balance)],
+          });
+          if (Number(restored.rowsAffected) !== 1) throw new Error('player_wallet_refund_conflict');
         }
         await tx.execute({
           sql: "INSERT INTO player_events(id,telegram_id,event_type,amount,metadata_json,idempotency_key) VALUES(?,?,'arena_entry_cancelled',?,?,?)",
