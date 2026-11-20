@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PumpScene } from '../PumpScene';
 import { SellModal } from '../SellModal';
 import { Button } from '@/components/ui/button';
-import { Coins, Droplet, Gauge, ArrowUpRight, Clock, Zap, Power, Package, Dices, Sparkles } from 'lucide-react';
+import { Coins, Droplet, Gauge, ArrowUpRight, Clock, Power, Package } from 'lucide-react';
 import {
   useGame,
   effectiveCapacity,
@@ -14,9 +14,6 @@ import {
   isCycleActive,
   cycleSecondsRemaining,
   CYCLE_SECONDS,
-  litersToBarrels,
-  litersToCoins,
-  LITERS_PER_BARREL,
 } from '@/lib/store';
 import { t } from '@/lib/i18n';
 import { useTelegram } from '@/hooks/use-telegram';
@@ -40,7 +37,6 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const [feeStatusReady, setFeeStatusReady] = useState(false);
   const [feeGateOpen, setFeeGateOpen] = useState(false);
   const coins = useGame((s) => s.coins);
-  const upgrades = useGame((s) => s.upgrades);
   const baseOilPerTap = useGame((s) => s.baseOilPerTap);
   const baseCapacity = useGame((s) => s.baseCapacity);
   const parts = useGame((s) => s.parts);
@@ -182,7 +178,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
       const message = error instanceof Error ? error.message : 'mining_unavailable';
       if (message === 'mining_activation_required') setFeeGateOpen(true);
       else if (message === 'previous_cycle_must_be_sold' || message === 'oil_must_be_sold_before_new_cycle') toast.error(t(lang, 'sell'));
-      else console.info('pump_action_retry_available', message);
+      else { console.error('pump_action_failed', message); toast.error(lang === 'ar' ? 'تعذر تشغيل المضخة الآن. حاول مرة أخرى.' : 'The pump could not start. Please try again.'); }
     });
   };
 
@@ -262,7 +258,8 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
     <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain bg-[#211f2a] pb-3 text-white">
       <div className="mx-auto flex w-full max-w-md items-center justify-between gap-2 px-3 py-2">
         <div className="flex items-center gap-2 rounded-xl border border-emerald-300/30 bg-[#24182c] px-3 py-2 shadow-lg">
-          <span className="text-lg">💵</span><div><div className="text-[9px] font-bold text-emerald-200/70">{t(lang,'coins')}</div><div className="text-sm font-black tabular-nums text-emerald-100">{coins.toLocaleString()}</div></div>
+          <span className="text-lg">💵</span>
+          <div><div className="text-[9px] font-bold text-emerald-200/70">{t(lang,'coins')}</div><div className="text-sm font-black tabular-nums text-emerald-100">{coins.toLocaleString()}</div></div>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={()=>{haptic('medium');onGoToArena();}} aria-label={t(lang,'arenaPromoTitle')} className="grid h-10 w-10 place-items-center rounded-xl border border-amber-300/30 bg-[#382b24] text-xl shadow-lg">🏆</button>
@@ -270,221 +267,50 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         </div>
       </div>
 
-      {/* Scene */}
       <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-t-2xl border-x border-t border-white/10 bg-[#39263e] px-1 shadow-[0_12px_30px_rgba(0,0,0,.35)]">
-        <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts} />
+        <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts}/>
         <div className="pointer-events-none absolute inset-x-3 top-[67%] z-20 grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 shadow-lg backdrop-blur-sm"><div className="flex items-center gap-1 text-[10px] font-bold text-white/60"><Gauge className="h-3 w-3 text-rose-400"/> {t(lang,'oilPerTap')}</div><div className="text-base font-black tabular-nums text-white">{perTap.toLocaleString()}</div></div>
-          <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 shadow-lg backdrop-blur-sm"><div className="flex items-center gap-1 text-[10px] font-bold text-white/60"><Droplet className="h-3 w-3 text-amber-400"/> {t(lang,'oil')}</div><div className="text-base font-black tabular-nums text-white">{oil.toFixed(5)}</div></div>
+          <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 shadow-lg backdrop-blur-sm">
+            <div className="flex items-center gap-1 text-[10px] font-bold text-white/60"><Gauge className="h-3 w-3 text-rose-400"/> {t(lang,'oilPerTap')}</div>
+            <div className="text-base font-black tabular-nums text-white">{perTap.toLocaleString()}</div>
+          </div>
+          <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 shadow-lg backdrop-blur-sm">
+            <div className="flex items-center gap-1 text-[10px] font-bold text-white/60"><Droplet className="h-3 w-3 text-amber-400"/> {t(lang,'oil')}</div>
+            <div className="text-base font-black tabular-nums text-white">{oil.toFixed(5)}</div>
+          </div>
         </div>
-
-        {shortsVisible && (
-          <motion.button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); haptic('medium'); onOpenShorts(); }}
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: [1, 1.08, 1], opacity: 1, rotate: [0, -3, 3, 0] }}
-            transition={{ scale: { duration: 1, repeat: Infinity, ease: 'easeInOut' }, rotate: { duration: 1, repeat: Infinity, ease: 'easeInOut' }, opacity: { duration: 0.2 } }}
-            whileTap={{ scale: 0.92 }}
-            className="absolute left-[2.5%] top-[25%] z-30 h-16 w-16 overflow-hidden rounded-2xl border-2 border-red-400 bg-black shadow-[0_0_20px_rgba(239,68,68,.65)]"
-            aria-label={t(lang, 'shortsTitle')}
-            title={t(lang, 'shortsTitle')}
-          >
-            <img src="/images/shop/live.png" alt="" className="h-full w-full object-contain" />
-          </motion.button>
-        )}
-
-        {/* Floating +oil numbers */}
-        <AnimatePresence>
-          {floats.map((f) => (
-            <motion.div
-              key={f.id}
-              initial={{ opacity: 1, y: 0, scale: 0.8 }}
-              animate={{ opacity: 0, y: -80, scale: 1.4 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1 }}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 pointer-events-none text-amber-300 font-black text-xl drop-shadow-lg"
-            >
-              +{f.v}
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {/* Pump OFF overlay */}
-        {feeStatusReady && !active && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          >
-            <div className="bg-black/60 backdrop-blur-sm rounded-2xl px-5 py-3 flex items-center gap-2 border border-amber-500/30">
-              <Power className="w-5 h-5 text-red-400" />
-              <div className="text-center">
-                <div className="text-red-300 font-black text-sm">{t(lang, 'pumpOff')}</div>
-                <div className="text-amber-200/80 text-[10px] font-bold">{t(lang, 'tapToStart')}</div>
-              </div>
-            </div>
-          </motion.div>
-        )}
+        {shortsVisible&&<motion.button type="button" onClick={event=>{event.stopPropagation();haptic('medium');onOpenShorts();}} initial={{scale:.8,opacity:0}} animate={{scale:[1,1.08,1],opacity:1,rotate:[0,-3,3,0]}} transition={{scale:{duration:1,repeat:Infinity},rotate:{duration:1,repeat:Infinity},opacity:{duration:.2}}} whileTap={{scale:.92}} className="absolute left-[2.5%] top-[25%] z-30 h-14 w-14 overflow-hidden rounded-2xl border-2 border-red-400 bg-black shadow-[0_0_20px_rgba(239,68,68,.65)]" aria-label={t(lang,'shortsTitle')}><img src="/images/shop/live.png" alt="" className="h-full w-full object-contain"/></motion.button>}
+        <AnimatePresence>{floats.map(f=><motion.div key={f.id} initial={{opacity:1,y:0,scale:.8}} animate={{opacity:0,y:-80,scale:1.4}} exit={{opacity:0}} transition={{duration:1}} className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 text-xl font-black text-amber-300 drop-shadow-lg">+{f.v}</motion.div>)}</AnimatePresence>
+        {feeStatusReady&&!active&&<motion.div initial={{opacity:0}} animate={{opacity:1}} className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-black/60 px-5 py-3 backdrop-blur-sm"><Power className="h-5 w-5 text-red-400"/><div className="text-center"><div className="text-sm font-black text-red-300">{t(lang,'pumpOff')}</div><div className="text-[10px] font-bold text-amber-200/80">{t(lang,'tapToStart')}</div></div></div>
+        </motion.div>}
       </div>
 
-      {/* === Cycle timer + speed display === */}
-      <div className="max-w-md mx-auto w-full px-3 mt-1">
-        <div className={`aram-card rounded-2xl p-3 ${!active ? 'aram-shake' : ''}`} style={{ animationIterationCount: active ? 0 : 1 }}>
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="flex items-center gap-1.5">
-              <Clock className={`w-4 h-4 ${active ? 'text-emerald-600' : 'text-red-500'}`} />
-              <span className="text-xs font-black text-[#2a1c0a]">{t(lang, 'pumpCycle')}</span>
-              {active ? (
-                <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-black">
-                  {t(lang, 'cycleActive')}
-                </span>
-              ) : (
-                <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[9px] font-black">
-                  {t(lang, 'cycleEnded')}
-                </span>
-              )}
-            </div>
-            <div className={`text-base font-black tabular-nums ${active ? 'text-emerald-700' : 'text-red-600'}`}>
-              {formatHHMMSS(secRem)}
-            </div>
-          </div>
-          {/* Cycle progress bar */}
-          <div className="h-1.5 rounded-full bg-amber-900/15 overflow-hidden mb-2">
-            <motion.div
-              animate={{ width: `${cycleProgress * 100}%` }}
-              transition={{ duration: 0.3 }}
-              className={`h-full rounded-full ${cycleEndsAt ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-red-400'}`}
-            />
-          </div>
-
-          {/* Active speed display */}
-          <div className="flex items-center justify-between pt-1 border-t border-amber-900/10">
-            <div className="flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-[10px] font-bold text-amber-900/70 uppercase">{t(lang, 'usingSpeed')}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-black text-[#2a1c0a] tabular-nums">{coinsPerHour.toLocaleString()}</span>
-              <span className="text-[10px] text-amber-900/60 font-bold">{t(lang, 'coinsPerHour')}</span>
-            </div>
-          </div>
-          {/* Breakdown */}
-          <div className="flex items-center gap-1.5 mt-1 text-[9px] text-amber-900/60 font-bold">
-            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
-              {t(lang, 'baseRate')}: 60
-            </span>
-            {upgrades.length > 0 ? (
-              <>
-                <span>+</span>
-                {upgrades.reduce((acc, u, i) => {
-                  const pkg = PACKAGES_Find(u.packageId);
-                  if (!pkg) return acc;
-                  return [...acc, <span key={i} className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
-                    {pkg.id.toUpperCase()}: +{pkg.perHour}
-                  </span>];
-                }, [] as React.ReactNode[])}
-              </>
-            ) : (
-              <sp      <div className="mx-auto -mt-1 w-full max-w-md px-3">
+      <div className="mx-auto -mt-1 w-full max-w-md px-3">
         <div className="flex items-center justify-between rounded-xl border border-emerald-300/40 bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-2 text-white shadow-[0_4px_0_#087b50,0_8px_18px_rgba(0,0,0,.25)]">
-          <div className="flex items-center gap-2 text-xs font-black"><Clock className="h-4 w-4"/>{active ? (lang==='ar'?'المضخة تعمل':'PUMP RUNNING') : (lang==='ar'?'الوقت المتبقي':'TIME LEFT')}</div>
+          <div className="flex items-center gap-2 text-xs font-black"><Clock className="h-4 w-4"/>{active?(lang==='ar'?'المضخة تعمل':'PUMP RUNNING'):(lang==='ar'?'الوقت المتبقي':'TIME LEFT')}</div>
           <div className="text-lg font-black tabular-nums">{formatHHMMSS(secRem)}</div>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><motion.div animate={{width:`${cycleProgress*100}%`}} transition={{duration:.3}} className="h-full rounded-full bg-emerald-200"/></div>
         <div className="mt-1 flex items-center justify-between px-1 text-[10px] font-bold text-white/55"><span>{t(lang,'usingSpeed')}</span><span>{coinsPerHour.toLocaleString()} {t(lang,'coinsPerHour')}</span></div>
       </div>
 
-      {/* Primary controls */}
       <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2 px-3 pb-2 pt-3">
-        <Button
-          onClick={active ? undefined : oil > 0 ? handleSell : handleTap}
-          disabled={active}
-          className={`h-14 rounded-2xl font-black text-sm sm:text-base shadow-lg transition-all ${active
-            ? 'bg-gradient-to-b from-[#b98a5c] to-[#936b49] text-white/80 opacity-80 cursor-not-allowed shadow-[0_4px_0_#69472f]'
-            : oil > 0
-              ? 'bg-gradient-to-b from-[#ffb24f] to-[#f28a30] text-white shadow-[0_4px_0_#a95620]'
-              : 'bg-gradient-to-b from-[#ffb24f] to-[#f28a30] text-white shadow-[0_4px_0_#a95620]'}`}
-        >
-          {active ? <Clock className="w-5 h-5 mr-1.5 animate-pulse" /> : oil > 0 ? <Droplet className="w-5 h-5 mr-1.5" /> : <Power className="w-5 h-5 mr-1.5" />}
-          {active
-            ? `${t(lang, 'sellLocked')} · ${formatHHMMSS(secRem)}`
-            : oil > 0
-              ? t(lang, 'sell')
-              : t(lang, 'startMining')}
+        <Button onClick={active?undefined:oil>0?handleSell:handleTap} disabled={active} className={`h-12 rounded-2xl border border-orange-200/40 font-black text-sm shadow-[0_4px_0_#a95620] transition-all ${active?'cursor-not-allowed bg-gradient-to-b from-[#b98a5c] to-[#936b49] text-white/80 opacity-80':'bg-gradient-to-b from-[#ffb24f] to-[#f28a30] text-white'}`}>
+          {active?<Clock className="mr-1.5 h-5 w-5 animate-pulse"/>:oil>0?<Droplet className="mr-1.5 h-5 w-5"/>:<Power className="mr-1.5 h-5 w-5"/>}
+          {active?`${t(lang,'sellLocked')} · ${formatHHMMSS(secRem)}`:oil>0?t(lang,'sell'):t(lang,'startMining')}
         </Button>
-        <Button
-          onClick={() => { haptic('light'); onGoToStore(); }}
-          className="h-12 rounded-2xl border border-cyan-200/40 bg-gradient-to-b from-[#34d0d0] to-[#16aeb7] text-white font-black text-base shadow-[0_4px_0_#087f88]"
-        >
-          <ArrowUpRight className="w-5 h-5 mr-1.5" />
-          {t(lang, 'upgrade')}
+        <Button onClick={()=>{haptic('light');onGoToStore();}} className="h-12 rounded-2xl border border-cyan-200/40 bg-gradient-to-b from-[#34d0d0] to-[#16aeb7] text-base font-black text-white shadow-[0_4px_0_#087f88]">
+          <ArrowUpRight className="mr-1.5 h-5 w-5"/>{t(lang,'upgrade')}
         </Button>
       </div>
 
       <div className="mx-auto mt-1 w-full max-w-md px-3 pb-2">
-        <HybridRewardedAd
-          initData={initData}
-          isVerified={isVerified}
-          title={t(lang, 'tadsWatchAdReward')}
-          actionLabel={t(lang, 'tadsWatchAdReward')}
-          loadingLabel={t(lang, 'tadsRewardLoading')}
-          onRewarded={handleAdRewarded}
-          onError={handleAdRewardError}
-        />      </div>
-
-      <SellModal open={sellOpen} onClose={() => setSellOpen(false)} initData={initData} isVerified={isVerified} />
-      {feeGateOpen && <MiningFeeGate initData={initData} onActivated={handleFeeActivated} onClose={() => setFeeGateOpen(false)} />}
+        <HybridRewardedAd initData={initData} isVerified={isVerified} title={t(lang,'tadsWatchAdReward')} actionLabel={t(lang,'tadsWatchAdReward')} loadingLabel={t(lang,'tadsRewardLoading')} onRewarded={handleAdRewarded} onError={handleAdRewardError}/>
+      </div>
+      <SellModal open={sellOpen} onClose={()=>setSellOpen(false)} initData={initData} isVerified={isVerified}/>
+      {feeGateOpen&&<MiningFeeGate initData={initData} onActivated={handleFeeActivated} onClose={()=>setFeeGateOpen(false)}/>}
     </div>
   );
 }
 
-// Local helper to find a package by id without importing the whole wallets module.
-import { PACKAGES } from '@/lib/wallets';
-function PACKAGES_Find(id: string) {
-  return PACKAGES.find((p) => p.id === id);
-}
-
-function StatPill({
-  icon,
-  label,
-  value,
-  sub,
-  progress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub?: string;
-  progress?: number;
-}) {
-  return (
-    <div className="aram-card rounded-xl px-2.5 py-1.5">
-      <div className="flex items-center gap-1 text-[10px] text-amber-900/70 font-bold mb-0.5">
-        {icon}
-        <span className="uppercase">{label}</span>
-      </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-sm font-black text-[#2a1c0a] tabular-nums">{value}</span>
-        {sub && <span className="text-[10px] text-amber-900/60 font-bold">{sub}</span>}
-      </div>
-      {progress !== undefined && (
-        <div className="mt-1 h-1 rounded-full bg-amber-900/15 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-300"
-            style={{ width: `${Math.min(100, progress * 100)}%` }}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function formatHHMMSS(totalSec: number): string {
-  const s = Math.max(0, Math.floor(totalSec));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(h)}:${pad(m)}:${pad(sec)}`;
-}
