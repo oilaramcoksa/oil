@@ -128,11 +128,23 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const cycleProgress = cycleEndsAt ? (active ? 1 - secRem / CYCLE_SECONDS : 1) : 0;
 
   const handleFeeActivated = useCallback(() => {
-    setFeeActivated(true);
     setFeeGateOpen(false);
     void refreshMining('tap').then((result) => {
+      setFeeActivated(true);
       if (result.cycleStarted) notify('success');
-    }).catch((error) => console.info('pump_activation_retry_available', error));
+      toast.success(lang === 'ar' ? 'تم تفعيل التعدين وبدأت المضخة العمل' : 'Mining activated. The pump is running.');
+    }).catch((error) => {
+      const code = error instanceof Error ? error.message : 'mining_unavailable';
+      if (code === 'oil_must_be_sold_before_new_cycle' || code === 'previous_cycle_must_be_sold') {
+        setFeeActivated(true);
+        toast.error(lang === 'ar' ? 'لديك نفط متبقٍ من دورة سابقة. بِعه أولاً ثم ابدأ التعدين.' : 'Sell the remaining oil from your previous cycle before starting.');
+      } else {
+        setFeeActivated(true);
+        setFeeGateOpen(false);
+        toast.error(lang === 'ar' ? 'تم تفعيل الرسوم، لكن تعذر تشغيل المضخة. اضغط بدء التعدين للمحاولة مجدداً.' : 'Fee activated, but the pump did not start. Tap Start Mining to retry.');
+        console.error('pump_activation_start_failed', code);
+      }
+    });
   }, [refreshMining, notify, lang]);
 
   useEffect(() => {
@@ -247,33 +259,25 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   }, []);
 
   return (
-    <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain pb-3">
-      {/* Stats strip */}
-      <div className="px-3 pt-2 pb-1 max-w-md mx-auto w-full">
-        <div className="grid grid-cols-3 gap-2">
-          <StatPill
-            icon={<Droplet className="w-3.5 h-3.5 text-amber-400" />}
-            label={t(lang, 'oil')}
-            value={oil.toFixed(0)}
-            sub={`/ ${cap}`}
-            progress={oilRatio}
-          />
-          <StatPill
-            icon={<Coins className="w-3.5 h-3.5 text-amber-400" />}
-            label={t(lang, 'coins')}
-            value={coins.toLocaleString()}
-          />
-          <StatPill
-            icon={<Gauge className="w-3.5 h-3.5 text-purple-300" />}
-            label={t(lang, 'oilPerTap')}
-            value={`+${perTap}`}
-          />
+    <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain bg-[#211f2a] pb-3 text-white">
+      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-2 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-300/30 bg-[#24182c] px-3 py-2 shadow-lg">
+          <span className="text-lg">💵</span><div><div className="text-[9px] font-bold text-emerald-200/70">{t(lang,'coins')}</div><div className="text-sm font-black tabular-nums text-emerald-100">{coins.toLocaleString()}</div></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={()=>{haptic('medium');onGoToArena();}} aria-label={t(lang,'arenaPromoTitle')} className="grid h-10 w-10 place-items-center rounded-xl border border-amber-300/30 bg-[#382b24] text-xl shadow-lg">🏆</button>
+          <button type="button" onClick={()=>{haptic('light');onGoToStore();}} aria-label={t(lang,'upgrade')} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-[#302b36] text-white shadow-lg"><Package className="h-5 w-5"/></button>
         </div>
       </div>
 
       {/* Scene */}
-      <div className="relative max-w-md mx-auto w-full px-2">
+      <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-t-2xl border-x border-t border-white/10 bg-[#39263e] px-1 shadow-[0_12px_30px_rgba(0,0,0,.35)]">
         <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts} />
+        <div className="pointer-events-none absolute inset-x-3 top-[67%] z-20 grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 shadow-lg backdrop-blur-sm"><div className="flex items-center gap-1 text-[10px] font-bold text-white/60"><Gauge className="h-3 w-3 text-rose-400"/> {t(lang,'oilPerTap')}</div><div className="text-base font-black tabular-nums text-white">{perTap.toLocaleString()}</div></div>
+          <div className="rounded-xl border border-white/15 bg-black/65 px-3 py-2 shadow-lg backdrop-blur-sm"><div className="flex items-center gap-1 text-[10px] font-bold text-white/60"><Droplet className="h-3 w-3 text-amber-400"/> {t(lang,'oil')}</div><div className="text-base font-black tabular-nums text-white">{oil.toFixed(5)}</div></div>
+        </div>
+
         {shortsVisible && (
           <motion.button
             type="button"
@@ -322,50 +326,6 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
             </div>
           </motion.div>
         )}
-      </div>
-
-      {/* Lucky Arena entry banner */}
-      <div className="mx-auto mt-3 w-full max-w-md px-3">
-        <motion.button
-          type="button"
-          onClick={() => { haptic('medium'); onGoToArena(); }}
-          whileTap={{ scale: 0.985 }}
-          whileHover={{ y: -2 }}
-          className="group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-amber-300/35 bg-gradient-to-r from-[#211a31] via-[#302044] to-[#4b2b28] p-3 text-start shadow-[0_8px_24px_rgba(0,0,0,.28)]"
-          aria-label={t(lang, 'arenaPromoTitle')}
-        >
-          <div className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-amber-400/15 blur-2xl" />
-          <div className="relative h-[76px] w-[76px] shrink-0">
-            <motion.div
-              aria-hidden="true"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 16, repeat: Infinity, ease: 'linear' }}
-              className="absolute inset-0 rounded-full border-[5px] border-[#30233d] shadow-[0_0_0_2px_rgba(255,220,150,.35),0_5px_16px_rgba(0,0,0,.4)]"
-              style={{ background: 'conic-gradient(from -20deg, #f59e0b 0deg 90deg, #2457f5 90deg 180deg, #8b5cf6 180deg 270deg, #10b981 270deg 360deg)' }}
-            >
-              <span className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-amber-200 shadow" />
-              <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/90 shadow" />
-            </motion.div>
-            <div className="absolute inset-[27%] grid place-items-center rounded-full border-2 border-amber-100/80 bg-[#211a31] text-amber-200 shadow-lg">
-              <Dices className="h-5 w-5" />
-            </div>
-            <span className="absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full border border-white/50 bg-gradient-to-br from-amber-300 to-orange-500 text-[#3a2108] shadow-md">
-              <Sparkles className="h-3.5 w-3.5" />
-            </span>
-          </div>
-          <div className="relative min-w-0 flex-1">
-            <div className="mb-1 flex items-center gap-1.5">
-              <span className="text-[15px] font-black text-white">{t(lang, 'arenaPromoTitle')}</span>
-              <span className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[9px] font-black text-emerald-200">{t(lang, 'arenaPromoBadge')}</span>
-            </div>
-            <p className="text-[11px] leading-relaxed text-amber-50/75">{t(lang, 'arenaPromoDesc')}</p>
-            <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-300 to-orange-400 px-3 py-1.5 text-[11px] font-black text-[#3b220d] shadow">
-              {t(lang, 'arenaPromoAction')}
-              <span aria-hidden="true" className="text-sm">←</span>
-            </div>
-          </div>
-          <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5 transition group-hover:ring-amber-200/30" />
-        </motion.button>
       </div>
 
       {/* === Cycle timer + speed display === */}
@@ -426,61 +386,25 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
                 }, [] as React.ReactNode[])}
               </>
             ) : (
-              <span className="text-amber-900/40">· {t(lang, 'perCycle12h')}: {(coinsPerHour * 12).toLocaleString()}</span>
-            )}
-            {upgrades.length > 0 && (
-              <span className="text-amber-900/40">· {t(lang, 'perCycle12h')}: {(coinsPerHour * 12).toLocaleString()}</span>
-            )}
-          </div>
+              <sp      <div className="mx-auto -mt-1 w-full max-w-md px-3">
+        <div className="flex items-center justify-between rounded-xl border border-emerald-300/40 bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-2 text-white shadow-[0_4px_0_#087b50,0_8px_18px_rgba(0,0,0,.25)]">
+          <div className="flex items-center gap-2 text-xs font-black"><Clock className="h-4 w-4"/>{active ? (lang==='ar'?'المضخة تعمل':'PUMP RUNNING') : (lang==='ar'?'الوقت المتبقي':'TIME LEFT')}</div>
+          <div className="text-lg font-black tabular-nums">{formatHHMMSS(secRem)}</div>
         </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><motion.div animate={{width:`${cycleProgress*100}%`}} transition={{duration:.3}} className="h-full rounded-full bg-emerald-200"/></div>
+        <div className="mt-1 flex items-center justify-between px-1 text-[10px] font-bold text-white/55"><span>{t(lang,'usingSpeed')}</span><span>{coinsPerHour.toLocaleString()} {t(lang,'coinsPerHour')}</span></div>
       </div>
 
-      {/* === Oil ready / barrel conversion info === */}
-      <div className="max-w-md mx-auto w-full px-3 mt-1">
-        <motion.div
-          key={oil > 0 ? 'has-oil' : 'no-oil'}
-          initial={{ scale: oil > 0 ? 0.97 : 1, opacity: 0.7 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className={`aram-card rounded-2xl p-3 ${
-            oil > 0 ? 'border-amber-400/60' : ''
-          }`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1.5">
-              <Package className="w-4 h-4 text-amber-700" />
-              <span className="text-xs font-black text-[#2a1c0a]">{t(lang, 'oilReady')}</span>
-            </div>
-            <div className="text-[10px] text-amber-900/60 font-bold px-2 py-0.5 rounded-full bg-amber-100">
-              {t(lang, 'barrelRate')}
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            <div className="rounded-lg bg-amber-50 py-1.5 text-center">
-              <div className="text-[9px] text-amber-900/60 font-bold uppercase">{t(lang, 'liters')}</div>
-              <div className="text-sm font-black text-[#2a1c0a] tabular-nums">{oil.toFixed(0)}</div>
-            </div>
-            <div className="rounded-lg bg-amber-50 py-1.5 text-center">
-              <div className="text-[9px] text-amber-900/60 font-bold uppercase">{t(lang, 'barrels')}</div>
-              <div className="text-sm font-black text-amber-700 tabular-nums">{litersToBarrels(oil)}</div>
-            </div>
-            <div className="rounded-lg bg-emerald-50 py-1.5 text-center">
-              <div className="text-[9px] text-emerald-900/60 font-bold uppercase">{t(lang, 'worth')}</div>
-              <div className="text-sm font-black text-emerald-700 tabular-nums">{litersToCoins(oil).toLocaleString()}</div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Action buttons */}
-      <div className="max-w-md mx-auto w-full px-3 mt-2 pb-4 grid grid-cols-2 gap-2">
+      {/* Primary controls */}
+      <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2 px-3 pb-2 pt-3">
         <Button
           onClick={active ? undefined : oil > 0 ? handleSell : handleTap}
           disabled={active}
           className={`h-14 rounded-2xl font-black text-sm sm:text-base shadow-lg transition-all ${active
-            ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white/90 opacity-80 cursor-not-allowed'
+            ? 'bg-gradient-to-b from-[#b98a5c] to-[#936b49] text-white/80 opacity-80 cursor-not-allowed shadow-[0_4px_0_#69472f]'
             : oil > 0
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white'
-              : 'bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-[#2a1c0a]'}`}
+              ? 'bg-gradient-to-b from-[#ffb24f] to-[#f28a30] text-white shadow-[0_4px_0_#a95620]'
+              : 'bg-gradient-to-b from-[#ffb24f] to-[#f28a30] text-white shadow-[0_4px_0_#a95620]'}`}
         >
           {active ? <Clock className="w-5 h-5 mr-1.5 animate-pulse" /> : oil > 0 ? <Droplet className="w-5 h-5 mr-1.5" /> : <Power className="w-5 h-5 mr-1.5" />}
           {active
@@ -491,7 +415,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         </Button>
         <Button
           onClick={() => { haptic('light'); onGoToStore(); }}
-          className="h-14 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-[#2a1c0a] font-black text-base shadow-lg"
+          className="h-12 rounded-2xl border border-cyan-200/40 bg-gradient-to-b from-[#34d0d0] to-[#16aeb7] text-white font-black text-base shadow-[0_4px_0_#087f88]"
         >
           <ArrowUpRight className="w-5 h-5 mr-1.5" />
           {t(lang, 'upgrade')}
