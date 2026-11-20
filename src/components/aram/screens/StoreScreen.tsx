@@ -210,7 +210,7 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
       else setSelected(null);
     }catch(e){
       const msg=String((e as Error).message||'');
-      const promoErrors:Record<string,string>={promo_invalid_or_inactive:'promoInvalid',promo_user_limit_reached:'promoUserLimit',promo_total_limit_reached:'promoTotalLimit',promo_expired:'promoExpired',promo_product_mismatch:'promoProductMismatch',mining_fee_already_paid:'promoMiningFeePaid'};
+      const promoErrors:Record<string,string>={promo_invalid_or_inactive:'promoInvalid',promo_user_limit_reached:'promoUserLimit',promo_total_limit_reached:'promoTotalLimit',promo_expired:'promoExpired',promo_not_started:'promoNotStarted',promo_product_mismatch:'promoProductMismatch',promo_context_mismatch:'promoWrongContext',promo_reward_invalid:'promoRewardInvalid',wallet_not_found:'promoWalletUnavailable',mining_fee_already_paid:'promoMiningFeePaid'};
       toast.error(t(lang,promoErrors[msg]||'promoGenericError'));
     }finally{setPromoBusy(false);}
   };
