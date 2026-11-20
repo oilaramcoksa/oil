@@ -141,6 +141,25 @@ export async function GET(req: NextRequest) {
     }
 
     if (section === 'crash') {
+      await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_rounds(
+        id TEXT PRIMARY KEY,status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','spinning','completed')),
+        starts_at INTEGER,spin_started_at INTEGER,winning_sector INTEGER,winning_color TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,completed_at TEXT
+      )`);
+      await db.execute(`CREATE TABLE IF NOT EXISTS color_wheel_bets(
+        id TEXT PRIMARY KEY,round_id TEXT NOT NULL REFERENCES color_wheel_rounds(id),
+        telegram_id TEXT NOT NULL REFERENCES players(telegram_id),color TEXT NOT NULL,
+        amount INTEGER NOT NULL CHECK(amount>=100),payout INTEGER NOT NULL DEFAULT 0,
+        outcome TEXT NOT NULL DEFAULT 'pending' CHECK(outcome IN ('pending','win','loss')),
+        purchased_amount INTEGER NOT NULL DEFAULT 0 CHECK(purchased_amount>=0),
+        wallet_amount INTEGER NOT NULL DEFAULT 0 CHECK(wallet_amount>=0),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(round_id,telegram_id)
+      )`);
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_color_wheel_one_active ON color_wheel_rounds((1)) WHERE status IN (\'open\',\'spinning\')');
+      const colorColumns=await db.execute('PRAGMA table_info(color_wheel_bets)');
+      const colorColumnNames=new Set(colorColumns.rows.map(row=>String(row.name)));
+      if(!colorColumnNames.has('purchased_amount'))await db.execute('ALTER TABLE color_wheel_bets ADD COLUMN purchased_amount INTEGER NOT NULL DEFAULT 0 CHECK(purchased_amount>=0)');
+      if(!colorColumnNames.has('wallet_amount'))await db.execute('ALTER TABLE color_wheel_bets ADD COLUMN wallet_amount INTEGER NOT NULL DEFAULT 0 CHECK(wallet_amount>=0)');
       await db.execute(`CREATE TABLE IF NOT EXISTS admin_cancelled_crash_rounds(round_id TEXT PRIMARY KEY,reason TEXT NOT NULL,admin_id TEXT NOT NULL DEFAULT 'admin',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
       const rounds = await db.execute(`SELECT r.id,r.status,r.betting_ends_at,r.started_at,r.crashed_at,r.crash_multiplier,r.seed_hash,r.created_at,c.reason AS cancellation_reason
         FROM crash_rounds r LEFT JOIN admin_cancelled_crash_rounds c ON c.round_id=r.id ORDER BY r.created_at DESC,r.rowid DESC LIMIT 100`);
