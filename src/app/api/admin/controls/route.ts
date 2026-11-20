@@ -2,6 +2,7 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getTurso } from '@/lib/turso';
 import { PACKAGES, UPGRADE_DURATION_MS } from '@/lib/wallets';
+import { ensurePromoSchema } from '@/lib/promo-codes';
 
 const ADMIN_SHOP_PARTS = [
   'plane_tips','auto_sell','oil_pump','fuel_station','oil_truck','new_background','vip_badge','wheel_expansion','arena_tokens_10000',
@@ -74,6 +75,16 @@ export async function GET(req: NextRequest) {
     const status = req.nextUrl.searchParams.get('status') ?? 'pending';
     const query = (req.nextUrl.searchParams.get('q') ?? '').trim().slice(0, 80);
 
+    if (section === 'promos') {
+      await ensurePromoSchema();
+      const [codes, uses] = await Promise.all([
+        db.execute('SELECT * FROM promo_codes ORDER BY created_at DESC'),
+        db.execute(`SELECT r.promo_id,r.telegram_id,p.username,p.first_name,r.reward_type,r.reward_product_id,r.reward_amount,r.created_at
+          FROM promo_redemptions r LEFT JOIN players p ON p.telegram_id=r.telegram_id
+          ORDER BY r.created_at DESC LIMIT 200`),
+      ]);
+      return NextResponse.json({ promoCodes: codes.rows, promoRedemptions: uses.rows }, { headers: { 'Cache-Control': 'no-store' } });
+    }
     if (section === 'notificationCounts') {
       await db.execute(`CREATE TABLE IF NOT EXISTS admin_notification_reads (
         section TEXT PRIMARY KEY,
@@ -416,7 +427,49 @@ export async function POST(req: NextRequest) {
     const db = getTurso();
     const tx = await db.transaction('write');
     try {
-      if (action === 'mark_notifications_read') {
+      if (action === 'promo_save') {
+        await ensurePromoSchema();
+        const id = String(body.id ?? randomUUID()).slice(0,64);
+        const code = String(body.code ?? '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,40);
+        const type = String(body.promoType ?? '');
+        const productId = String(body.productId ?? '').trim().slice(0,80) || null;
+        const rewardCoins = Math.floor(Number(body.rewardCoins ?? 0));
+        const perUserLimit = Math.floor(Number(body.perUserLimit ?? 1));
+        const totalLimit = body.totalLimit === '' || body.totalLimit == null ? null : Math.floor(Number(body.totalLimit));
+        const active = body.active === false || String(body.active)==='0' ? 0 : 1;
+        const startsAt = String(body.startsAt ?? '').trim() || null;
+        const expiresAt = String(body.expiresAt ?? '').trim() || null;
+        if (!/^[A-Z0-9_-]{3,40}$/.test(code) || !['mining_fee','free_part','free_package','coins'].includes(type) ||
+            !Number.isSafeInteger(perUserLimit) || perUserLimit<1 || perUserLimit>10000 ||
+            (totalLimit!==null && (!Number.isSafeInteger(totalLimit)||totalLimit<1)) ||
+            (type==='coins' && (!Number.isSafeInteger(rewardCoins)||rewardCoins<1||rewardCoins>1000000000)) ||
+            ((type==='free_part'||type==='free_package') && !productId)) {
+          await tx.rollback(); return fail('invalid_promo_configuration');
+        }
+        if (type==='free_part' && productId!=='any' && !ADMIN_SHOP_PARTS.includes(productId as typeof ADMIN_SHOP_PARTS[number])) { await tx.rollback(); return fail('invalid_promo_product'); }
+        if (type==='free_package' && productId!=='any' && !PACKAGES.some(p=>p.id===productId)) { await tx.rollback(); return fail('invalid_promo_product'); }
+        await tx.execute({sql:`INSERT INTO promo_codes(id,code,promo_type,product_id,reward_coins,per_user_limit,total_limit,starts_at,expires_at,active)
+          VALUES(?,?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(id) DO UPDATE SET code=excluded.code,promo_type=excluded.promo_type,product_id=excluded.product_id,
+          reward_coins=excluded.reward_coins,per_user_limit=excluded.per_user_limit,total_limit=excluded.total_limit,
+          starts_at=excluded.starts_at,expires_at=excluded.expires_at,active=excluded.active,updated_at=CURRENT_TIMESTAMP`,
+          args:[id,code,type,productId,rewardCoins,perUserLimit,totalLimit,startsAt,expiresAt,active]});
+        await tx.execute({sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
+          args:[randomUUID(),'admin','promo_save','promo',id,JSON.stringify({code,type,productId,rewardCoins,perUserLimit,totalLimit,active})]});
+      } else if (action === 'promo_toggle' || action === 'promo_delete') {
+        await ensurePromoSchema();
+        const id=String(body.id??'').slice(0,64);
+        if(!id){await tx.rollback();return fail('promo_id_required');}
+        if(action==='promo_toggle'){
+          await tx.execute({sql:'UPDATE promo_codes SET active=CASE WHEN active=1 THEN 0 ELSE 1 END,updated_at=CURRENT_TIMESTAMP WHERE id=?',args:[id]});
+        }else{
+          const uses=await tx.execute({sql:'SELECT COUNT(*) AS n FROM promo_redemptions WHERE promo_id=?',args:[id]});
+          if(Number(uses.rows[0]?.n??0)>0){await tx.execute({sql:'UPDATE promo_codes SET active=0,updated_at=CURRENT_TIMESTAMP WHERE id=?',args:[id]});}
+          else{await tx.execute({sql:'DELETE FROM promo_codes WHERE id=?',args:[id]});}
+        }
+        await tx.execute({sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
+          args:[randomUUID(),'admin',action,'promo',id,JSON.stringify({safeDelete:true})]});
+      } else if (action === 'mark_notifications_read') {
         const section = String(body.section ?? '');
         if (!['players','referrals'].includes(section)) { await tx.rollback(); return fail('invalid_notification_section'); }
         await tx.execute(`CREATE TABLE IF NOT EXISTS admin_notification_reads (
