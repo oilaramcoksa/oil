@@ -482,6 +482,114 @@ export async function POST(req: NextRequest) {
         await tx.commit();
         return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
       }
+      if (['promo_save','promo_toggle','promo_delete'].includes(action)) {
+        await tx.commit();
+        return NextResponse.json({ok:true},{headers:{'Cache-Control':'no-store'}});
+      }
+
+      if (action === 'cancel_game_round') {
+        const game=String(body.game??'');
+        const roundId=String(body.roundId??'').trim().slice(0,64);
+        const cancelReason=noteText(body.reason,true);
+        if(!['arena','color_wheel','crash'].includes(game)||!roundId||!cancelReason){await tx.rollback();return fail('invalid_round_cancellation');}
+        let refundedPlayers=0,refundedCoins=0,refundedBetTokens=0;
+        if(game==='arena'){
+          const round=await tx.execute({sql:"UPDATE arena_rounds SET status='cancelled',completed_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('open','countdown') RETURNING id",args:[roundId]});
+          if(!round.rows.length){await tx.rollback();return fail('round_not_cancellable',409);}
+          const entries=await tx.execute({sql:'SELECT telegram_id,amount,purchased_amount,wallet_amount FROM arena_entries WHERE round_id=?',args:[roundId]});
+          for(const e of entries.rows){
+            const pid=String(e.telegram_id), purchased=Number(e.purchased_amount??0), wallet=Number(e.wallet_amount??0)||(purchased===0?Number(e.amount):0);
+            if(purchased>0){
+              const b=await tx.execute({sql:'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,?) ON CONFLICT(telegram_id) DO UPDATE SET balance=balance+excluded.balance,updated_at=CURRENT_TIMESTAMP RETURNING balance',args:[pid,purchased]});
+              await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'arena_round',?,?,?)",args:[randomUUID(),pid,purchased,Number(b.rows[0].balance),roundId,`admin_arena_refund:${roundId}:${pid}`,JSON.stringify({reason:cancelReason,source:'admin'})]});
+              refundedBetTokens+=purchased;
+            }
+            if(wallet>0){
+              const b=await tx.execute({sql:'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance',args:[wallet,pid]});
+              if(!b.rows.length)throw new Error('wallet_missing_for_refund');
+              await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','arena_refund',?,?, 'arena_round',?,?,?)",args:[randomUUID(),pid,wallet,Number(b.rows[0].coins_balance),roundId,`admin_arena_refund_wallet:${roundId}:${pid}`,JSON.stringify({reason:cancelReason,source:'admin'})]});
+              refundedCoins+=wallet;
+            }
+            if(purchased+wallet>0)refundedPlayers++;
+          }
+        } else if(game==='color_wheel'){
+          const round=await tx.execute({sql:"UPDATE color_wheel_rounds SET status='completed',winning_color='admin_cancelled',completed_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('open','spinning') RETURNING id",args:[roundId]});
+          if(!round.rows.length){await tx.rollback();return fail('round_not_cancellable',409);}
+          const bets=await tx.execute({sql:"SELECT telegram_id,amount,purchased_amount,wallet_amount FROM color_wheel_bets WHERE round_id=? AND outcome='pending'",args:[roundId]});
+          for(const b of bets.rows){
+            const pid=String(b.telegram_id),purchased=Number(b.purchased_amount??0),wallet=Number(b.wallet_amount??0)||(purchased===0?Number(b.amount):0);
+            if(purchased>0){
+              const bal=await tx.execute({sql:'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,?) ON CONFLICT(telegram_id) DO UPDATE SET balance=balance+excluded.balance,updated_at=CURRENT_TIMESTAMP RETURNING balance',args:[pid,purchased]});
+              await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'color_wheel_round',?,?,?)",args:[randomUUID(),pid,purchased,Number(bal.rows[0].balance),roundId,`admin_color_refund_tokens:${roundId}:${pid}`,JSON.stringify({reason:cancelReason,source:'admin'})]});
+              refundedBetTokens+=purchased;
+            }
+            if(wallet>0){
+              const bal=await tx.execute({sql:'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance',args:[wallet,pid]});
+              if(!bal.rows.length)throw new Error('wallet_missing_for_refund');
+              await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_refund',?,?, 'color_wheel_round',?,?,?)",args:[randomUUID(),pid,wallet,Number(bal.rows[0].coins_balance),roundId,`admin_color_refund_wallet:${roundId}:${pid}`,JSON.stringify({reason:cancelReason,source:'admin'})]});
+              refundedCoins+=wallet;
+            }
+            await tx.execute({sql:"UPDATE color_wheel_bets SET outcome='loss',payout=0 WHERE round_id=? AND telegram_id=? AND outcome='pending'",args:[roundId,pid]});
+            if(purchased+wallet>0)refundedPlayers++;
+          }
+        } else {
+          await tx.execute(`CREATE TABLE IF NOT EXISTS admin_cancelled_crash_rounds(
+            round_id TEXT PRIMARY KEY,reason TEXT NOT NULL,admin_id TEXT NOT NULL DEFAULT 'admin',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )`);
+          const round=await tx.execute({sql:"UPDATE crash_rounds SET status='crashed',crashed_at=? WHERE id=? AND status IN ('countdown','running') RETURNING id",args:[Date.now(),roundId]});
+          if(!round.rows.length){await tx.rollback();return fail('round_not_cancellable',409);}
+          const bets=await tx.execute({sql:"SELECT telegram_id,amount,purchased_amount,wallet_amount FROM crash_bets WHERE round_id=? AND status='active'",args:[roundId]});
+          for(const b of bets.rows){
+            const pid=String(b.telegram_id),purchased=Number(b.purchased_amount??0),wallet=Number(b.wallet_amount??0);
+            if(purchased>0){
+              const bal=await tx.execute({sql:'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,?) ON CONFLICT(telegram_id) DO UPDATE SET balance=balance+excluded.balance,updated_at=CURRENT_TIMESTAMP RETURNING balance',args:[pid,purchased]});
+              await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'crash_round',?,?,?)",args:[randomUUID(),pid,purchased,Number(bal.rows[0].balance),roundId,`admin_crash_refund_tokens:${roundId}:${pid}`,JSON.stringify({reason:cancelReason,source:'admin'})]});
+              refundedBetTokens+=purchased;
+            }
+            if(wallet>0){
+              const bal=await tx.execute({sql:'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance',args:[wallet,pid]});
+              if(!bal.rows.length)throw new Error('wallet_missing_for_refund');
+              await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','crash_refund',?,?, 'crash_round',?,?,?)",args:[randomUUID(),pid,wallet,Number(bal.rows[0].coins_balance),roundId,`admin_crash_refund_wallet:${roundId}:${pid}`,JSON.stringify({reason:cancelReason,source:'admin'})]});
+              refundedCoins+=wallet;
+            }
+            await tx.execute({sql:"UPDATE crash_bets SET status='lost',settled_at=CURRENT_TIMESTAMP WHERE round_id=? AND telegram_id=? AND status='active'",args:[roundId,pid]});
+            if(purchased+wallet>0)refundedPlayers++;
+          }
+          await tx.execute({sql:'INSERT INTO admin_cancelled_crash_rounds(round_id,reason) VALUES(?,?)',args:[roundId,cancelReason]});
+        }
+        await tx.execute({sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',args:[randomUUID(),'admin_session','cancel_game_round',game,roundId,JSON.stringify({reason:cancelReason,refundedPlayers,refundedCoins,refundedBetTokens})]});
+        await tx.commit();
+        return NextResponse.json({ok:true,refundedPlayers,refundedCoins,refundedBetTokens},{headers:{'Cache-Control':'no-store'}});
+      }
+
+      if (action === 'adjust_balance') {
+        const asset=String(body.asset??'');
+        const delta=Number(body.amount);
+        const adjustmentReason=noteText(body.reason,true);
+        if(!['coins','oil','usd'].includes(asset)||!Number.isSafeInteger(delta)||delta===0||Math.abs(delta)>1_000_000_000_000||!adjustmentReason){await tx.rollback();return fail('invalid_balance_adjustment');}
+        const exists=await tx.execute({sql:'SELECT telegram_id FROM players WHERE telegram_id=?',args:[target]});
+        if(!exists.rows.length){await tx.rollback();return fail('player_not_found',404);}
+        await tx.execute({sql:'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)',args:[target]});
+        const column=asset==='coins'?'coins_balance':asset==='oil'?'oil_balance':'usd_micros';
+        const before=await tx.execute({sql:'SELECT '+column+' AS balance FROM player_wallets WHERE telegram_id=?',args:[target]});
+        const oldBalance=Number(before.rows[0]?.balance??0),newBalance=oldBalance+delta;
+        if(newBalance<0){await tx.rollback();return fail('balance_cannot_be_negative',409);}
+        const update=await tx.execute({sql:'UPDATE player_wallets SET '+column+'=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=?',args:[newBalance,target]});
+        if(Number(update.rowsAffected)!==1)throw new Error('balance_adjustment_failed');
+        const referenceId=randomUUID();
+        if(asset==='coins'||asset==='oil'){
+          await tx.execute({sql:'INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,?,?,?,?,?,?,?,?)',args:[randomUUID(),target,asset,'admin_adjustment',delta,newBalance,'admin',referenceId,`admin-adjust:${asset}:${referenceId}`,JSON.stringify({reason:adjustmentReason,source:'admin_panel'})]});
+        } else {
+          await tx.execute(`CREATE TABLE IF NOT EXISTS admin_balance_adjustments(
+            id TEXT PRIMARY KEY,telegram_id TEXT NOT NULL,asset TEXT NOT NULL,amount INTEGER NOT NULL,balance_after INTEGER NOT NULL,reason TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )`);
+          await tx.execute({sql:'INSERT INTO admin_balance_adjustments(id,telegram_id,asset,amount,balance_after,reason) VALUES(?,?,?,?,?,?)',args:[referenceId,target,'usd',delta,newBalance,adjustmentReason]});
+        }
+        await tx.execute({sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',args:[randomUUID(),'admin_session','adjust_balance',asset,target,JSON.stringify({delta,balanceBefore:oldBalance,balanceAfter:newBalance,reason:adjustmentReason,usdUnit:asset==='usd'?'micro-USD':null})]});
+        await tx.commit();
+        return NextResponse.json({ok:true,asset,balance:newBalance},{headers:{'Cache-Control':'no-store'}});
+      }
+
       if (action === 'grant_product') {
         const productId = String(body.productId);
         const quantity = Number(body.quantity ?? 1);
