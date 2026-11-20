@@ -163,16 +163,41 @@ export async function GET(req: NextRequest) {
       await db.execute(`CREATE TABLE IF NOT EXISTS admin_cancelled_crash_rounds(round_id TEXT PRIMARY KEY,reason TEXT NOT NULL,admin_id TEXT NOT NULL DEFAULT 'admin',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
       const rounds = await db.execute(`SELECT r.id,r.status,r.betting_ends_at,r.started_at,r.crashed_at,r.crash_multiplier,r.seed_hash,r.created_at,c.reason AS cancellation_reason
         FROM crash_rounds r LEFT JOIN admin_cancelled_crash_rounds c ON c.round_id=r.id ORDER BY r.created_at DESC,r.rowid DESC LIMIT 100`);
-      const [arenaActive,colorActive] = await Promise.all([
+      const [arenaActive,colorActive,crashActive] = await Promise.all([
         db.execute(`SELECT r.id,r.status,r.created_at,COUNT(e.id) AS participants,COALESCE(SUM(e.amount),0) AS total_stakes FROM arena_rounds r LEFT JOIN arena_entries e ON e.round_id=r.id WHERE r.status IN ('open','countdown') GROUP BY r.id ORDER BY r.created_at DESC LIMIT 10`),
         db.execute(`SELECT r.id,r.status,r.created_at,COUNT(b.id) AS participants,COALESCE(SUM(b.amount),0) AS total_stakes FROM color_wheel_rounds r LEFT JOIN color_wheel_bets b ON b.round_id=r.id AND b.outcome='pending' WHERE r.status IN ('open','spinning') GROUP BY r.id ORDER BY r.created_at DESC LIMIT 10`),
+        db.execute(`SELECT r.id,r.status,r.created_at,COUNT(b.id) AS participants,COALESCE(SUM(b.amount),0) AS total_stakes FROM crash_rounds r LEFT JOIN crash_bets b ON b.round_id=r.id AND b.status='active' WHERE r.status IN ('countdown','running') GROUP BY r.id ORDER BY r.created_at DESC LIMIT 10`),
       ]);
+      const [arenaBetRows,colorBetRows,crashActiveBetRows] = await Promise.all([
+        db.execute(`SELECT e.round_id,e.telegram_id,e.amount,e.purchased_amount,e.wallet_amount,p.first_name,p.username FROM arena_entries e LEFT JOIN players p ON p.telegram_id=e.telegram_id WHERE e.round_id IN (SELECT id FROM arena_rounds WHERE status IN ('open','countdown')) ORDER BY e.created_at`),
+        db.execute(`SELECT b.round_id,b.telegram_id,b.amount,b.purchased_amount,b.wallet_amount,b.color,p.first_name,p.username FROM color_wheel_bets b LEFT JOIN players p ON p.telegram_id=b.telegram_id WHERE b.outcome='pending' AND b.round_id IN (SELECT id FROM color_wheel_rounds WHERE status IN ('open','spinning')) ORDER BY b.created_at`),
+        db.execute(`SELECT b.round_id,b.telegram_id,b.amount,b.purchased_amount,b.wallet_amount,b.status,p.first_name,p.username FROM crash_bets b LEFT JOIN players p ON p.telegram_id=b.telegram_id WHERE b.status='active' AND b.round_id IN (SELECT id FROM crash_rounds WHERE status IN ('countdown','running')) ORDER BY b.created_at`),
+      ]);
+      const groupActiveBets = (rows: Array<Record<string,unknown>>) => {
+        const grouped = new Map<string,Array<Record<string,unknown>>>();
+        for(const row of rows){
+          const key=String(row.round_id), list=grouped.get(key)??[];
+          list.push({
+            telegramId:String(row.telegram_id),
+            username:String(row.first_name||row.username||row.telegram_id),
+            amount:Number(row.amount),
+            purchasedAmount:Number(row.purchased_amount??0),
+            walletAmount:Number(row.wallet_amount??0)||(Number(row.purchased_amount??0)===0?Number(row.amount):0),
+            betChoice:row.color==null?null:String(row.color),
+            status:row.status==null?'pending':String(row.status),
+          });
+          grouped.set(key,list);
+        }
+        return grouped;
+      };
+      const arenaByRound=groupActiveBets(arenaBetRows.rows as unknown as Array<Record<string,unknown>>);
+      const colorByRound=groupActiveBets(colorBetRows.rows as unknown as Array<Record<string,unknown>>);
+      const crashByRound=groupActiveBets(crashActiveBetRows.rows as unknown as Array<Record<string,unknown>>);
       const activeGameRounds = [
-        ...(arenaActive.rows as unknown as Array<Record<string,unknown>>).map(r=>({game:'arena',id:String(r.id),status:String(r.status),createdAt:String(r.created_at),participants:Number(r.participants),totalStakes:Number(r.total_stakes)})),
-        ...(colorActive.rows as unknown as Array<Record<string,unknown>>).map(r=>({game:'color_wheel',id:String(r.id),status:String(r.status),createdAt:String(r.created_at),participants:Number(r.participants),totalStakes:Number(r.total_stakes)})),
+        ...(arenaActive.rows as unknown as Array<Record<string,unknown>>).map(r=>({game:'arena',id:String(r.id),status:String(r.status),createdAt:String(r.created_at),participants:Number(r.participants),totalStakes:Number(r.total_stakes),cancellable:true,players:arenaByRound.get(String(r.id))??[]})),
+        ...(colorActive.rows as unknown as Array<Record<string,unknown>>).map(r=>({game:'color_wheel',id:String(r.id),status:String(r.status),createdAt:String(r.created_at),participants:Number(r.participants),totalStakes:Number(r.total_stakes),cancellable:String(r.status)==='open',players:colorByRound.get(String(r.id))??[]})),
+        ...(crashActive.rows as unknown as Array<Record<string,unknown>>).map(r=>({game:'crash',id:String(r.id),status:String(r.status),createdAt:String(r.created_at),participants:Number(r.participants),totalStakes:Number(r.total_stakes),cancellable:true,players:crashByRound.get(String(r.id))??[]})),
       ];
-      const crashActive = await db.execute(`SELECT r.id,r.status,r.created_at,COUNT(b.id) AS participants,COALESCE(SUM(b.amount),0) AS total_stakes FROM crash_rounds r LEFT JOIN crash_bets b ON b.round_id=r.id AND b.status='active' WHERE r.status IN ('countdown','running') GROUP BY r.id ORDER BY r.created_at DESC LIMIT 10`);
-      activeGameRounds.push(...(crashActive.rows as unknown as Array<Record<string,unknown>>).map(r=>({game:'crash',id:String(r.id),status:String(r.status),createdAt:String(r.created_at),participants:Number(r.participants),totalStakes:Number(r.total_stakes)})));
       const bets = await db.execute(`SELECT b.round_id,b.telegram_id,b.username,b.amount,b.status,b.cashout_multiplier,b.payout,b.created_at,
         p.first_name,p.last_name,p.username AS player_username
         FROM crash_bets b LEFT JOIN players p ON p.telegram_id=b.telegram_id
