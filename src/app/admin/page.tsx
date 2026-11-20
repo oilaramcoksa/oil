@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plane, Activity, BellRing, Youtube, LayoutDashboard, LogOut, Megaphone, RefreshCw, Search, ShieldCheck, ShoppingBag, Users, Wallet, XCircle, Camera, ExternalLink, CheckCircle, XOctagon, MoreHorizontal, Download } from 'lucide-react';
 import { PACKAGES } from '@/lib/wallets';
 
-type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'crash' | 'audit';
+type Section = 'overview' | 'players' | 'referrals' | 'withdrawals' | 'payments' | 'broadcasts' | 'shorts' | 'storyTasks' | 'crash' | 'audit' | 'promos';
 type Player = {telegram_id:string;username?:string|null;first_name?:string|null;last_name?:string|null;status:string;coins:number;oil:number;usd_micros?:number;usd_locked_micros?:number;coins_locked?:number;base_oil_per_tap:number;fee_exempt:number;mining_fee_paid_at?:string|null};
 type Row = Record<string, unknown>;
 const ADMIN_SHOP_PARTS = [
@@ -26,7 +26,7 @@ export default function AdminPage() {
   const [players,setPlayers] = useState<Player[]>([]);
   const [ton,setTon] = useState<Row[]>([]);
   const [usdt,setUsdt] = useState<Row[]>([]);
-  const [payments,setPayments] = useState<Row[]>([]);
+  const [payments,setPayments] = useState<Row[]>([]);\n  const [promoCodes,setPromoCodes] = useState<Row[]>([]);\n  const [promoDraft,setPromoDraft] = useState<Row>({code:'',promoType:'mining_fee',productId:'any',rewardCoins:100,perUserLimit:1,totalLimit:'',active:true});
   const [broadcastRows,setBroadcastRows] = useState<Row[]>([]);
   const [notificationCounts,setNotificationCounts] = useState<Record<string,number>>({});
   const [productRows,setProductRows] = useState<Row[]>([]);
@@ -96,7 +96,7 @@ export default function AdminPage() {
       if(nextSection==='overview') setOverview(data.overview||{});
       if(nextSection==='players') setPlayers(data.players||[]);
       if(nextSection==='withdrawals'){setTon(data.ton||[]);setUsdt(data.usdt||[]);}
-      if(nextSection==='payments') setPayments(data.payments||[]);
+      if(nextSection==='payments') setPayments(data.payments||[]);\n      if(nextSection==='promos') setPromoCodes(data.promoCodes||[]);
       if(nextSection==='broadcasts') setBroadcastRows(data.broadcasts||[]);
       if(nextSection==='referrals') setReferralRows(data.referrals||[]);
       if(nextSection==='audit') setLogs(data.logs||[]);
@@ -184,12 +184,20 @@ export default function AdminPage() {
     }catch(e){setError(e instanceof Error?e.message:'حدث خطأ');}
     finally{setBusy(false);}
   }
+  async function savePromo(){
+    setBusy(true);setError('');setNotice('');
+    try{
+      const res=await fetch('/api/admin/controls',{method:'POST',headers,credentials:'same-origin',body:JSON.stringify({action:'promo_save',...promoDraft})});
+      const data=await res.json();if(!res.ok)throw new Error(data.error||'تعذر حفظ البرومو كود');
+      setNotice('تم حفظ البرومو كود في قاعدة البيانات');setPromoDraft({code:'',promoType:'mining_fee',productId:'any',rewardCoins:100,perUserLimit:1,totalLimit:'',active:true});await load('promos');
+    }catch(e){setError(e instanceof Error?e.message:'تعذر حفظ البرومو كود');}finally{setBusy(false);}
+  }
   const nav=[
     {id:'overview' as const,label:'الرئيسية',icon:LayoutDashboard},
     {id:'players' as const,label:'اللاعبون',icon:Users},
     {id:'referrals' as const,label:'الإحالات',icon:Users},
     {id:'withdrawals' as const,label:'طلبات السحب',icon:Wallet},
-    {id:'payments' as const,label:'المشتريات',icon:ShoppingBag},
+    {id:'payments' as const,label:'المشتريات',icon:ShoppingBag},\n    {id:'promos' as const,label:'أكواد الخصم والهدايا',icon:Sparkles},
     {id:'broadcasts' as const,label:'الرسائل والإعلانات',icon:Megaphone},
     {id:'shorts' as const,label:'مسابقة Shorts',icon:Youtube},
     {id:'storyTasks' as const,label:'مراجعة حالات تيليجرام',icon:Camera},
@@ -209,6 +217,25 @@ export default function AdminPage() {
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-black sm:text-2xl">{nav.find(n=>n.id===section)?.label}</h2><p className="mt-1 text-xs text-slate-500">إدارة مباشرة لبيانات اللعبة على قاعدة البيانات</p></div><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-300">اتصال إداري مفعّل</span></div>
         {error&&<div className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</div>}
         {notice&&<div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">{notice}</div>}
+        {section==='promos'&&<div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">
+            <h3 className="mb-3 font-black text-lg">إنشاء برومو كود جديد</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-bold">كود البرومو<input value={String(promoDraft.code??'')} onChange={e=>setPromoDraft(v=>({...v,code:e.target.value.toUpperCase()}))} placeholder="WELCOME2026" className="mt-1 w-full rounded-xl border p-3" /></label>
+              <label className="text-sm font-bold">نوع المكافأة<select value={String(promoDraft.promoType)} onChange={e=>setPromoDraft(v=>({...v,promoType:e.target.value}))} className="mt-1 w-full rounded-xl border p-3"><option value="mining_fee">تجاوز رسوم التعدين</option><option value="free_part">شراء قطعة مجانًا</option><option value="free_package">باقة تسريع مجانية</option><option value="coins">عملات هدية</option></select></label>
+              {(promoDraft.promoType==='free_part'||promoDraft.promoType==='free_package')&&<label className="text-sm font-bold">المنتج المستهدف<select value={String(promoDraft.productId??'any')} onChange={e=>setPromoDraft(v=>({...v,productId:e.target.value}))} className="mt-1 w-full rounded-xl border p-3"><option value="any">أي منتج في هذا النوع</option>{(promoDraft.promoType==='free_part'?ADMIN_SHOP_PARTS:PACKAGES.map(p=>({id:p.id,name:p.name}))).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
+              {promoDraft.promoType==='coins'&&<label className="text-sm font-bold">عدد العملات<input type="number" min="1" value={String(promoDraft.rewardCoins??100)} onChange={e=>setPromoDraft(v=>({...v,rewardCoins:e.target.value}))} className="mt-1 w-full rounded-xl border p-3" /></label>}
+              <label className="text-sm font-bold">عدد مرات الاستخدام لكل لاعب<input type="number" min="1" value={String(promoDraft.perUserLimit??1)} onChange={e=>setPromoDraft(v=>({...v,perUserLimit:e.target.value}))} className="mt-1 w-full rounded-xl border p-3" /></label>
+              <label className="text-sm font-bold">الحد الإجمالي للاستخدام (اختياري)<input type="number" min="1" value={String(promoDraft.totalLimit??'')} onChange={e=>setPromoDraft(v=>({...v,totalLimit:e.target.value}))} placeholder="اتركه فارغًا بلا حد" className="mt-1 w-full rounded-xl border p-3" /></label>
+              <label className="text-sm font-bold">تاريخ انتهاء الصلاحية (اختياري)<input type="datetime-local" value={String(promoDraft.expiresAt??'')} onChange={e=>setPromoDraft(v=>({...v,expiresAt:e.target.value}))} className="mt-1 w-full rounded-xl border p-3" /></label>
+            </div>
+            <button disabled={busy} onClick={()=>void savePromo()} className="mt-4 w-full rounded-xl bg-amber-400 p-3 font-black text-slate-950 disabled:opacity-50">حفظ البرومو كود</button>
+          </div>
+          <div className="space-y-2">{promoCodes.map(p=><article key={String(p.id)} className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2"><div><b className="text-lg">{String(p.code)}</b><p className="text-xs text-slate-500">{String(p.promo_type)} · استخدام اللاعب: {String(p.per_user_limit)} · إجمالي الاستخدام: {String(p.total_uses)}</p></div><span className={Number(p.active)===1?'text-emerald-600':'text-red-600'}>{Number(p.active)===1?'نشط':'متوقف'}</span></div>
+            <div className="mt-3 flex gap-2"><button onClick={()=>void act({action:'promo_toggle',id:p.id})} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">{Number(p.active)===1?'إيقاف':'تفعيل'}</button><button onClick={()=>{if(window.confirm('حذف الكود؟ إذا استُخدم سابقًا سيُوقف بدل حذفه.'))void act({action:'promo_delete',id:p.id});}} className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">حذف / إيقاف</button></div>
+          </article>)}{!promoCodes.length&&<p className="rounded-xl bg-white p-4 text-center text-sm text-slate-500">لا توجد أكواد حتى الآن.</p>}</div>
+        </div>}
         {section==='overview'&&<><div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">{statCards.map(([label,value,key])=><div key={String(key)} className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 p-3 sm:p-4"><p className="text-[11px] leading-5 text-slate-500 sm:text-xs">{label}</p><p className="mt-2 break-words text-xl font-black text-amber-300 sm:mt-3 sm:text-2xl">{money(value)}</p></div>)}</div><div className="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 p-5"><h3 className="mb-3 font-black">إجراءات سريعة</h3><div className="grid gap-3 md:grid-cols-2"><ActionBox title="إرسال إعلان لجميع اللاعبين" desc="إشعار رسمي يظهر في صندوق إشعارات اللعبة" onClick={()=>setActionDialog({action:'broadcast'})}/><ActionBox title="توزيع العملات" desc="إضافة رصيد جماعي مع بيان السبب" onClick={()=>setActionDialog({action:'broadcast-coins'})}/></div></div></>}
         {section==='players'&&<><div className="flex gap-2"><div className="relative flex-1"><Search className="absolute right-3 top-3 text-slate-500" size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load('players')} placeholder="ابحث بالاسم أو اسم المستخدم أو Telegram ID" className="w-full rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 py-3 pr-10 pl-3 text-sm"/></div><button onClick={()=>load('players')} className="rounded-xl bg-slate-700 px-4">بحث</button></div><div className="space-y-2 md:hidden">{players.map(p=><article key={p.telegram_id} className="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate font-black">{displayName(p)}</p><p className="mt-1 break-all font-mono text-[10px] text-slate-500">{p.telegram_id}</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${p.status==='active'?'bg-emerald-400/10 text-emerald-300':'bg-red-400/10 text-red-300'}`}>{p.status==='active'?'نشط':'محظور'}</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs"><button onClick={()=>void loadBalanceHistory(p.telegram_id,displayName(p),'coins')} className="rounded-xl border border-amber-200 bg-amber-50 p-2 text-right hover:bg-amber-100"><span className="text-amber-800">العملات · سجل</span><p className="mt-1 font-black text-amber-700">{money(p.coins)}</p></button><button onClick={()=>void loadBalanceHistory(p.telegram_id,displayName(p),'oil')} className="rounded-xl border border-sky-200 bg-sky-50 p-2 text-right hover:bg-sky-100"><span className="text-sky-800">النفط · سجل</span><p className="mt-1 font-black text-sky-700">{money(p.oil)}</p></button><button onClick={()=>void loadBalanceHistory(p.telegram_id,displayName(p),'usd')} className="rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-right hover:bg-emerald-100"><span className="text-emerald-800">الدولار · سجل</span><p className="mt-1 font-black text-emerald-700">{(Number(p.usd_micros??0)/1000000).toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2})}</p></button><div className="rounded-xl bg-white/[.04] p-2"><span className="text-slate-500">سرعة الضغطة</span><p className="mt-1 font-bold">{money(p.base_oil_per_tap)}</p></div><div className="rounded-xl bg-white/[.04] p-2"><span className="text-slate-500">رسوم التعدين</span><p className="mt-1 font-bold">{p.fee_exempt?'معفى':'غير معفى'}</p></div></div><button onClick={()=>{setSelected(p);setSpeed(String(p.base_oil_per_tap));setProductRows([]);setActionDialog({action:'player'});void loadPlayerProducts(p.telegram_id);}} className="mt-3 w-full rounded-xl bg-amber-400 py-2.5 text-xs font-black text-slate-950">إدارة اللاعب</button></article>)}</div><div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 md:block"><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm"><thead className="bg-slate-100 text-slate-500"><tr>{['اللاعب','Telegram ID','الحالة','العملات','النفط','الدولار','سرعة الضغطة','رسوم التعدين','الإجراءات'].map(x=><th className="p-3 text-right" key={x}>{x}</th>)}</tr></thead><tbody>{players.map(p=><tr key={p.telegram_id} className="border-t border-white/5"><td className="p-3 font-bold">{displayName(p)}</td><td className="p-3 font-mono text-xs text-slate-500">{p.telegram_id}</td><td className="p-3">{p.status==='active'?'نشط':'محظور'}</td><td className="p-2"><button onClick={()=>void loadBalanceHistory(p.telegram_id,displayName(p),'coins')} className="rounded-lg px-2 py-1 text-amber-700 hover:bg-amber-50">{money(p.coins)} ↗</button></td><td className="p-2"><button onClick={()=>void loadBalanceHistory(p.telegram_id,displayName(p),'oil')} className="rounded-lg px-2 py-1 text-sky-700 hover:bg-sky-50">{money(p.oil)} ↗</button></td><td className="p-2"><button onClick={()=>void loadBalanceHistory(p.telegram_id,displayName(p),'usd')} className="rounded-lg px-2 py-1 text-emerald-700 hover:bg-emerald-50">{(Number(p.usd_micros??0)/1000000).toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2})} ↗</button></td><td className="p-3">{money(p.base_oil_per_tap)}</td><td className="p-3"><span className={p.fee_exempt?'text-emerald-300':'text-slate-500'}>{p.fee_exempt?'معفى':'غير معفى'}{p.mining_fee_paid_at?' · دافع':''}</span></td><td className="p-3"><button onClick={()=>{setSelected(p);setSpeed(String(p.base_oil_per_tap));setProductRows([]);setActionDialog({action:'player'});void loadPlayerProducts(p.telegram_id);}} className="rounded-lg bg-amber-400/10 px-3 py-2 text-xs font-bold text-amber-200">إدارة</button></td></tr>)}</tbody></table></div></div></>}
         {section==='referrals'&&<DataTable title="سجل الإحالات" rows={referralRows} columns={['referrer_telegram_id','referrer_name','referee_telegram_id','referee_name','status','reward_coins','created_at']}/>}
