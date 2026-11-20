@@ -140,8 +140,18 @@ export async function GET(req: NextRequest) {
     }
 
     if (section === 'crash') {
-      const rounds = await db.execute(`SELECT id,status,betting_ends_at,started_at,crashed_at,crash_multiplier,seed_hash,created_at
-        FROM crash_rounds ORDER BY created_at DESC,rowid DESC LIMIT 100`);
+      const rounds = await db.execute(`SELECT r.id,r.status,r.betting_ends_at,r.started_at,r.crashed_at,r.crash_multiplier,r.seed_hash,r.created_at,c.reason AS cancellation_reason
+        FROM crash_rounds r LEFT JOIN admin_cancelled_crash_rounds c ON c.round_id=r.id ORDER BY r.created_at DESC,r.rowid DESC LIMIT 100`);
+      const [arenaActive,colorActive] = await Promise.all([
+        db.execute(`SELECT r.id,r.status,r.created_at,COUNT(e.id) AS participants,COALESCE(SUM(e.amount),0) AS total_stakes FROM arena_rounds r LEFT JOIN arena_entries e ON e.round_id=r.id WHERE r.status IN ('open','countdown') GROUP BY r.id ORDER BY r.created_at DESC LIMIT 10`),
+        db.execute(`SELECT r.id,r.status,r.created_at,COUNT(b.id) AS participants,COALESCE(SUM(b.amount),0) AS total_stakes FROM color_wheel_rounds r LEFT JOIN color_wheel_bets b ON b.round_id=r.id AND b.outcome='pending' WHERE r.status IN ('open','spinning') GROUP BY r.id ORDER BY r.created_at DESC LIMIT 10`),
+      ]);
+      const activeGameRounds = [
+        ...(arenaActive.rows as unknown as Array<Record<string,unknown>>).map(r=>({game:'arena',id:String(r.id),status:String(r.status),createdAt:String(r.created_at),participants:Number(r.participants),totalStakes:Number(r.total_stakes)})),
+        ...(colorActive.rows as unknown as Array<Record<string,unknown>>).map(r=>({game:'color_wheel',id:String(r.id),status:String(r.status),createdAt:String(r.created_at),participants:Number(r.participants),totalStakes:Number(r.total_stakes)})),
+      ];
+      const crashActive = await db.execute(`SELECT r.id,r.status,r.created_at,COUNT(b.id) AS participants,COALESCE(SUM(b.amount),0) AS total_stakes FROM crash_rounds r LEFT JOIN crash_bets b ON b.round_id=r.id AND b.status='active' WHERE r.status IN ('countdown','running') GROUP BY r.id ORDER BY r.created_at DESC LIMIT 10`);
+      activeGameRounds.push(...(crashActive.rows as unknown as Array<Record<string,unknown>>).map(r=>({game:'crash',id:String(r.id),status:String(r.status),createdAt:String(r.created_at),participants:Number(r.participants),totalStakes:Number(r.total_stakes)})));
       const bets = await db.execute(`SELECT b.round_id,b.telegram_id,b.username,b.amount,b.status,b.cashout_multiplier,b.payout,b.created_at,
         p.first_name,p.last_name,p.username AS player_username
         FROM crash_bets b LEFT JOIN players p ON p.telegram_id=b.telegram_id
@@ -162,7 +172,7 @@ export async function GET(req: NextRequest) {
         });
         grouped.set(key, list);
       }
-      return NextResponse.json({ crashRounds: (rounds.rows as unknown as Array<Record<string, unknown>>).map((round) => {
+      return NextResponse.json({ activeGameRounds, crashRounds: (rounds.rows as unknown as Array<Record<string, unknown>>).map((round) => {
         const players = grouped.get(String(round.id)) ?? [];
         return {
           id: String(round.id), status: String(round.status), createdAt: String(round.created_at),
@@ -173,7 +183,7 @@ export async function GET(req: NextRequest) {
           totalStakes: players.reduce((sum, player) => sum + Number(player.amount), 0),
           winners: players.filter((player) => player.status === 'cashed_out'),
           players,
-          seedHash: String(round.seed_hash),
+          seedHash: String(round.seed_hash), cancellationReason: round.cancellation_reason == null ? null : String(round.cancellation_reason),
         };
       }) }, { headers: { 'Cache-Control': 'no-store' } });
     }
