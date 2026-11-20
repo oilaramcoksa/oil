@@ -11,6 +11,19 @@ const bn: Dict = { ...en,
   tasksTitle: 'কাজ', dailyTasks: 'দৈনিক কাজ', weeklyTasks: 'সাপ্তাহিক কাজ', friendsTitle: 'বন্ধু',
   inviteLink: 'আমন্ত্রণ লিংক', copyLink: 'লিংক কপি করুন', yourReferrals: 'আপনার রেফারেল', noReferrals: 'এখনও কোনো রেফারেল নেই',
   speedPartsTitle: 'আপগ্রেড স্টোর', autoSellPart: "স্বয়ংক্রিয় বিক্রি", autoSellDescription: "গেম না খুলেই ৩০ দিন প্রতি ১২ ঘণ্টার খনন চক্র শেষে তেল স্বয়ংক্রিয়ভাবে বিক্রি করে। আগে থেকে একটি খনন চক্র চালু থাকতে হবে।", autoSellDuration: "৩০ দিন", crashRecentRounds: 'শেষ ১০ রাউন্ড',
+  promoCodeTitle: "প্রোমো কোড",
+  promoCodePlaceholder: "প্রোমো কোড লিখুন",
+  promoApply: "প্রয়োগ করুন",
+  promoApplying: "প্রয়োগ হচ্ছে…",
+  promoApplied: "প্রোমো কোড প্রয়োগ হয়েছে এবং পুরস্কার যোগ হয়েছে",
+  promoInvalid: "ভুল বা নিষ্ক্রিয় প্রোমো কোড",
+  promoUserLimit: "এই কোড ব্যবহারের আপনার সীমা পূর্ণ হয়েছে",
+  promoTotalLimit: "এই কোডের মোট ব্যবহারের সীমা পূর্ণ হয়েছে",
+  promoExpired: "প্রোমো কোডটির মেয়াদ শেষ",
+  promoProductMismatch: "এই কোডটি নির্বাচিত পণ্যের জন্য প্রযোজ্য নয়",
+  promoMiningFeePaid: "মাইনিং ফি ইতিমধ্যে সক্রিয়",
+  promoGenericError: "প্রোমো কোড ব্যবহার করা যায়নি",
+
 };
 
 export default bn;
