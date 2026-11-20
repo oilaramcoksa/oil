@@ -60,6 +60,9 @@ export async function POST(req: NextRequest) {
       if (!game.rows.length || !wallet.rows.length) { await tx.rollback(); return fail('mining_state_missing',409); }
       const g=game.rows[0], w=wallet.rows[0];
       const now=Date.now();
+      const feePaidAt=player.rows[0].mining_fee_paid_at
+        ? Date.parse(String(player.rows[0].mining_fee_paid_at).replace(' ','T')+'Z')
+        : 0;
       const cycleEnd=Number(g.cycle_ends_at??0);
       const cycleStart=Number(g.cycle_started_at??0);
       const lastTick=Number(g.last_tick_at??0);
@@ -94,6 +97,16 @@ export async function POST(req: NextRequest) {
       let currentCycleEnd=cycleEnd;
       let currentCycleStart=cycleStart;
       let currentTick=lastTick;
+      // Recover players activated by the previous release, which wrote an already-expired
+      // 12-hour cycle marker. Only clear that exact activation marker when no oil remains.
+      const legacyActivationCycle = action==='tap' && oil===0 && feePaidAt>0 &&
+        Math.abs(cycleEnd-feePaidAt)<=5000 &&
+        Math.abs(cycleStart-(feePaidAt-CYCLE_MS))<=5000;
+      if(legacyActivationCycle){
+        currentCycleStart=0;
+        currentCycleEnd=0;
+        currentTick=0;
+      }
       const insertOil=async(amount:number,key:string,type:string,metadata:Record<string,unknown>)=>{
         if(amount<=0)return;
         oil+=amount;
