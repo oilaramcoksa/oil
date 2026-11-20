@@ -56,6 +56,7 @@ export default function Home() {
   const [openStoreProductId, setOpenStoreProductId] = useState('plane_tips');
   const [openColorWheelRequest, setOpenColorWheelRequest] = useState(0);
   const [resetArenaHomeRequest, setResetArenaHomeRequest] = useState(0);
+  const [resetStoreHomeRequest, setResetStoreHomeRequest] = useState(0);
 
   // Keep every opened section mounted so returning to it is immediate.
   const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set<Tab>(['pump']));
@@ -149,12 +150,12 @@ export default function Home() {
         {visitedTabs.has('wallet') && <section className={tab === 'wallet' ? 'h-full tab-enter' : 'hidden'}><WalletScreen /></section>}
         {visitedTabs.has('tasks') && <section className={tab === 'tasks' ? 'h-full tab-enter' : 'hidden'}><TasksScreen initData={initData} isVerified={isVerified} /></section>}
         {visitedTabs.has('friends') && <section className={tab === 'friends' ? 'h-full tab-enter' : 'hidden'}><FriendsScreen /></section>}
-        {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full tab-enter' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} openProductRequest={openStoreProductRequest} openProductId={openStoreProductId} /></section>}
+        {visitedTabs.has('store') && <section className={tab === 'store' ? 'h-full tab-enter' : 'hidden'}><StoreScreen initData={initData} isVerified={isVerified} openProductRequest={openStoreProductRequest} openProductId={openStoreProductId} resetHomeRequest={resetStoreHomeRequest} /></section>}
         {visitedTabs.has('arena') && <section className={tab === 'arena' ? 'h-full tab-enter' : 'hidden'}><ArenaHubScreen initData={initData} isVerified={isVerified} telegramUserId={user ? String(user.id) : ''} openColorWheelRequest={openColorWheelRequest} resetToHomeRequest={resetArenaHomeRequest} active={tab === 'arena'} onGoToStore={(productId) => { if (productId) { setOpenStoreProductId(productId); setOpenStoreProductRequest((current) => current + 1); } navigateToTab('store'); }} /></section>}
         {visitedTabs.has('swap') && <section className={tab === 'swap' ? 'h-full' : 'hidden'}><SwapScreen initData={initData} isVerified={isVerified} /></section>}
       </main>
 
-      <BottomNav active={tab} onChange={(nextTab) => { if (nextTab === 'arena') setResetArenaHomeRequest((value) => value + 1); navigateToTab(nextTab); }} />
+      <BottomNav active={tab} onChange={(nextTab) => { if (nextTab === 'arena') setResetArenaHomeRequest((value) => value + 1); if (nextTab === 'store') setResetStoreHomeRequest((value) => value + 1); navigateToTab(nextTab); }} />
 
       <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <TournamentsSheet open={tournamentsOpen} onClose={() => setTournamentsOpen(false)} />
