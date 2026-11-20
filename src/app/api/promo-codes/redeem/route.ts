@@ -60,9 +60,15 @@ export async function POST(req:NextRequest){
       }else if(type==='coins'){
         const reward=Math.floor(Number(promo.reward_coins));
         if(!Number.isSafeInteger(reward)||reward<=0||reward>1000000000){await tx.rollback();return fail('promo_reward_invalid',409);}
-        const credit=await tx.execute({sql:'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance',args:[reward,String(user.id)]});
-        if(!credit.rows.length){await tx.rollback();return fail('wallet_not_found',409);}
-        await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','admin_grant',?,?, 'admin',?,?,?)",args:[randomUUID(),String(user.id),reward,Number(credit.rows[0].coins_balance),String(promo.id),'promo:'+String(promo.id)+':'+String(user.id)+':'+(Number(used.rows[0]?.n??0)+1),JSON.stringify({source:'promo_code',code})]});
+        const currentWallet=await tx.execute({sql:'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',args:[String(user.id)]});
+        if(!currentWallet.rows.length){await tx.rollback();return fail('wallet_not_found',409);}
+        const balanceBefore=Number(currentWallet.rows[0].coins_balance);
+        const balanceAfter=balanceBefore+reward;
+        // Keep the immutable ledger entry ahead of the wallet credit so the
+        // database's daily-credit trigger can validate this grant atomically.
+        await tx.execute({sql:"INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','admin_grant',?,?, 'admin',?,?,?)",args:[randomUUID(),String(user.id),reward,balanceAfter,String(promo.id),'promo:'+String(promo.id)+':'+String(user.id)+':'+(Number(used.rows[0]?.n??0)+1),JSON.stringify({source:'promo_code',code})]});
+        const credit=await tx.execute({sql:'UPDATE player_wallets SET coins_balance=coins_balance+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance=? RETURNING coins_balance',args:[reward,String(user.id),balanceBefore]});
+        if(!credit.rows.length)throw new Error('promo_wallet_conflict');
       }else{await tx.rollback();return fail('promo_type_invalid',409);}
       await tx.execute({sql:'INSERT INTO promo_redemptions(id,promo_id,telegram_id,reward_type,reward_product_id,reward_amount) VALUES(?,?,?,?,?,?)',args:[randomUUID(),String(promo.id),String(user.id),type,productId||null,type==='coins'?Number(promo.reward_coins):0]});
       await tx.execute({sql:'UPDATE promo_codes SET total_uses=total_uses+1,updated_at=CURRENT_TIMESTAMP WHERE id=?',args:[String(promo.id)]});
