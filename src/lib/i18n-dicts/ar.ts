@@ -628,6 +628,10 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
   promoTotalLimit: "انتهت مرات استخدام هذا الرمز",
   promoExpired: "انتهت صلاحية الرمز",
   promoProductMismatch: "هذا الرمز لا ينطبق على المنتج المحدد",
+  promoNotStarted: "لم يبدأ تفعيل هذا الكود بعد",
+  promoWrongContext: "هذا الكود مخصص لرسوم التعدين وليس لمشتريات المتجر",
+  promoRewardInvalid: "إعداد مكافأة هذا الكود غير صالح",
+  promoWalletUnavailable: "محفظتك غير متاحة حاليًا، يرجى التواصل مع الدعم",
   promoMiningFeePaid: "رسوم التعدين مفعّلة بالفعل",
   promoGenericError: "تعذر استخدام رمز البرومو كود",
 
