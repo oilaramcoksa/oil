@@ -106,7 +106,8 @@ export default function AdminPage() {
       if(nextSection==='broadcasts') setBroadcastRows(data.broadcasts||[]);
       if(nextSection==='referrals') setReferralRows(data.referrals||[]);
       if(nextSection==='audit') setLogs(data.logs||[]);
-      if(nextSection==='crash'){setCrashRounds(data.crashRounds||[]);}\n      if(nextSection==='bets') setActiveGameRounds(data.activeGameRounds||[]);
+      if(nextSection==='crash'){setCrashRounds(data.crashRounds||[]);}
+      if(nextSection==='bets') setActiveGameRounds(data.activeGameRounds||[]);
       if(nextSection==='shorts'){setShortsRows(data.shorts||[]);setShortsContest(data.contest||null);}
       if(nextSection==='storyTasks') setStoryRows(data.storyTasks||[]);
     } catch(e){setError(e instanceof Error?e.message:'حدث خطأ');}
