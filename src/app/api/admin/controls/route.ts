@@ -70,6 +70,7 @@ export async function GET(req: NextRequest) {
   if (!authorized(req)) return fail('unauthorized', 401);
   try {
     await ensureDatabaseSchema();
+    await ensurePromoSchema();
     const db = getTurso();
     const section = req.nextUrl.searchParams.get('section') ?? 'overview';
     const status = req.nextUrl.searchParams.get('status') ?? 'pending';
@@ -428,7 +429,6 @@ export async function POST(req: NextRequest) {
     const tx = await db.transaction('write');
     try {
       if (action === 'promo_save') {
-        await ensurePromoSchema();
         const id = String(body.id ?? randomUUID()).slice(0,64);
         const code = String(body.code ?? '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,40);
         const type = String(body.promoType ?? '');
@@ -457,7 +457,6 @@ export async function POST(req: NextRequest) {
         await tx.execute({sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',
           args:[randomUUID(),'admin','promo_save','promo',id,JSON.stringify({code,type,productId,rewardCoins,perUserLimit,totalLimit,active})]});
       } else if (action === 'promo_toggle' || action === 'promo_delete') {
-        await ensurePromoSchema();
         const id=String(body.id??'').slice(0,64);
         if(!id){await tx.rollback();return fail('promo_id_required');}
         if(action==='promo_toggle'){
