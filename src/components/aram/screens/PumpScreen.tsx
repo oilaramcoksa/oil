@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PumpScene } from '../PumpScene';
+import { PumpScene3D, type PumpScene3DHandle } from '../PumpScene3D';
 import { SellModal } from '../SellModal';
 import { Button } from '@/components/ui/button';
 import { Droplet, Gauge, ArrowUpRight, Clock, Power, Package } from 'lucide-react';
@@ -50,6 +50,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const [floats, setFloats] = useState<{ id: number; v: number }[]>([]);
   const fidRef = useRef(0);
   const actionAdBusyRef = useRef(false);
+  const sceneRef = useRef<PumpScene3DHandle>(null);
 
   // Contest visibility is controlled centrally by the admin API.
   useEffect(() => {
@@ -231,6 +232,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
     }
     if (active || oil <= 0 || actionAdBusyRef.current) return;
     actionAdBusyRef.current = true;
+    sceneRef.current?.triggerSell();
     haptic('medium');
     void rewardActionAd('sell_action')
       .catch((error) => console.info('monetag_sell_ad_unavailable', error))
@@ -254,7 +256,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   }, []);
 
   return (
-    <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain bg-[#211f2a] pb-3 text-white">
+    <div className="relative flex h-full flex-col overflow-y-auto overscroll-contain bg-[#0e1018] pb-3 text-white">
       <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2 px-3 pt-3 pb-2">
         <div className="flex min-w-0 flex-col gap-1 rounded-2xl border border-emerald-400/35 bg-gradient-to-br from-[#292015] to-[#15110d] px-3 py-2 shadow-[0_6px_18px_rgba(0,0,0,.35)]">
           <div className="text-[10px] font-bold text-emerald-200/80">{lang === 'ar' ? 'سرعة التعدين' : 'Mining speed'}</div>
@@ -278,7 +280,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
       </div>
 
       <div className="game-panel relative mx-auto w-full max-w-md overflow-hidden rounded-t-[26px] border border-violet-200/20 bg-gradient-to-b from-[#242044] via-[#201a38] to-[#130f24] px-1 shadow-[0_18px_38px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.18)]" style={{ perspective: '900px' }}>
-        <PumpScene pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts}/>
+        <PumpScene3D ref={sceneRef} pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts}/>
         <div className="pointer-events-none absolute left-[2.5%] top-[16%] z-20 flex w-[27%] max-w-[132px] flex-col gap-2">
           <motion.div
             initial={{ opacity: 0, x: -18, rotateY: 24, scale: .88 }}
