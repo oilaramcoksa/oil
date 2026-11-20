@@ -591,7 +591,7 @@ export async function POST(req: NextRequest) {
         if(Number(update.rowsAffected)!==1)throw new Error('balance_adjustment_failed');
         const referenceId=randomUUID();
         if(asset==='coins'||asset==='oil'){
-          await tx.execute({sql:'INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,?,?,?,?,?,?,?,?)',args:[randomUUID(),target,asset,'admin_adjustment',delta,newBalance,'admin',referenceId,`admin-adjust:${asset}:${referenceId}`,JSON.stringify({reason:adjustmentReason,source:'admin_panel'})]});
+          await tx.execute({sql:'INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,?,?,?,?,?,?,?,?)',args:[randomUUID(),target,asset,asset==='coins'&&delta>0?'admin_grant':'admin_adjustment',delta,newBalance,'admin',referenceId,`admin-adjust:${asset}:${referenceId}`,JSON.stringify({reason:adjustmentReason,source:'admin_panel',adjustment:true})]});
         } else {
           await tx.execute(`CREATE TABLE IF NOT EXISTS admin_balance_adjustments(
             id TEXT PRIMARY KEY,telegram_id TEXT NOT NULL,asset TEXT NOT NULL,amount INTEGER NOT NULL,balance_after INTEGER NOT NULL,reason TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
