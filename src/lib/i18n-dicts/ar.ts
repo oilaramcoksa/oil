@@ -618,6 +618,19 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
   swapConversionHint: "100,000 عملة = 100 دولار",
   on: "على",
   adminNotice: "إشعار من الإدارة",
+  promoCodeTitle: "برومو كود",
+  promoCodePlaceholder: "أدخل رمز البرومو كود",
+  promoApply: "تفعيل",
+  promoApplying: "جارٍ التفعيل…",
+  promoApplied: "تم تفعيل الرمز ومنحك المكافأة بنجاح",
+  promoInvalid: "الرمز غير صحيح أو غير نشط",
+  promoUserLimit: "وصلت إلى الحد المسموح لاستخدام هذا الرمز",
+  promoTotalLimit: "انتهت مرات استخدام هذا الرمز",
+  promoExpired: "انتهت صلاحية الرمز",
+  promoProductMismatch: "هذا الرمز لا ينطبق على المنتج المحدد",
+  promoMiningFeePaid: "رسوم التعدين مفعّلة بالفعل",
+  promoGenericError: "تعذر استخدام رمز البرومو كود",
+
 };
 
 export default ar;
