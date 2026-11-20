@@ -438,7 +438,7 @@ export async function POST(req: NextRequest) {
   const amount = Number(body.amount);
   let broadcastDelivered: number | null = null;
 
-  if (['grant_coins', 'grant_oil', 'set_speed', 'ban', 'unban', 'product_control', 'grant_product'].includes(action) && !target) return fail('player_required');
+  if (['grant_coins', 'grant_oil', 'set_speed', 'ban', 'unban', 'product_control', 'grant_product', 'adjust_balance', 'set_balance', 'set_mining_fee_exemption'].includes(action) && !target) return fail('player_required');
   if (['grant_coins', 'grant_oil'].includes(action) &&
       (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000_000)) return fail('invalid_amount');
   if (action === 'grant_coins' && !reason) return fail('reason_required');
@@ -573,7 +573,7 @@ export async function POST(req: NextRequest) {
           if(!round.rows.length){await tx.rollback();return fail('round_not_cancellable',409);}
           const bets=await tx.execute({sql:"SELECT telegram_id,amount,purchased_amount,wallet_amount FROM crash_bets WHERE round_id=? AND status='active'",args:[roundId]});
           for(const b of bets.rows){
-            const pid=String(b.telegram_id),purchased=Number(b.purchased_amount??0),wallet=Number(b.wallet_amount??0);
+            const pid=String(b.telegram_id),purchased=Number(b.purchased_amount??0),wallet=Number(b.wallet_amount??0)||(purchased===0?Number(b.amount):0);
             if(purchased>0){
               const bal=await tx.execute({sql:'INSERT INTO bet_token_balances(telegram_id,balance) VALUES(?,?) ON CONFLICT(telegram_id) DO UPDATE SET balance=balance+excluded.balance,updated_at=CURRENT_TIMESTAMP RETURNING balance',args:[pid,purchased]});
               await tx.execute({sql:"INSERT INTO bet_token_transactions(id,telegram_id,transaction_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'refund',?,?, 'crash_round',?,?,?)",args:[randomUUID(),pid,purchased,Number(bal.rows[0].balance),roundId,`admin_crash_refund_tokens:${roundId}:${pid}`,JSON.stringify({reason:cancelReason,source:'admin'})]});
@@ -593,6 +593,35 @@ export async function POST(req: NextRequest) {
         await tx.execute({sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',args:[randomUUID(),'admin_session','cancel_game_round',game,roundId,JSON.stringify({reason:cancelReason,refundedPlayers,refundedCoins,refundedBetTokens})]});
         await tx.commit();
         return NextResponse.json({ok:true,refundedPlayers,refundedCoins,refundedBetTokens},{headers:{'Cache-Control':'no-store'}});
+      }
+
+      if (action === 'set_balance') {
+        const asset=String(body.asset??'');
+        const desired=Number(body.amount);
+        const adjustmentReason=noteText(body.reason,true);
+        if(!['coins','oil','usd'].includes(asset)||!Number.isSafeInteger(desired)||desired<0||desired>1_000_000_000_000||!adjustmentReason){await tx.rollback();return fail('invalid_balance_value');}
+        const exists=await tx.execute({sql:'SELECT telegram_id FROM players WHERE telegram_id=?',args:[target]});
+        if(!exists.rows.length){await tx.rollback();return fail('player_not_found',404);}
+        await tx.execute({sql:'INSERT OR IGNORE INTO player_wallets(telegram_id) VALUES(?)',args:[target]});
+        const column=asset==='coins'?'coins_balance':asset==='oil'?'oil_balance':'usd_micros';
+        const before=await tx.execute({sql:'SELECT '+column+' AS balance FROM player_wallets WHERE telegram_id=?',args:[target]});
+        const oldBalance=Number(before.rows[0]?.balance??0),delta=desired-oldBalance;
+        if(delta!==0){
+          const update=await tx.execute({sql:'UPDATE player_wallets SET '+column+'=?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND '+column+'=?',args:[desired,target,oldBalance]});
+          if(Number(update.rowsAffected)!==1)throw new Error('balance_update_conflict');
+          const referenceId=randomUUID();
+          if(asset==='coins'||asset==='oil'){
+            await tx.execute({sql:'INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,?,?,?,?,?,?,?,?)',args:[randomUUID(),target,asset,'admin_adjustment',delta,desired,'admin',referenceId,'admin-set:'+asset+':'+referenceId,JSON.stringify({reason:adjustmentReason,source:'admin_panel',mode:'set_absolute',balanceBefore:oldBalance,balanceAfter:desired})]});
+          }else{
+            await tx.execute(`CREATE TABLE IF NOT EXISTS admin_balance_adjustments(
+              id TEXT PRIMARY KEY,telegram_id TEXT NOT NULL,asset TEXT NOT NULL,amount INTEGER NOT NULL,balance_after INTEGER NOT NULL,reason TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )`);
+            await tx.execute({sql:'INSERT INTO admin_balance_adjustments(id,telegram_id,asset,amount,balance_after,reason) VALUES(?,?,?,?,?,?)',args:[referenceId,target,'usd',delta,desired,adjustmentReason]});
+          }
+          await tx.execute({sql:'INSERT INTO admin_audit_logs(id,admin_id,action,target_type,target_id,details_json) VALUES(?,?,?,?,?,?)',args:[randomUUID(),'admin_session','set_balance',asset,target,JSON.stringify({delta,balanceBefore:oldBalance,balanceAfter:desired,reason:adjustmentReason,usdUnit:asset==='usd'?'micro-USD':null})]});
+        }
+        await tx.commit();
+        return NextResponse.json({ok:true,asset,balance:desired,changed:delta!==0},{headers:{'Cache-Control':'no-store'}});
       }
 
       if (action === 'adjust_balance') {
