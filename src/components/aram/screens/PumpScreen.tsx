@@ -285,15 +285,6 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         </motion.div>}
       </div>
 
-      <div className="mx-auto -mt-1 w-full max-w-md px-3">
-        <div className="flex items-center justify-between rounded-xl border border-emerald-300/40 bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-2 text-white shadow-[0_4px_0_#087b50,0_8px_18px_rgba(0,0,0,.25)]">
-          <div className="flex items-center gap-2 text-xs font-black"><Clock className="h-4 w-4"/>{active?(lang==='ar'?'المضخة تعمل':'PUMP RUNNING'):(lang==='ar'?'الوقت المتبقي':'TIME LEFT')}</div>
-          <div className="text-lg font-black tabular-nums">{formatHHMMSS(secRem)}</div>
-        </div>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><motion.div animate={{width:`${cycleProgress*100}%`}} transition={{duration:.3}} className="h-full rounded-full bg-emerald-200"/></div>
-        <div className="mt-1 flex items-center justify-between px-1 text-[10px] font-bold text-white/55"><span>{t(lang,'usingSpeed')}</span><span>{coinsPerHour.toLocaleString()} {t(lang,'coinsPerHour')}</span></div>
-      </div>
-
       <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2 px-3 pb-2 pt-3">
         <Button onClick={active?undefined:oil>0?handleSell:handleTap} disabled={active} className={`h-12 rounded-2xl border border-orange-200/40 font-black text-sm shadow-[0_4px_0_#a95620] transition-all ${active?'cursor-not-allowed bg-gradient-to-b from-[#b98a5c] to-[#936b49] text-white/80 opacity-80':'bg-gradient-to-b from-[#ffb24f] to-[#f28a30] text-white'}`}>
           {active?<Clock className="mr-1.5 h-5 w-5 animate-pulse"/>:oil>0?<Droplet className="mr-1.5 h-5 w-5"/>:<Power className="mr-1.5 h-5 w-5"/>}
@@ -302,6 +293,16 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         <Button onClick={()=>{haptic('light');onGoToStore();}} className="h-12 rounded-2xl border border-cyan-200/40 bg-gradient-to-b from-[#34d0d0] to-[#16aeb7] text-base font-black text-white shadow-[0_4px_0_#087f88]">
           <ArrowUpRight className="mr-1.5 h-5 w-5"/>{t(lang,'upgrade')}
         </Button>
+      </div>
+
+
+      <div className="mx-auto -mt-1 w-full max-w-md px-3">
+        <div className="flex items-center justify-between rounded-xl border border-emerald-300/40 bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-2 text-white shadow-[0_4px_0_#087b50,0_8px_18px_rgba(0,0,0,.25)]">
+          <div className="flex items-center gap-2 text-xs font-black"><Clock className="h-4 w-4"/>{active?(lang==='ar'?'المضخة تعمل':'PUMP RUNNING'):(lang==='ar'?'الوقت المتبقي':'TIME LEFT')}</div>
+          <div className="text-lg font-black tabular-nums">{formatHHMMSS(secRem)}</div>
+        </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><motion.div animate={{width:`${cycleProgress*100}%`}} transition={{duration:.3}} className="h-full rounded-full bg-emerald-200"/></div>
+        <div className="mt-1 flex items-center justify-between px-1 text-[10px] font-bold text-white/55"><span>{t(lang,'usingSpeed')}</span><span>{coinsPerHour.toLocaleString()} {t(lang,'coinsPerHour')}</span></div>
       </div>
 
       <div className="mx-auto mt-1 w-full max-w-md px-3 pb-2">
