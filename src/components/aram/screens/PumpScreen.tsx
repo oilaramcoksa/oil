@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PumpScene } from '../PumpScene';
 import { SellModal } from '../SellModal';
 import { Button } from '@/components/ui/button';
-import { Coins, Droplet, Gauge, ArrowUpRight, Clock, Power, Package } from 'lucide-react';
+import { Droplet, Gauge, ArrowUpRight, Clock, Power, Package } from 'lucide-react';
 import {
   useGame,
   effectiveCapacity,
@@ -38,7 +38,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const [feeGateOpen, setFeeGateOpen] = useState(false);
   const coins = useGame((s) => s.coins);
   const baseOilPerTap = useGame((s) => s.baseOilPerTap);
-  const baseCapacity = useGame((s) => s.baseCapacity);
+  const upgrades = useGame((s) => s.upgrades);
   const parts = useGame((s) => s.parts);
   const specialParts = useGame((s) => s.specialParts);
   const cycleEndsAt = useGame((s) => s.cycleEndsAt);
@@ -116,7 +116,6 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   );
   const coinsPerHour = effectiveCoinsPerHour(upgrades);
   const oilRatio = oil / cap;
-  const isFull = oil >= cap;
 
   const now = Date.now();
   const active = feeActivated && isCycleActive(cycleEndsAt, now);
