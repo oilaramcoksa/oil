@@ -11,6 +11,19 @@ const tr: Dict = { ...en,
   tasksTitle: 'Görevler', dailyTasks: 'Günlük görevler', weeklyTasks: 'Haftalık görevler', friendsTitle: 'Arkadaşlar',
   inviteLink: 'Davet bağlantısı', copyLink: 'Bağlantıyı kopyala', yourReferrals: 'Davet ettiklerin', noReferrals: 'Henüz davet yok',
   speedPartsTitle: 'Yükseltme mağazası', autoSellPart: "Otomatik satış", autoSellDescription: "Oyunu açmadan 30 gün boyunca her 12 saatlik madencilik döngüsünün sonunda petrolü otomatik satar. Önceden etkin bir döngü bulunmalıdır.", autoSellDuration: "30 gün", crashRecentRounds: 'Son 10 tur',
+  promoCodeTitle: "Promosyon kodu",
+  promoCodePlaceholder: "Promosyon kodunu girin",
+  promoApply: "Uygula",
+  promoApplying: "Uygulanıyor…",
+  promoApplied: "Kod uygulandı ve ödül hesabınıza eklendi",
+  promoInvalid: "Geçersiz veya etkin olmayan kod",
+  promoUserLimit: "Bu kod için kullanım sınırınıza ulaştınız",
+  promoTotalLimit: "Kodun toplam kullanım sınırına ulaşıldı",
+  promoExpired: "Bu kodun süresi doldu",
+  promoProductMismatch: "Bu kod seçilen ürün için geçerli değil",
+  promoMiningFeePaid: "Madencilik ücreti zaten etkinleştirildi",
+  promoGenericError: "Promosyon kodu kullanılamadı",
+
 };
 
 export default tr;
