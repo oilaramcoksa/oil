@@ -190,7 +190,8 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
     }catch(e){
       const code=String((e as Error).message||'');
       const ar:Record<string,string>={promo_invalid_or_inactive:'كود غير صحيح أو متوقف',promo_user_limit_reached:'استخدمت هذا الكود الحد المسموح لك',promo_total_limit_reached:'انتهت مرات استخدام هذا الكود',promo_expired:'انتهت صلاحية الكود',mining_fee_already_paid:'رسوم التعدين مفعّلة بالفعل'};
-      setError(langRef.current==='ar'?(ar[code]||'تعذر استخدام البرومو كود'):'Could not redeem promo code');
+      const promoErrorKeys:Record<string,string>={promo_invalid_or_inactive:'promoInvalid',promo_user_limit_reached:'promoUserLimit',promo_total_limit_reached:'promoTotalLimit',promo_expired:'promoExpired',mining_fee_already_paid:'promoMiningFeePaid'};
+      setError(t(langRef.current,promoErrorKeys[code]||'promoGenericError'));
     }finally{setPromoBusy(false);}
   }
 
@@ -232,8 +233,8 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
           {address && <p className="mt-1 font-bold text-emerald-700">{t(lang, 'miningFeeWalletReady')}</p>}
         </div>
         <div className="mb-3 rounded-xl border border-[#e6c77e] bg-white/70 p-3">
-          <label className="mb-2 block text-xs font-black text-[#80562e]">{lang==='ar'?'لديك برومو كود لتجاوز رسوم التعدين؟':'Have a promo code to waive the mining fee?'}</label>
-          <div className="flex gap-2"><input value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase())} placeholder={lang==='ar'?'أدخل البرومو كود':'Enter promo code'} className="min-w-0 flex-1 rounded-lg border border-[#e6c77e] bg-white p-3 text-sm text-[#633715]"/><button onClick={()=>void redeemMiningFeePromo()} disabled={promoBusy||!promoCode.trim()} className="rounded-lg bg-[#bd7814] px-4 text-sm font-black text-white disabled:opacity-50">{promoBusy?'…':lang==='ar'?'تفعيل':'Apply'}</button></div>
+          <label className="mb-2 block w-full text-start text-xs font-black text-[#80562e]">{t(lang,'promoCodeTitle')}</label>
+          <div className="flex w-full flex-row gap-2"><input dir="ltr" value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase())} placeholder={t(lang,'promoCodePlaceholder')} className="min-w-0 flex-1 rounded-lg border border-[#e6c77e] bg-white p-3 text-left text-sm text-[#633715]"/><button onClick={()=>void redeemMiningFeePromo()} disabled={promoBusy||!promoCode.trim()} className="rounded-lg bg-[#bd7814] px-4 text-sm font-black text-white disabled:opacity-50">{promoBusy?t(lang,'promoApplying'):t(lang,'promoApply')}</button></div>
         </div>
         <button onClick={() => wallet?.openModal()} disabled={!wallet || busy || !!address} className="w-full rounded-xl border border-[#d49b37] bg-white/65 py-3 font-black text-[#805016] shadow-sm disabled:opacity-50">
           {address ? t(lang, 'miningFeeConnected') : savedAddress ? t(lang, 'miningFeeReconnect') : t(lang, 'miningFeeConnect')}
