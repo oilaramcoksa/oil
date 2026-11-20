@@ -181,7 +181,7 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
     if(!promoCode.trim()||promoBusy)return;
     setPromoBusy(true);setError('');
     try{
-      const response=await fetch('/api/promo-codes/redeem',{method:'POST',headers:{'Content-Type':'application/json','x-telegram-init-data':initData},body:JSON.stringify({code:promoCode}),cache:'no-store'});
+      const response=await fetch('/api/promo-codes/redeem',{method:'POST',headers:{'Content-Type':'application/json','x-telegram-init-data':initData},body:JSON.stringify({code:promoCode,expectedType:'mining_fee'}),cache:'no-store'});
       const data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.error||'promo_redemption_failed');
       setStatus(prev=>prev?{...prev,required:false,paid:true}:prev);
