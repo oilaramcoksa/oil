@@ -6,7 +6,7 @@ import { getTonConnectUI } from '@/lib/ton-connect';
 import { beginCell } from '@ton/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/lib/store';
-import { t } from '@/lib/i18n';
+import { t, dirOf } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Store, Zap, Check, Copy, ChevronLeft, Loader2, Sparkles, Coins, Droplet, Clock } from 'lucide-react';
 import { PACKAGES, WALLETS, packageTotal, UPGRADE_DURATION_MS, type UpgradePackage } from '@/lib/wallets';
@@ -190,14 +190,14 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
       const response=await fetch('/api/promo-codes/redeem',{method:'POST',headers:{'Content-Type':'application/json','x-telegram-init-data':init},body:JSON.stringify({code:promoCode,productId,expectedType:'store'}),cache:'no-store'});
       const data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.error||'promo_redemption_failed');
-      toast.success(lang==='ar'?'تم تفعيل البرومو وإضافة المنتج مجانًا':'Promo applied. Product granted for free.');
+      toast.success(t(lang,'promoApplied'));
       setPromoCode('');
       if(isPart) setSelectedPart(null);
       else setSelected(null);
     }catch(e){
       const msg=String((e as Error).message||'');
-      const messages:Record<string,string>={promo_invalid_or_inactive:'كود غير صحيح أو متوقف',promo_user_limit_reached:'استخدمت هذا الكود الحد المسموح لك',promo_total_limit_reached:'انتهت مرات استخدام هذا الكود',promo_expired:'انتهت صلاحية الكود',promo_product_mismatch:'هذا الكود لا ينطبق على المنتج المحدد',mining_fee_already_paid:'رسوم التعدين مفعّلة بالفعل'};
-      toast.error(lang==='ar'?(messages[msg]||'تعذر استخدام البرومو كود'):'Could not redeem promo code');
+      const promoErrors:Record<string,string>={promo_invalid_or_inactive:'promoInvalid',promo_user_limit_reached:'promoUserLimit',promo_total_limit_reached:'promoTotalLimit',promo_expired:'promoExpired',promo_product_mismatch:'promoProductMismatch',mining_fee_already_paid:'promoMiningFeePaid'};
+      toast.error(t(lang,promoErrors[msg]||'promoGenericError'));
     }finally{setPromoBusy(false);}
   };
 
@@ -238,7 +238,7 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
   };
 
   return (
-    <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="h-full min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain px-3 pt-2 pb-6 aram-scroll" style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
+    <div dir={dirOf(lang)} className="h-full min-h-0 max-w-md mx-auto w-full overflow-y-auto overscroll-contain px-3 pt-2 pb-6 aram-scroll" style={{ maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
       {/* Title */}
       <div className="flex items-center gap-2 mb-3">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-lg">
@@ -500,7 +500,7 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
                 {selectedPart.id === 'arena_tokens_10000' && <p className="mt-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-2 text-[10px] leading-5 text-emerald-100">{t(lang, 'arenaBuyTokenDescription')}</p>}
               </div>
 
-              <div className="mb-3 rounded-xl border border-amber-300/20 bg-white/[0.05] p-3 text-right"><label className="mb-2 block text-xs font-bold text-amber-100">{lang==='ar'?'لديك برومو كود؟':'Have a promo code?'}</label><div className="flex gap-2"><input value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase())} placeholder={lang==='ar'?'أدخل البرومو كود':'Enter promo code'} className="min-w-0 flex-1 rounded-lg bg-black/30 p-3 text-sm text-white"/><Button disabled={promoBusy||!promoCode.trim()} onClick={()=>void redeemStorePromo(selectedPart.id,true)}>{promoBusy?'...':lang==='ar'?'تفعيل':'Apply'}</Button></div></div>
+              <div dir={dirOf(lang)} className="mb-3 rounded-xl border border-amber-300/20 bg-white/[0.05] p-3 text-start"><label className="mb-2 block w-full text-start text-xs font-bold text-amber-100">{t(lang,'promoCodeTitle')}</label><div className="flex w-full flex-row gap-2"><input dir="ltr" value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase())} placeholder={t(lang,'promoCodePlaceholder')} className="min-w-0 flex-1 rounded-lg bg-black/30 p-3 text-left text-sm text-white"/><Button disabled={promoBusy||!promoCode.trim()} onClick={()=>void redeemStorePromo(selectedPart.id,true)}>{promoBusy?t(lang,'promoApplying'):t(lang,'promoApply')}</Button></div></div>
               <AnimatePresence mode="wait">
                 {partVerifying ? (
                   <motion.div key="checking" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
@@ -590,7 +590,7 @@ export function StoreScreen({ initData, isVerified, openProductRequest = 0, open
                   <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-amber-200/70">{t(lang, 'packagePaymentNetwork')}</span><span className="rounded-full bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-300">TON Mainnet</span></div>
                   <p className="rounded-xl border border-amber-400/15 bg-amber-400/5 p-3 text-[11px] leading-6 text-amber-100/70">{t(lang, 'packagePaymentHint')}</p>
                 </div>
-              <div className="mb-3 rounded-xl border border-amber-300/20 bg-white/[0.05] p-3 text-right"><label className="mb-2 block text-xs font-bold text-amber-100">{lang==='ar'?'لديك برومو كود؟':'Have a promo code?'}</label><div className="flex gap-2"><input value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase())} placeholder={lang==='ar'?'أدخل البرومو كود':'Enter promo code'} className="min-w-0 flex-1 rounded-lg bg-black/30 p-3 text-sm text-white"/><Button disabled={promoBusy||!promoCode.trim()} onClick={()=>void redeemStorePromo(selected.id,false)}>{promoBusy?'...':lang==='ar'?'تفعيل':'Apply'}</Button></div></div>
+              <div dir={dirOf(lang)} className="mb-3 rounded-xl border border-amber-300/20 bg-white/[0.05] p-3 text-start"><label className="mb-2 block w-full text-start text-xs font-bold text-amber-100">{t(lang,'promoCodeTitle')}</label><div className="flex w-full flex-row gap-2"><input dir="ltr" value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase())} placeholder={t(lang,'promoCodePlaceholder')} className="min-w-0 flex-1 rounded-lg bg-black/30 p-3 text-left text-sm text-white"/><Button disabled={promoBusy||!promoCode.trim()} onClick={()=>void redeemStorePromo(selected.id,false)}>{promoBusy?t(lang,'promoApplying'):t(lang,'promoApply')}</Button></div></div>
                 <AnimatePresence mode="wait">
                   {verifying ? (
                     <motion.div key="package-checking" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-center text-amber-100 text-sm font-bold">
