@@ -614,6 +614,10 @@ shortsVideoDescription: "I'd love to introduce you to Aramco Oil, a game where y
   promoTotalLimit: "This promo code has reached its total usage limit",
   promoExpired: "This promo code has expired",
   promoProductMismatch: "This code does not apply to the selected product",
+  promoNotStarted: "This promo code is not active yet",
+  promoWrongContext: "This code is for mining fees, not store purchases",
+  promoRewardInvalid: "This promo code has an invalid reward configuration",
+  promoWalletUnavailable: "Your wallet is not available; contact support",
   promoMiningFeePaid: "Mining fee is already activated",
   promoGenericError: "Could not redeem promo code",
 
