@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
       const [players, active, wallet, ton, usdt, payments, upgrades, ledger, monthly] = await Promise.all([
         db.execute('SELECT COUNT(*) AS total FROM players'),
         db.execute("SELECT COUNT(*) AS total FROM players WHERE status='active' AND last_seen_at >= datetime('now','-7 days')"),
-        db.execute('SELECT COALESCE(SUM(coins_balance),0) AS coins, COALESCE(SUM(oil_balance),0) AS oil, COALESCE(SUM(coins_locked),0) AS locked FROM player_wallets'),
+        db.execute('SELECT COALESCE(SUM(coins_balance),0) AS coins, COALESCE(SUM(oil_balance),0) AS oil, COALESCE(SUM(coins_locked),0) AS locked, COALESCE(SUM(usd_micros),0) AS usd FROM player_wallets'),
         db.execute("SELECT COUNT(*) AS total, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending FROM withdrawal_requests"),
         db.execute("SELECT COUNT(*) AS total, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending FROM usdt_withdrawal_requests"),
         db.execute("SELECT COUNT(*) AS total, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending FROM payment_transactions"),
@@ -126,6 +126,7 @@ export async function GET(req: NextRequest) {
         activePlayers: n(active.rows as unknown as Array<Record<string, unknown>>, 'total'),
         coins: n(wallet.rows as unknown as Array<Record<string, unknown>>, 'coins'),
         oil: n(wallet.rows as unknown as Array<Record<string, unknown>>, 'oil'),
+        usdMicros: n(wallet.rows as unknown as Array<Record<string, unknown>>, 'usd'),
         lockedCoins: n(wallet.rows as unknown as Array<Record<string, unknown>>, 'locked'),
         tonPending: n(ton.rows as unknown as Array<Record<string, unknown>>, 'pending'),
         usdtPending: n(usdt.rows as unknown as Array<Record<string, unknown>>, 'pending'),
