@@ -189,7 +189,7 @@ export function MiningFeeGate({ initData, onActivated, onClose }: Props) {
       onActivatedRef.current();
     }catch(e){
       const code=String((e as Error).message||'');
-      const ar:Record<string,string>={promo_invalid_or_inactive:'كود غير صحيح أو متوقف',promo_user_limit_reached:'استخدمت هذا الكود الحد المسموح لك',promo_total_limit_reached:'انتهت مرات استخدام هذا الكود',promo_expired:'انتهت صلاحية الكود',mining_fee_already_paid:'رسوم التعدين مفعّلة بالفعل'};
+      const ar:Record<string,string>={promo_invalid_or_inactive:'كود غير صحيح أو متوقف',promo_user_limit_reached:'استخدمت هذا الكود الحد المسموح لك',promo_total_limit_reached:'انتهت مرات استخدام هذا الكود',promo_expired:'انتهت صلاحية الكود',promo_not_started:'لم يبدأ تفعيل هذا الكود بعد',promo_context_mismatch:'هذا الكود مخصص للمتجر وليس لرسوم التعدين',mining_fee_already_paid:'رسوم التعدين مفعّلة بالفعل'};
       const promoErrorKeys:Record<string,string>={promo_invalid_or_inactive:'promoInvalid',promo_user_limit_reached:'promoUserLimit',promo_total_limit_reached:'promoTotalLimit',promo_expired:'promoExpired',mining_fee_already_paid:'promoMiningFeePaid'};
       setError(t(langRef.current,promoErrorKeys[code]||'promoGenericError'));
     }finally{setPromoBusy(false);}
