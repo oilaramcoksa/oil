@@ -21,6 +21,8 @@ export interface PumpScene3DProps {
   parts?: PumpSceneParts;
   specialParts?: PumpSceneSpecial;
   lang: Lang;
+  /** Optional: called for each truck/sale animation phase. */
+  onSellPhase?: (phase: SellProgress['phase']) => void;
   /** Optional: called when the sell sequence transitions to its "done" phase. */
   onSellDone?: () => void;
 }
@@ -56,7 +58,7 @@ const PHASE_ICON: Record<SellProgress['phase'], 'truck' | 'lights' | 'connect' |
 };
 
 export const PumpScene3D = forwardRef<PumpScene3DHandle, PumpScene3DProps>(function PumpScene3D(
-  { pumping, oilRatio, onTap, parts, specialParts, lang, onSellDone },
+  { pumping, oilRatio, onTap, parts, specialParts, lang, onSellDone, onSellPhase },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -64,6 +66,8 @@ export const PumpScene3D = forwardRef<PumpScene3DHandle, PumpScene3DProps>(funct
   onTapRef.current = onTap;
   const onSellDoneRef = useRef(onSellDone);
   onSellDoneRef.current = onSellDone;
+  const onSellPhaseRef = useRef(onSellPhase);
+  onSellPhaseRef.current = onSellPhase;
   const engineRef = useRef<PumpSceneHandles | null>(null);
   const [sell, setSell] = useState<SellProgress | null>(null);
   const doneNotifiedRef = useRef(false);
@@ -75,6 +79,7 @@ export const PumpScene3D = forwardRef<PumpScene3DHandle, PumpScene3DProps>(funct
     engineRef.current = engine;
     const unsub = engine.onSellEvent((p) => {
       setSell(p);
+      onSellPhaseRef.current?.(p.phase);
       if (p.phase === 'done' && !doneNotifiedRef.current) {
         doneNotifiedRef.current = true;
         onSellDoneRef.current?.();
