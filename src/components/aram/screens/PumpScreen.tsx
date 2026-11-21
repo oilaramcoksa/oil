@@ -31,6 +31,12 @@ interface Props {
 
 export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, isVerified }: Props) {
   const lang = useGame((s) => s.lang);
+  const soundEnabled = useGame((s) => s.sound);
+  const audioRef = useRef<{ pump: HTMLAudioElement; cricket: HTMLAudioElement; carcome: HTMLAudioElement; carout: HTMLAudioElement } | null>(null);
+  const [isNight, setIsNight] = useState(() => {
+    const hour = new Date().getHours();
+    return hour < 6 || hour >= 18;
+  });
   const oil = useGame((s) => s.oil);
   const [feeActivated, setFeeActivated] = useState(false);
   const [feeStatusReady, setFeeStatusReady] = useState(false);
@@ -47,6 +53,39 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
 
   const [shortsVisible, setShortsVisible] = useState(false);
   const [floats, setFloats] = useState<{ id: number; v: number }[]>([]);
+
+  // Ambient and truck sounds are owned by the pump screen so they follow the
+  // persisted sound preference and the real server-confirmed mining state.
+  useEffect(() => {
+    const audio = {
+      pump: new Audio('/audio/pump.MP3'),
+      cricket: new Audio('/audio/cricket.mp3'),
+      carcome: new Audio('/audio/carcome.MP3'),
+      carout: new Audio('/audio/carout.MP3'),
+    };
+    audio.pump.loop = true;
+    audio.cricket.loop = true;
+    audio.pump.volume = 0.38;
+    audio.cricket.volume = 0.32;
+    audio.carcome.volume = 0.75;
+    audio.carout.volume = 0.75;
+    Object.values(audio).forEach((item) => { item.preload = 'auto'; });
+    audioRef.current = audio;
+    return () => {
+      Object.values(audio).forEach((item) => { item.pause(); item.currentTime = 0; });
+      audioRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const updateNight = () => {
+      const hour = new Date().getHours();
+      setIsNight(hour < 6 || hour >= 18);
+    };
+    updateNight();
+    const id = window.setInterval(updateNight, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
   const fidRef = useRef(0);
   const actionAdBusyRef = useRef(false);
   const sceneRef = useRef<PumpScene3DHandle>(null);
@@ -121,6 +160,44 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const active = feeActivated && isCycleActive(cycleEndsAt, now);
   const secRem = cycleSecondsRemaining(cycleEndsAt, now);
   const cycleProgress = cycleEndsAt ? (active ? 1 - secRem / CYCLE_SECONDS : 1) : 0;
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const syncAmbient = () => {
+      if (!soundEnabled) {
+        audio.pump.pause();
+        audio.cricket.pause();
+        return;
+      }
+      const syncLoop = (item: HTMLAudioElement, shouldPlay: boolean) => {
+        if (shouldPlay) {
+          if (item.paused) void item.play().catch(() => undefined);
+        } else {
+          item.pause();
+        }
+      };
+      syncLoop(audio.pump, active);
+      syncLoop(audio.cricket, isNight);
+    };
+    syncAmbient();
+    // Mobile browsers may block autoplay until the first real user gesture.
+    window.addEventListener('pointerdown', syncAmbient);
+    return () => window.removeEventListener('pointerdown', syncAmbient);
+  }, [soundEnabled, active, isNight]);
+
+  const handleSellPhase = useCallback((phase: string) => {
+    if (!soundEnabled) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    const playOnce = (item: HTMLAudioElement) => {
+      item.pause();
+      item.currentTime = 0;
+      void item.play().catch(() => undefined);
+    };
+    if (phase === 'arriving') playOnce(audio.carcome);
+    if (phase === 'departing') playOnce(audio.carout);
+  }, [soundEnabled]);
 
   const handleFeeActivated = useCallback(() => {
     setFeeGateOpen(false);
@@ -344,7 +421,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
           drives off and disappears. The in-scene HUD (phase, oil collected,
           coins earned, progress bar) is rendered by PumpScene3D itself. */}
       <div className="absolute inset-0">
-        <PumpScene3D ref={sceneRef} pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts} lang={lang}/>
+        <PumpScene3D ref={sceneRef} pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts} lang={lang} onSellPhase={handleSellPhase}/>
       </div>
 
       {/* legibility gradients so floating HUD reads over any sky */}
