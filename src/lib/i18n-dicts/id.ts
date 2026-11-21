@@ -24,6 +24,13 @@ const id: Dict = { ...en,
   promoMiningFeePaid: "Biaya mining sudah diaktifkan",
   promoGenericError: "Kode promo tidak dapat digunakan",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'Menyalakan lampu area kerja...',
+  sellTransferring: 'Memindahkan minyak dari pompa ke truk...',
+  sellLightsRestore: 'Memulihkan penerangan...',
+  sellDeparting: 'Truk berangkat...',
+  sellDone: 'Penjualan selesai!',
 };
 
 export default id;

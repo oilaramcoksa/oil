@@ -24,6 +24,13 @@ const zh: Dict = { ...en,
   promoMiningFeePaid: "挖矿费用已激活",
   promoGenericError: "无法兑换优惠码",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: '正在点亮工作区灯光...',
+  sellTransferring: '正在将石油从泵输送至油车...',
+  sellLightsRestore: '正在恢复场地照明...',
+  sellDeparting: '油车驶离...',
+  sellDone: '销售完成!',
 };
 
 export default zh;

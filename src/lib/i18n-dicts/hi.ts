@@ -24,6 +24,13 @@ const hi: Dict = { ...en,
   promoMiningFeePaid: "माइनिंग शुल्क पहले से सक्रिय है",
   promoGenericError: "प्रोमो कोड लागू नहीं हो सका",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'कार्य क्षेत्र को रोशन कर रहे हैं...',
+  sellTransferring: 'पंप से ट्रक में तेल ट्रांसफर हो रहा है...',
+  sellLightsRestore: 'साइट लाइटिंग बहाल कर रहे हैं...',
+  sellDeparting: 'ट्रक जा रहा है...',
+  sellDone: 'बिक्री पूरी हुई!',
 };
 
 export default hi;

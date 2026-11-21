@@ -24,6 +24,13 @@ const es: Dict = { ...en,
   promoMiningFeePaid: "La tarifa de minería ya está activada",
   promoGenericError: "No se pudo canjear el código",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'Iluminando la zona de trabajo...',
+  sellTransferring: 'Transfiriendo petróleo de la bomba al camión...',
+  sellLightsRestore: 'Restaurando la iluminación...',
+  sellDeparting: 'El camión se va...',
+  sellDone: '¡Venta completada!',
 };
 
 export default es;

@@ -24,6 +24,13 @@ const ko: Dict = { ...en,
   promoMiningFeePaid: "마이닝 수수료가 이미 활성화되었습니다",
   promoGenericError: "프로모션 코드를 적용할 수 없습니다",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: '작업 구역 조명 켜는 중...',
+  sellTransferring: '펌프에서 트럭으로 석유 이동 중...',
+  sellLightsRestore: '조명 복구 중...',
+  sellDeparting: '트럭 출발...',
+  sellDone: '판매 완료!',
 };
 
 export default ko;

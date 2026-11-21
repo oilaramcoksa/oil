@@ -128,24 +128,9 @@ async function advanceRound(db: ReturnType<typeof getTurso>) {
             }
             const walletCredit = walletAmount + netWinnings;
             if (walletCredit > 0) {
-              // The daily-credit trigger validates the matching ledger row before allowing
-              // a positive wallet update, so write the immutable ledger entry first.
-              const currentWallet = await tx.execute({
-                sql: 'SELECT coins_balance FROM player_wallets WHERE telegram_id=?',
-                args: [String(bet.telegram_id)],
-              });
-              if (!currentWallet.rows.length) throw new Error('color_wheel_player_wallet_missing');
-              const balanceBefore = Number(currentWallet.rows[0].coins_balance);
-              const balanceAfter = balanceBefore + walletCredit;
-              await tx.execute({
-                sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_prize',?,?,'color_wheel_round',?,?,?)",
-                args: [randomUUID(), String(bet.telegram_id), walletCredit, balanceAfter, String(round.id), `color_wheel_prize:${round.id}:${String(bet.telegram_id)}`, JSON.stringify({ color: winningColor, stake: Number(bet.amount), purchasedStake: purchasedAmount, walletStake: walletAmount, returnedWalletStake: walletAmount, netWinnings, grossPayout: payout, multiplier: MULTIPLIERS[winningColor] })],
-              });
-              const credited = await tx.execute({
-                sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? AND coins_balance=? RETURNING coins_balance',
-                args: [walletCredit, netWinnings, String(bet.telegram_id), balanceBefore],
-              });
-              if (!credited.rows.length) throw new Error('color_wheel_player_wallet_conflict');
+              const credited = await tx.execute({ sql: 'UPDATE player_wallets SET coins_balance=coins_balance+?,lifetime_coins_earned=lifetime_coins_earned+?,updated_at=CURRENT_TIMESTAMP WHERE telegram_id=? RETURNING coins_balance', args: [walletCredit, netWinnings, String(bet.telegram_id)] });
+              if (!credited.rows.length) throw new Error('color_wheel_player_wallet_missing');
+              await tx.execute({ sql: "INSERT INTO ledger_entries(id,telegram_id,asset,entry_type,amount,balance_after,reference_type,reference_id,idempotency_key,metadata_json) VALUES(?,?,'coins','color_wheel_prize',?,?,'color_wheel_round',?,?,?)", args: [randomUUID(), String(bet.telegram_id), walletCredit, Number(credited.rows[0].coins_balance), String(round.id), `color_wheel_prize:${round.id}:${String(bet.telegram_id)}`, JSON.stringify({ color: winningColor, stake: Number(bet.amount), purchasedStake: purchasedAmount, walletStake: walletAmount, returnedWalletStake: walletAmount, netWinnings, grossPayout: payout, multiplier: MULTIPLIERS[winningColor] })] });
             }
             if (netWinnings > 0) {
               const monthKey = new Date().toISOString().slice(0, 7);

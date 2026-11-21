@@ -25,6 +25,13 @@ const ur: Dict = { ...en,
   promoMiningFeePaid: "مائننگ فیس پہلے ہی فعال ہے",
   promoGenericError: "پرومو کوڈ استعمال نہیں ہوسکا",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'ورک ایریا روشن کیا جا رہا ہے...',
+  sellTransferring: 'پمپ سے ٹرک میں تیل منتقل ہو رہا ہے...',
+  sellLightsRestore: 'سائٹ لائٹنگ بحال کی جا رہی ہے...',
+  sellDeparting: 'ٹرک روانہ ہو رہا ہے...',
+  sellDone: 'فروخت مکمل!',
 };
 
 export default ur;

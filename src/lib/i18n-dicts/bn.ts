@@ -24,6 +24,13 @@ const bn: Dict = { ...en,
   promoMiningFeePaid: "মাইনিং ফি ইতিমধ্যে সক্রিয়",
   promoGenericError: "প্রোমো কোড ব্যবহার করা যায়নি",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'কাজের এলাকা আলোকিত করা হচ্ছে...',
+  sellTransferring: 'পাম্প থেকে ট্রাকে তেল স্থানান্তর হচ্ছে...',
+  sellLightsRestore: 'সাইট আলো পুনরুদ্ধার করা হচ্ছে...',
+  sellDeparting: 'ট্রাক ছেড়ে যাচ্ছে...',
+  sellDone: 'বিক্রয় সম্পন্ন!',
 };
 
 export default bn;

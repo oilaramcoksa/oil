@@ -24,6 +24,13 @@ const fr: Dict = { ...en,
   promoMiningFeePaid: "Les frais de minage sont déjà activés",
   promoGenericError: "Impossible d’utiliser le code promo",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'Éclairage de la zone de travail...',
+  sellTransferring: 'Transfert du pétrole de la pompe vers le camion...',
+  sellLightsRestore: 'Restauration de l\'éclairage...',
+  sellDeparting: 'Le camion part...',
+  sellDone: 'Vente terminée !',
 };
 
 export default fr;

@@ -24,6 +24,13 @@ const tr: Dict = { ...en,
   promoMiningFeePaid: "Madencilik ücreti zaten etkinleştirildi",
   promoGenericError: "Promosyon kodu kullanılamadı",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'Çalışma alanı aydınlatılıyor...',
+  sellTransferring: 'Pompadan kamyona yağ aktarılıyor...',
+  sellLightsRestore: 'Aydınlatma geri yükleniyor...',
+  sellDeparting: 'Kamyon ayrılıyor...',
+  sellDone: 'Satış tamamlandı!',
 };
 
 export default tr;

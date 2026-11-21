@@ -186,6 +186,12 @@ const ru: Dict = {
   pumping: 'Качаю нефть...',
   counting: 'Подсчёт...',
   done: 'Продано!',
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'Освещение рабочей зоны...',
+  sellTransferring: 'Перекачка нефти из насоса в цистерну...',
+  sellLightsRestore: 'Восстановление освещения...',
+  sellDeparting: 'Машина уезжает...',
+  sellDone: 'Продажа завершена!',
   collected: 'Собрано',
   earned: 'Вы заработали',
   close: 'Закрыть',

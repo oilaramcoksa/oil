@@ -191,6 +191,12 @@ const ar: Dict = {
   pumping: 'شفط البترول...',
   counting: 'عدّ الكمية...',
   done: 'تم البيع!',
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'إضاءة منطقة العمل...',
+  sellTransferring: 'نقل البترول من المضخة للعربة...',
+  sellLightsRestore: 'إعادة إضاءة الموقع...',
+  sellDeparting: 'العربة تغادر...',
+  sellDone: 'تم البيع بنجاح!',
   collected: 'الكمية المسحوبة',
   earned: 'ربحت',
   close: 'إغلاق',
@@ -628,10 +634,6 @@ shortsVideoDescription: "أحب أن أعرّفكم بلعبة Aramco Oil، لع
   promoTotalLimit: "انتهت مرات استخدام هذا الرمز",
   promoExpired: "انتهت صلاحية الرمز",
   promoProductMismatch: "هذا الرمز لا ينطبق على المنتج المحدد",
-  promoNotStarted: "لم يبدأ تفعيل هذا الكود بعد",
-  promoWrongContext: "هذا الكود مخصص لرسوم التعدين وليس لمشتريات المتجر",
-  promoRewardInvalid: "إعداد مكافأة هذا الكود غير صالح",
-  promoWalletUnavailable: "محفظتك غير متاحة حاليًا، يرجى التواصل مع الدعم",
   promoMiningFeePaid: "رسوم التعدين مفعّلة بالفعل",
   promoGenericError: "تعذر استخدام رمز البرومو كود",
 

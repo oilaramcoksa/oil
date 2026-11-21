@@ -24,6 +24,13 @@ const pt: Dict = { ...en,
   promoMiningFeePaid: "A taxa de mineração já está ativada",
   promoGenericError: "Não foi possível resgatar o código",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'Iluminando a área de trabalho...',
+  sellTransferring: 'Transferindo óleo da bomba para o caminhão...',
+  sellLightsRestore: 'Restaurando a iluminação...',
+  sellDeparting: 'O caminhão saindo...',
+  sellDone: 'Venda concluída!',
 };
 
 export default pt;

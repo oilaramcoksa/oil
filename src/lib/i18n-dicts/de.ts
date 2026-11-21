@@ -24,6 +24,13 @@ const de: Dict = { ...en,
   promoMiningFeePaid: "Die Mining-Gebühr ist bereits aktiviert",
   promoGenericError: "Promo-Code konnte nicht eingelöst werden",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: 'Arbeitsbereich wird beleuchtet...',
+  sellTransferring: 'Öl wird von der Pumpe in den LKW gepumpt...',
+  sellLightsRestore: 'Beleuchtung wird wiederhergestellt...',
+  sellDeparting: 'LKW fährt ab...',
+  sellDone: 'Verkauf abgeschlossen!',
 };
 
 export default de;

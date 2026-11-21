@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PumpScene3D, type PumpScene3DHandle } from '../PumpScene3D';
-import { SellModal } from '../SellModal';
 import { Button } from '@/components/ui/button';
 import { Droplet, Gauge, ArrowUpRight, Clock, Power } from 'lucide-react';
 import {
@@ -43,9 +42,9 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const specialParts = useGame((s) => s.specialParts);
   const cycleEndsAt = useGame((s) => s.cycleEndsAt);
   const applyServerAdReward = useGame((s) => s.applyServerAdReward);
+  const applyServerSale = useGame((s) => s.applyServerSale);
   const { haptic, notify } = useTelegram();
 
-  const [sellOpen, setSellOpen] = useState(false);
   const [shortsVisible, setShortsVisible] = useState(false);
   const [floats, setFloats] = useState<{ id: number; v: number }[]>([]);
   const fidRef = useRef(0);
@@ -230,21 +229,97 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
       setFeeGateOpen(true);
       return;
     }
-    if (active || oil <= 0 || actionAdBusyRef.current || sellOpen) return;
-
-    // Never make the core sale interaction wait for the ad SDK/postback.
-    // Open the truck sequence immediately; run the optional Monetag action ad
-    // independently so a stalled SDK cannot leave the Sell button unresponsive.
+    if (active || oil <= 0 || actionAdBusyRef.current) return;
+    if (!isVerified || !initData) {
+      toast.error(t(lang, 'sellError'));
+      return;
+    }
+    actionAdBusyRef.current = true;
+    // Kick off the in-scene truck sequence first so the player sees the truck
+    // driving in while the (optional) ad pre-roll + server call happen in
+    // parallel. The scene will not start transferring oil until setSaleResult()
+    // pushes the real numbers back from the server.
     sceneRef.current?.triggerSell();
     haptic('medium');
-    setSellOpen(true);
-
-    actionAdBusyRef.current = true;
     void rewardActionAd('sell_action')
       .catch((error) => console.info('monetag_sell_ad_unavailable', error))
       .finally(() => {
-        actionAdBusyRef.current = false;
+        void runSell();
       });
+  };
+
+  const runSell = async () => {
+    try {
+      if (!isVerified || !initData) throw new Error('telegram_auth_required');
+      // Reuse one idempotency key on retry: if the server committed the sale
+      // but the response was interrupted, the retry returns the already-
+      // committed wallet instead of attempting another sale.
+      const idempotencyKey = crypto.randomUUID();
+      let response: Response | null = null;
+      type SaleResponse = { sold?: number; coinsEarned?: number; wallet?: { oil: number; coins: number }; error?: string };
+      let data: SaleResponse | null = null;
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          response = await fetch('/api/sell', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': initData },
+            body: JSON.stringify({ idempotencyKey }),
+            cache: 'no-store',
+            signal: AbortSignal.timeout(15000),
+          });
+          data = await response.json() as SaleResponse;
+          if (response.ok) break;
+          if (response.status < 500 || attempt === 1) throw new Error(data?.error || 'oil_sale_failed');
+        } catch (error) {
+          lastError = error;
+          if (attempt === 1) throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
+      if (!response?.ok || !data?.wallet || !Number.isSafeInteger(data.sold) || !Number.isSafeInteger(data.coinsEarned)) {
+        throw lastError instanceof Error ? lastError : new Error(data?.error || 'oil_sale_failed');
+      }
+      const sale = { sold: Number(data.sold), coinsEarned: Number(data.coinsEarned) };
+      applyServerSale(sale.sold, sale.coinsEarned, data.wallet.oil, data.wallet.coins);
+      // Hand the real numbers to the 3D scene so its transfer animation
+      // counts toward the actual litres sold + coins earned.
+      sceneRef.current?.setSaleResult(sale.sold, sale.coinsEarned);
+      notify('success');
+    } catch (error) {
+      console.error('oil_sale_ui_failed', error);
+      // Reconcile against Turso after any ambiguous failure. The sale may
+      // have committed even if the browser lost its response.
+      try {
+        const syncResponse = await fetch('/api/game/state', {
+          headers: { 'X-Telegram-Init-Data': initData },
+          cache: 'no-store',
+        });
+        if (syncResponse.ok) {
+          const syncData = await syncResponse.json() as { wallet?: { oil?: number; coins?: number } | null };
+          if (Number.isSafeInteger(syncData.wallet?.oil) && Number.isSafeInteger(syncData.wallet?.coins)) {
+            useGame.setState({ oil: Number(syncData.wallet?.oil), coins: Number(syncData.wallet?.coins) });
+          }
+        }
+      } catch (syncError) {
+        console.warn('oil_sale_wallet_reconcile_failed', syncError);
+      }
+      const saleError = error instanceof Error ? error.message : 'oil_sale_failed';
+      if (saleError === 'daily_coin_limit_reached') {
+        toast.error(lang === 'ar'
+          ? 'وصلت إلى الحد اليومي للعملات؛ حاول بيع المتبقي غدًا.'
+          : lang === 'ru'
+            ? 'Достигнут дневной лимит монет. Попробуйте продать остаток завтра.'
+            : 'Daily coin limit reached. Try selling the remaining oil tomorrow.');
+      } else {
+        toast.error(t(lang, 'sellError'));
+      }
+      // Abort the in-scene sequence on a hard failure so the truck doesn't
+      // hang mid-transfer with no real numbers to count toward.
+      sceneRef.current?.resetSell();
+    } finally {
+      actionAdBusyRef.current = false;
+    }
   };
 
   const handleAdRewarded = useCallback((reward: number, walletCoins: number) => {
@@ -262,9 +337,14 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#0e1018] text-white">
-      {/* Full-screen 3D scene — fills the whole area between TopBar and BottomNav */}
+      {/* Full-screen 3D scene — fills the whole area between TopBar and BottomNav.
+          The sell sequence now plays entirely inside this 3D scene: truck
+          drives in, work-lights ramp up, hose connects, oil visibly flows,
+          lights dim during transfer and ramp back up at departure, truck
+          drives off and disappears. The in-scene HUD (phase, oil collected,
+          coins earned, progress bar) is rendered by PumpScene3D itself. */}
       <div className="absolute inset-0">
-        <PumpScene3D ref={sceneRef} pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts}/>
+        <PumpScene3D ref={sceneRef} pumping={active} oilRatio={oilRatio} onTap={handleTap} parts={parts} specialParts={specialParts} lang={lang}/>
       </div>
 
       {/* legibility gradients so floating HUD reads over any sky */}
@@ -333,7 +413,6 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
         </div>
       </div>
 
-      <SellModal open={sellOpen} onClose={()=>setSellOpen(false)} initData={initData} isVerified={isVerified}/>
       {feeGateOpen&&<MiningFeeGate initData={initData} onActivated={handleFeeActivated} onClose={()=>setFeeGateOpen(false)}/>}
     </div>
   );

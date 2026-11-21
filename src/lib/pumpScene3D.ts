@@ -1,12 +1,28 @@
 // @ts-nocheck
 // ============================================================================
-//  PumpScene3D engine — ported from the standalone oil-pump-station.html we
-//  built earlier. Pure Three.js (r128). No DOM UI / sound / store here — the
-//  React layer (PumpScene3D.tsx) owns the UI and feeds per-player state via the
-//  returned controller. The scene renders the pumpjack, transparent oil tank,
-//  oil truck with the full sell sequence (arrive → hose → transfer → hose →
-//  leave → disappear), clock-aware day/night (sun/moon/stars), ARMCO OIL
-//  decals, flashing red beacon + smoke while pumping, and a 12h-aligned fill.
+//  PumpScene3D engine — premium 3D oil-pump-station scene (Three.js r128).
+//
+//  Highlights of the redesigned sell sequence (no more modal/popup; the whole
+//  animation plays inside the live 3D scene):
+//
+//   • Truck drives IN from the far road, headlights sweeping the ground.
+//   • Work-lights ramp UP around the pump+truck (warm halogen cones) so the
+//     player reads the arrival as a "lit up" event.
+//   • A heavy steel hose unspools from the pump's reel and snaps onto the
+//     truck's rear inlet coupling.
+//   • The pump jack keeps pumping; oil visibly LEAVES the storage tank and
+//     FLOWS through the transparent hose into the tanker (animated droplets).
+//   • The tanker's side gauge climbs second-by-second and the storage tank's
+//     glass gauge drops in lock-step — moment-by-moment fill, no fade-to-number.
+//   • DURING transfer the work-lights DIM (as if the operator killed them to
+//     focus on the pump), the red beacon keeps blinking for safety.
+//   • When transfer ends the work-lights RAMP UP again, the hose retracts,
+//     the truck rolls back out onto the road and disappears past the horizon.
+//
+//  Pure Three.js. No DOM / sound / store here — the React layer
+//  (PumpScene3D.tsx) owns UI and feeds per-player state via the returned
+//  controller. Exposes triggerSell() + onSellEvent callback for the host to
+//  drive its in-scene HUD (phase text, oil collected counter, coins earned).
 // ============================================================================
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -14,21 +30,44 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 export interface PumpSceneParts { oil_pump?: number; fuel_station?: number; oil_truck?: number }
 export interface PumpSceneSpecial { new_background?: boolean; vip_badge?: boolean }
 
+export type SellPhase =
+  | 'idle' | 'arriving' | 'lights_on' | 'connecting'
+  | 'transferring' | 'lights_restore' | 'retracting' | 'departing' | 'done';
+
+export interface SellProgress {
+  phase: SellPhase;
+  /** 0..1 progress of the *whole* sequence (for HUD bar). */
+  progress: number;
+  /** Litres transferred *so far* (animating toward target). */
+  oilCollected: number;
+  /** Litres the server said we sold (set once the sale commits). */
+  oilTarget: number;
+  /** Coins earned (set once the sale commits). */
+  coinsEarned: number;
+}
+
 export interface PumpSceneHandles {
   setPumping(b: boolean): void;
   setOilRatio(r: number): void;
   setParts(p: PumpSceneParts): void;
   setSpecialParts(s: PumpSceneSpecial): void;
+  /** Begin the in-scene sell sequence. Safe to call repeatedly; ignored if one is already running. */
   triggerSell(): void;
+  /** Push the authoritative sale result from the server so the scene animates toward real numbers. */
+  setSaleResult(oilSold: number, coinsEarned: number): void;
+  /** Reset to idle, e.g. after the host closes its HUD. */
+  resetSell(): void;
+  /** Subscribe to live phase/progress updates for the in-scene HUD. Returns an unsubscribe fn. */
+  onSellEvent(cb: (p: SellProgress) => void): () => void;
   dispose(): void;
 }
 
 export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): PumpSceneHandles {
   const PUMP_POS = new THREE.Vector3(0, 0, 0);
   const TANK_POS = new THREE.Vector3(18, 0, 0);
-  const TANK_OUT = new THREE.Vector3(22, 1.5, 0);
+  const TANK_OUT = new THREE.Vector3(22, 1.5, 0);       // pump-side hose outlet
   const TRUCK_PARK_X = 32;
-  const TRUCK_AWAY_X = 90;
+  const TRUCK_AWAY_X = 95;
 
   let pumping = false;
   let oilRatio = 0;
@@ -47,7 +86,7 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
   renderer.localClippingEnabled = true;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xd9b27a, 55, 180);
+  scene.fog = new THREE.Fog(0xd9b27a, 55, 200);
 
   const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 600);
   camera.position.set(37, 22, 46);
@@ -86,11 +125,44 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
   scene.add(sun);
   const warm = new THREE.PointLight(0xff8a30, 0.6, 40, 2); warm.position.set(0, 6, 2); scene.add(warm);
 
+  // --- work lights (sell-sequence halogen cones) ---
+  // Two spotlights flanking the truck and pump, plus a fill point light.
+  // They are OFF by default, ramp up on truck arrival, DIM during transfer
+  // (operator focuses on the pump), and ramp up again at departure.
+  const workPumpSpot = new THREE.SpotLight(0xffd9a0, 0, 40, Math.PI * 0.22, 0.45, 1.6);
+  workPumpSpot.position.set(2, 14, 4);
+  workPumpSpot.target.position.set(-2, 2, 0);
+  workPumpSpot.castShadow = false;
+  scene.add(workPumpSpot); scene.add(workPumpSpot.target);
+  const workTruckSpot = new THREE.SpotLight(0xffd9a0, 0, 45, Math.PI * 0.24, 0.5, 1.8);
+  workTruckSpot.position.set(30, 14, 6);
+  workTruckSpot.target.position.set(30, 2, 0);
+  workTruckSpot.castShadow = false;
+  scene.add(workTruckSpot); scene.add(workTruckSpot.target);
+  const workFill = new THREE.PointLight(0xffe2b0, 0, 50, 1.8);
+  workFill.position.set(20, 8, 4); scene.add(workFill);
+  // Visual lamp posts for the work lights (so the cones have a visible source).
+  function lampPost(x: number, z: number) {
+    const g = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 12, 10), new THREE.MeshStandardMaterial({ color: 0x2c2c2c, metalness: 0.7, roughness: 0.5 }));
+    pole.position.y = 6; g.add(pole);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 0.12), new THREE.MeshStandardMaterial({ color: 0x2c2c2c, metalness: 0.7, roughness: 0.5 }));
+    arm.position.set(0.8, 11.6, 0); g.add(arm);
+    const bulbMat = new THREE.MeshStandardMaterial({ color: 0x1a1208, emissive: 0xffc880, emissiveIntensity: 0, metalness: 0.3, roughness: 0.4 });
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), bulbMat); bulb.position.set(1.4, 11.5, 0); g.add(bulb);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffd080, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    glow.scale.set(3, 3, 1); glow.position.set(1.4, 11.5, 0); g.add(glow);
+    g.position.set(x, 0, z); scene.add(g);
+    return { bulbMat, glow };
+  }
+  const lampPump = lampPost(2, 4);
+  const lampTruck = lampPost(30, 6);
+
   // --- day / night system ---
   const SKY = {
     topD: new THREE.Color(0x2a5d8c), midD: new THREE.Color(0xa9cce6), botD: new THREE.Color(0xe8c890),
     topN: new THREE.Color(0x04060f), midN: new THREE.Color(0x0b1730), botN: new THREE.Color(0x161f33),
-    topS: new THREE.Color(0x071b32), midS: new THREE.Color(0x123b60), botS: new THREE.Color(0x176b83), // special (new_background)
+    topS: new THREE.Color(0x071b32), midS: new THREE.Color(0x123b60), botS: new THREE.Color(0x176b83),
     fogD: new THREE.Color(0xd9b27a), fogN: new THREE.Color(0x0e131d),
     sunC: new THREE.Color(0xffe6c2), moonC: new THREE.Color(0xbcd0ff),
     ambD: new THREE.Color(0xffffff), ambN: new THREE.Color(0x2a3550),
@@ -132,7 +204,6 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
   const moonGlow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xbcd0ff, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
   moonGlow.scale.set(38, 38, 1);
   moonGroup.add(moonMesh); moonGroup.add(moonGlow); scene.add(moonGroup);
-  // stars (night only)
   const NST = 750;
   const stGeo = new THREE.BufferGeometry();
   const stPos = new Float32Array(NST * 3), stPh = new Float32Array(NST), stSz = new Float32Array(NST);
@@ -153,7 +224,6 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     fragmentShader: 'uniform float op;varying float vT;void main(){vec2 c=gl_PointCoord-0.5;float d=length(c);if(d>0.5)discard;float a=smoothstep(0.5,0.0,d)*op*(0.35+0.65*vT);gl_FragColor=vec4(1.0,0.97,0.88,a);}',
   });
   const stars = new THREE.Points(stGeo, stMat); scene.add(stars);
-  // clouds (day only)
   const cloudTex = (function () {
     const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128;
     const ctx = cv.getContext('2d');
@@ -175,7 +245,6 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
   function updateSky(tt: number, dt: number) {
     dayFactor = clockDayFactor();
     const df = dayFactor;
-    // night palette blends toward "special" colors when new_background is owned
     const topN = specialBg ? _cTop.copy(SKY.topS) : _cTop.copy(SKY.topN);
     const midN = specialBg ? _cMid.copy(SKY.midS) : _cMid.copy(SKY.midN);
     const botN = specialBg ? _cBot.copy(SKY.botS) : _cBot.copy(SKY.botN);
@@ -212,15 +281,18 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
       if (c.position.x > 85) c.position.x = -85;
       c.material.opacity = df * 0.8;
     }
-    warm.intensity = (0.35 + (1 - df) * 1.1) * (1 + Math.sin(tt * 8) * 0.08);
+    // The warm "pump burner" glow only really matters at night; gate it by the
+    // sell-sequence work-light multiplier so the operator's attention reads as
+    // "focus on the pump" during transfer.
+    warm.intensity = (0.35 + (1 - df) * 1.1) * (1 + Math.sin(tt * 8) * 0.08) * lightMul;
   }
 
   // --- ground / road / scenery ---
   const ground = new THREE.Mesh(new THREE.CircleGeometry(200, 64), new THREE.MeshStandardMaterial({ color: 0xc9a86a, roughness: 0.95, metalness: 0 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-  const road = new THREE.Mesh(new THREE.PlaneGeometry(220, 7), new THREE.MeshStandardMaterial({ color: 0x4a4036, roughness: 0.9 }));
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(240, 7), new THREE.MeshStandardMaterial({ color: 0x4a4036, roughness: 0.9 }));
   road.rotation.x = -Math.PI / 2; road.position.set(20, 0.02, 0); road.receiveShadow = true; scene.add(road);
-  for (let i = -100; i < 100; i += 12) {
+  for (let i = -110; i < 110; i += 12) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.4), new THREE.MeshBasicMaterial({ color: 0xd8c27a }));
     m.rotation.x = -Math.PI / 2; m.position.set(i, 0.05, 0); scene.add(m);
   }
@@ -265,6 +337,7 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     glass: new THREE.MeshStandardMaterial({ color: 0x2a3b4a, metalness: 0.9, roughness: 0.08, transparent: true, opacity: 0.55 }),
     rubber: new THREE.MeshStandardMaterial({ color: 0x14130f, roughness: 0.95 }),
     hose: new THREE.MeshStandardMaterial({ color: 0x18140e, roughness: 0.85, metalness: 0.1 }),
+    hoseBraid: new THREE.MeshStandardMaterial({ color: 0x6b7686, metalness: 0.85, roughness: 0.35 }),
     tankGlass: new THREE.MeshStandardMaterial({ color: 0xbfd8e6, metalness: 0.2, roughness: 0.08, transparent: true, opacity: 0.16, side: THREE.FrontSide, depthWrite: false }),
     tankerGlass: new THREE.MeshStandardMaterial({ color: 0xc6d2dc, metalness: 0.3, roughness: 0.12, transparent: true, opacity: 0.14, side: THREE.FrontSide, depthWrite: false }),
   };
@@ -329,7 +402,13 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     const lampLight = new THREE.PointLight(0xff2200, 0, 16, 2); lampLight.position.set(0, pivY + 1.45, 0.7); g.add(lampLight);
     const lampGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW_TEX, color: 0xff3322, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
     lampGlow.scale.set(2.4, 2.4, 1); lampGlow.position.set(0, pivY + 1.45, 0.7); g.add(lampGlow);
-    g.userData = { beam, crank, pit, pin, sucker, lampMat, lampLight, lampGlow, postH: pivY, crankR: 1.05, beamHalf: 3.1 };
+    // Hose reel on the pump's right side; the hose visibly unspools from here.
+    const reelGroup = new THREE.Group(); reelGroup.position.set(2.2, 1.6, 0); g.add(reelGroup);
+    const reelDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.6, 18), M.steel as any); reelDrum.rotation.z = Math.PI / 2; reelGroup.add(reelDrum);
+    const reelSideA = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.06, 18), M.dark as any); reelSideA.rotation.z = Math.PI / 2; reelSideA.position.x = 0.3; reelGroup.add(reelSideA);
+    const reelSideB = reelSideA.clone(); reelSideB.position.x = -0.3; reelGroup.add(reelSideB);
+    const reelStand = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.6, 0.5), M.dark as any); reelStand.position.set(0, -0.8, 0); reelGroup.add(reelStand);
+    g.userData = { beam, crank, pit, pin, sucker, lampMat, lampLight, lampGlow, reelGroup, reelDrum, postH: pivY, crankR: 1.05, beamHalf: 3.1 };
     return g;
   }
   const pump = buildPumpjack(); scene.add(pump);
@@ -366,17 +445,37 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     ud.gaugeFill.scale.y = gh; ud.gaugeFill.position.y = 1.5 + gh / 2;
   }
 
-  // --- oil truck ---
+  // --- oil truck (redesigned) ---
   const truckOilPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0.6);
   function buildTruck() {
     const g = new THREE.Group();
+    // === Tractor unit ===
     const cabBody = new THREE.Mesh(new THREE.BoxGeometry(3, 3.2, 3.2), M.cab as any); cabBody.position.set(5, 2.1, 0); cabBody.castShadow = true; g.add(cabBody);
     const cabRoof = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.6, 2.9), M.cab as any); cabRoof.position.set(4.6, 3.9, 0); g.add(cabRoof);
+    const sleeper = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.0, 2.9), M.cab as any); sleeper.position.set(3.6, 2.4, 0); g.add(sleeper);
     const hood = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 2.9), M.cab as any); hood.position.set(7.2, 1.6, 0); hood.castShadow = true; g.add(hood);
     const grille = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 2.6), M.rubber as any); grille.position.set(8.05, 1.7, 0); g.add(grille);
+    for (let i = 0; i < 5; i++) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 2.4), M.steel as any);
+      slat.position.set(8.0, 1.2 + i * 0.22, 0); g.add(slat);
+    }
     const ws = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.5, 2.5), M.glass as any); ws.position.set(6.4, 3.0, 0); g.add(ws);
-    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8), new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffcc60, emissiveIntensity: 0.7 })); hl.position.set(8.0, 1.7, 1.0); g.add(hl);
+    // Headlights (visible glow + ground beam while arriving/departing)
+    const hlMat = new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffcc60, emissiveIntensity: 0.7 });
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8), hlMat); hl.position.set(8.0, 1.7, 1.0); g.add(hl);
     const hl2 = hl.clone(); hl2.position.z = -1.0; g.add(hl2);
+    const headBeam = new THREE.SpotLight(0xfff0c8, 0, 28, Math.PI * 0.32, 0.6, 1.5);
+    headBeam.position.set(8.2, 1.7, 0); headBeam.target.position.set(20, 0.5, 0); g.add(headBeam); g.add(headBeam.target);
+    // Bumper + exhaust stack
+    const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 3.0), M.steel as any); bumper.position.set(8.1, 1.0, 0); g.add(bumper);
+    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 2.4, 12), M.steel as any); stack.position.set(3.5, 4.0, 1.4); g.add(stack);
+    const stackCap = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.2, 12), M.dark as any); stackCap.position.set(3.5, 5.2, 1.4); g.add(stackCap);
+    // Side mirrors
+    for (const z of [1.7, -1.7]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.6, 0.4), M.dark as any); arm.position.set(4.6, 3.4, z); g.add(arm);
+      const mir = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 0.4), M.steel as any); mir.position.set(4.6, 3.4, z + Math.sign(z) * 0.25); g.add(mir);
+    }
+    // === Tanker trailer ===
     const tanker = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 7, 28, true), M.tankerGlass as any); tanker.rotation.z = Math.PI / 2; tanker.position.set(-1.5, 2.6, 0); g.add(tanker);
     const capGeo = new THREE.SphereGeometry(2, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2);
     const capF = new THREE.Mesh(capGeo, M.tankerGlass as any); capF.rotation.z = -Math.PI / 2; capF.position.set(-5, 2.6, 0); g.add(capF);
@@ -384,12 +483,27 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     const truckOilMat = (M.oil as THREE.MeshStandardMaterial).clone(); truckOilMat.clippingPlanes = [truckOilPlane];
     const innerOil = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 7.0, 28), truckOilMat); innerOil.rotation.z = Math.PI / 2; innerOil.position.set(-1.5, 2.6, 0); g.add(innerOil);
     for (const x of [-4, 1]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(2.05, 2.05, 0.18, 28), M.trim as any); b.rotation.z = Math.PI / 2; b.position.set(x, 2.6, 0); g.add(b); }
+    // Dome rings (ribbed look)
+    for (const x of [-3, -0.5, 1.5]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(2.06, 2.06, 0.06, 28), M.dark as any); r.rotation.z = Math.PI / 2; r.position.set(x, 2.6, 0); g.add(r); }
+    // Rear inlet port + coupling ring
     const port = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 1.0, 14), M.dark as any); port.rotation.z = Math.PI / 2; port.position.set(-5.4, 2.6, 0); port.castShadow = true; g.add(port);
     const portRing = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.08, 8, 16), M.steel as any); portRing.position.set(-5.9, 2.6, 0); portRing.rotation.y = Math.PI / 2; g.add(portRing);
+    // Top manhole
+    const manhole = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.45, 0.3, 14), M.dark as any); manhole.position.set(-1.5, 4.6, 0); g.add(manhole);
+    const manholeCap = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.12, 14), M.steel as any); manholeCap.position.set(-1.5, 4.78, 0); g.add(manholeCap);
+    // Side gauge glass (visible oil level)
     const sg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.4, 0.08), M.glass as any); sg.position.set(-1.5, 2.6, 2.04); g.add(sg);
     const sgFill = new THREE.Mesh(new THREE.BoxGeometry(0.38, 1, 0.05), M.oil as any); sgFill.position.set(-1.5, 0.95, 2.08); g.add(sgFill);
+    // Gauge tick marks
+    for (let i = 0; i < 5; i++) {
+      const tick = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.06), M.dark as any);
+      tick.position.set(-1.5, 1.2 + i * 0.7, 2.12); g.add(tick);
+    }
+    // Tanker label decal
     const trkLblMat = new THREE.MeshBasicMaterial({ map: ARMCO_TEX, transparent: true, depthWrite: false });
     const trkLbl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.85), trkLblMat); trkLbl.position.set(0.4, 3.3, 2.12); g.add(trkLbl);
+    const trkLbl2 = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.85), trkLblMat); trkLbl2.position.set(0.4, 3.3, -2.12); trkLbl2.rotation.y = Math.PI; g.add(trkLbl2);
+    // Chassis and wheels
     const ch = new THREE.Mesh(new THREE.BoxGeometry(13, 0.5, 2.6), M.dark as any); ch.position.set(0, 0.7, 0); g.add(ch);
     const wGeo = new THREE.CylinderGeometry(1.05, 1.05, 0.7, 18); wGeo.rotateX(Math.PI / 2);
     const hubGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.75, 10); hubGeo.rotateX(Math.PI / 2);
@@ -398,9 +512,17 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     for (const p of wp) {
       const w = new THREE.Mesh(wGeo, M.rubber as any); w.position.set(p[0], p[1], p[2]); w.castShadow = true; g.add(w); wheels.push(w);
       const hub = new THREE.Mesh(hubGeo, M.steel as any); hub.position.set(p[0], p[1], p[2]); g.add(hub); wheels.push(hub);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const lug = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.12, 6), M.dark as any);
+        lug.rotation.x = Math.PI / 2; lug.position.set(p[0] + Math.cos(a) * 0.35, p[1], p[2] + Math.sin(a) * 0.35); g.add(lug);
+      }
     }
-    for (const z of [1.4, -1.4]) { const f = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 0.08), M.rubber as any); f.position.set(0.5, 0.5, z); g.add(f); }
-    g.userData = { wheels, sgFill, port };
+    // Fenders over the rear wheels
+    for (const z of [1.9, -1.9]) {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.5, 0.1), M.rubber as any); f.position.set(0.5, 1.6, z); g.add(f);
+    }
+    g.userData = { wheels, sgFill, port, portRing, headBeam, hlMat, stack };
     return g;
   }
   const truck = buildTruck(); truck.position.set(TRUCK_AWAY_X, 0, 0); truck.visible = false; scene.add(truck);
@@ -411,10 +533,16 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     ud.sgFill.scale.y = h; ud.sgFill.position.y = 0.95 + h / 2;
   }
 
-  // --- hose ---
+  // --- hose (animated, with oil droplets inside during transfer) ---
   const hoseGroup = new THREE.Group(); scene.add(hoseGroup);
-  function updateHose(deploy: number) {
+  let hoseDroplets: THREE.Mesh[] = [];
+  let hoseCurve: THREE.CatmullRomCurve3 | null = null;
+  function clearHose() {
     while (hoseGroup.children.length) hoseGroup.remove(hoseGroup.children[0]);
+    hoseDroplets = []; hoseCurve = null;
+  }
+  function updateHose(deploy: number) {
+    clearHose();
     if (deploy <= 0.001) return;
     const portWorld = new THREE.Vector3();
     (truck.userData as any).port.getWorldPosition(portWorld);
@@ -422,17 +550,46 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     const to = portWorld;
     const end = from.clone().lerp(to, deploy);
     const mid = from.clone().add(end).multiplyScalar(0.5);
-    mid.y -= 1.3 * Math.min(deploy, 1);
+    mid.y -= 1.6 * Math.min(deploy, 1); // heavy sag
     const curve = new THREE.CatmullRomCurve3([from, mid, end]);
-    const segs = Math.max(8, Math.floor(16 * deploy));
-    const geo = new THREE.TubeGeometry(curve, segs, 0.22, 10, false);
+    hoseCurve = curve;
+    const segs = Math.max(10, Math.floor(24 * deploy));
+    const geo = new THREE.TubeGeometry(curve, segs, 0.24, 12, false);
     const mesh = new THREE.Mesh(geo, M.hose as any); mesh.castShadow = true; hoseGroup.add(mesh);
+    const braidGeo = new THREE.TubeGeometry(curve, segs, 0.225, 12, false);
+    const braid = new THREE.Mesh(braidGeo, M.hoseBraid as any); braid.castShadow = false; hoseGroup.add(braid);
     if (deploy > 0.2) {
-      const nz = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.18, 0.8, 12), M.dark as any);
+      const nz = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.18, 0.85, 12), M.dark as any);
       const dir = end.clone().sub(mid).normalize();
       nz.position.copy(end);
       nz.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
       hoseGroup.add(nz);
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.06, 8, 16), M.steel as any);
+      collar.position.copy(end); hoseGroup.add(collar);
+    }
+    const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.18, 14), M.steel as any);
+    flange.rotation.z = Math.PI / 2; flange.position.copy(from); hoseGroup.add(flange);
+  }
+  function buildHoseDroplets(n: number) {
+    for (let i = 0; i < n; i++) {
+      const d = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0xffc24a, emissive: 0x664400, emissiveIntensity: 0.4, metalness: 0.4, roughness: 0.3, transparent: true })
+      );
+      hoseGroup.add(d); hoseDroplets.push(d);
+    }
+  }
+  function animateHoseDroplets(tt: number) {
+    if (!hoseCurve || !hoseDroplets.length) return;
+    for (let i = 0; i < hoseDroplets.length; i++) {
+      const d = hoseDroplets[i];
+      const phase = (tt * 0.35 + i / hoseDroplets.length) % 1;
+      const p = hoseCurve.getPoint(phase);
+      d.position.copy(p);
+      const mat = (d.material as THREE.MeshStandardMaterial);
+      const op = Math.min(1, phase * 6) * Math.min(1, (1 - phase) * 6);
+      mat.opacity = op;
+      d.visible = op > 0.05;
     }
   }
 
@@ -503,10 +660,11 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
 
   // --- pumpjack animation ---
   const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
-  let crankPhase = 0, pumpPrevAngle = 0;
+  let crankPhase = 0;
   function updatePump(dt: number, tt: number) {
     const ud: any = pump.userData;
-    const speed = pumping ? 2.4 : 0;
+    // During transfer we keep the pump running (it's actively pushing oil out).
+    const speed = pumping || sellState.state === ST.TRANSFER ? 2.4 : 0;
     const prev = crankPhase;
     crankPhase += speed * dt;
     ud.crank.rotation.z = crankPhase;
@@ -530,69 +688,216 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     ud.sucker.position.copy(rodMid);
     ud.sucker.scale.y = Math.max(0.1, rodLen);
     ud.sucker.quaternion.setFromUnitVectors(_up, new THREE.Vector3(0, 1, 0));
-    if (pumping) {
+    if (sellState.state === ST.HOSE_OUT || sellState.state === ST.HOSE_IN) {
+      ud.reelDrum.rotation.x += dt * 6 * (sellState.state === ST.HOSE_OUT ? 1 : -1);
+    }
+    if (pumping || sellState.state === ST.TRANSFER) {
       const cycle = (crankPhase % (Math.PI * 2));
       const prevCycle = (prev % (Math.PI * 2));
       if (prevCycle < Math.PI * 1.5 && cycle >= Math.PI * 1.5) spawnDust(-4.6, 0.4, (Math.random() - 0.5) * 1.5);
       const blink = (Math.sin(tt * 6) > 0) ? 1 : 0;
-      ud.lampMat.emissiveIntensity = blink * 2.6;
-      ud.lampLight.intensity = blink * 2.2;
-      ud.lampGlow.material.opacity = blink * 0.85;
+      const beaconMul = sellState.state === ST.TRANSFER ? 1 : lightMul;
+      ud.lampMat.emissiveIntensity = blink * 2.6 * beaconMul;
+      ud.lampLight.intensity = blink * 2.2 * beaconMul;
+      ud.lampGlow.material.opacity = blink * 0.85 * beaconMul;
       ud.smkTimer = (ud.smkTimer || 0) + dt;
       if (ud.smkTimer > 0.13) { ud.smkTimer = 0; spawnSmoke(2.4, 1.9, 1.2); }
     } else {
       ud.lampMat.emissiveIntensity = 0; ud.lampLight.intensity = 0; ud.lampGlow.material.opacity = 0;
     }
-    // VIP glow pulse
     if (vip) { vipGroup.visible = true; const pul = 0.35 + 0.2 * Math.sin(tt * 2.4); vipGlow.material.opacity = pul; vipFlag.rotation.y = Math.sin(tt * 1.5) * 0.2; }
     else vipGroup.visible = false;
   }
 
-  // --- truck sell state machine ---
-  const ST = { PUMPING: 'pumping', ARRIVE: 'arrive', HOSE_OUT: 'hose_out', TRANSFER: 'transfer', HOSE_IN: 'hose_in', LEAVE: 'leave' } as const;
-  const S: any = { state: ST.PUMPING, t: 0, truckX: TRUCK_AWAY_X, truckFill: 0, hose: 0, sellStart: 0, animTank: 0 };
+  // ============================================================
+  //   SELL STATE MACHINE
+  // ============================================================
+  const ST = {
+    IDLE: 'idle', ARRIVE: 'arriving', LIGHTS_ON: 'lights_on', HOSE_OUT: 'connecting',
+    TRANSFER: 'transferring', LIGHTS_RESTORE: 'lights_restore', HOSE_IN: 'retracting',
+    LEAVE: 'departing', DONE: 'done',
+  } as const;
+
+  type SellStateObj = {
+    state: typeof ST[keyof typeof ST];
+    t: number;
+    truckX: number;
+    truckFill: number;
+    animTank: number;
+    hose: number;
+    sellStart: number;
+    lightTarget: number;
+    lightCur: number;
+    oilCollected: number;
+    oilTarget: number;
+    coinsEarned: number;
+    headBeam: number;
+  };
+  const sellState: SellStateObj = {
+    state: ST.IDLE, t: 0, truckX: TRUCK_AWAY_X, truckFill: 0, animTank: 0, hose: 0,
+    sellStart: 0, lightTarget: 0, lightCur: 0, oilCollected: 0, oilTarget: 0, coinsEarned: 0,
+    headBeam: 0,
+  };
+  let lightMul = 1;
+
+  // Phase durations (seconds). The whole sequence is ~22s.
+  const DUR = {
+    ARRIVE: 4.8, LIGHTS_ON: 1.0, HOSE_OUT: 2.0, TRANSFER: 7.5,
+    LIGHTS_RESTORE: 1.2, HOSE_IN: 1.8, LEAVE: 4.6,
+  };
+
   function easeInOut(k: number) { return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; }
-  function displayLevel() { return S.state === ST.PUMPING ? oilRatio : S.animTank; }
+
+  function displayTankLevel() {
+    return sellState.state === ST.IDLE ? oilRatio : sellState.animTank;
+  }
+
+  const listeners = new Set<(p: SellProgress) => void>();
+  function emit() {
+    const totalDur = DUR.ARRIVE + DUR.LIGHTS_ON + DUR.HOSE_OUT + DUR.TRANSFER + DUR.LIGHTS_RESTORE + DUR.HOSE_IN + DUR.LEAVE;
+    let elapsed = 0;
+    const order: Array<[typeof ST[keyof typeof ST], number]> = [
+      [ST.ARRIVE, DUR.ARRIVE], [ST.LIGHTS_ON, DUR.LIGHTS_ON], [ST.HOSE_OUT, DUR.HOSE_OUT],
+      [ST.TRANSFER, DUR.TRANSFER], [ST.LIGHTS_RESTORE, DUR.LIGHTS_RESTORE],
+      [ST.HOSE_IN, DUR.HOSE_IN], [ST.LEAVE, DUR.LEAVE],
+    ];
+    for (const [st, d] of order) {
+      if (sellState.state === st) { elapsed += sellState.t; break; }
+      if (sellState.state === ST.IDLE) { elapsed = 0; break; }
+      if (sellState.state === ST.DONE) { elapsed = totalDur; break; }
+      elapsed += d;
+    }
+    const progress = Math.max(0, Math.min(1, elapsed / totalDur));
+    const p: SellProgress = {
+      phase: sellState.state as SellPhase,
+      progress,
+      oilCollected: Math.round(sellState.oilCollected),
+      oilTarget: Math.round(sellState.oilTarget),
+      coinsEarned: Math.round(sellState.coinsEarned),
+    };
+    for (const cb of listeners) cb(p);
+  }
+
+  function spawnArrivalDust() {
+    const x = sellState.truckX - 3;
+    for (let i = 0; i < 3; i++) spawnDust(x + Math.random() * 1.5, 0.3, (Math.random() - 0.5) * 2);
+  }
+  function spawnDepartureDust() {
+    const x = sellState.truckX + 3;
+    for (let i = 0; i < 3; i++) spawnDust(x - Math.random() * 1.5, 0.3, (Math.random() - 0.5) * 2);
+  }
+
   function stepState(dt: number) {
+    const S = sellState;
     S.t += dt;
     switch (S.state) {
-      case ST.PUMPING: break;
+      case ST.IDLE: break;
       case ST.ARRIVE: {
-        const dur = 4.5, k = Math.min(1, S.t / dur);
+        const k = Math.min(1, S.t / DUR.ARRIVE);
         S.truckX = TRUCK_AWAY_X + (TRUCK_PARK_X - TRUCK_AWAY_X) * easeInOut(k);
-        if (k >= 1) { S.truckX = TRUCK_PARK_X; S.state = ST.HOSE_OUT; S.t = 0; }
+        S.headBeam = 1;
+        if (Math.random() < 0.4) spawnArrivalDust();
+        if (k >= 1) {
+          S.truckX = TRUCK_PARK_X;
+          S.state = ST.LIGHTS_ON; S.t = 0;
+          S.lightTarget = 1;
+          S.headBeam = 0;
+        }
         break;
       }
-      case ST.HOSE_OUT: { const dur = 2.0, k = Math.min(1, S.t / dur); S.hose = easeInOut(k); if (k >= 1) { S.hose = 1; S.state = ST.TRANSFER; S.t = 0; } break; }
+      case ST.LIGHTS_ON: {
+        const k = Math.min(1, S.t / DUR.LIGHTS_ON);
+        S.lightTarget = 1;
+        if (k >= 1) { S.state = ST.HOSE_OUT; S.t = 0; }
+        break;
+      }
+      case ST.HOSE_OUT: {
+        const k = Math.min(1, S.t / DUR.HOSE_OUT);
+        S.hose = easeInOut(k);
+        if (k >= 1) {
+          S.hose = 1;
+          // Wait for the server's authoritative sale numbers before
+          // transferring. This lets the truck roll in while the network
+          // call is in flight, but pauses (with the hose connected) until
+          // setSaleResult() pushes the real litres+coins — so the moment-
+          // by-moment counter always climbs toward the truth.
+          if (S.oilTarget > 0) { S.state = ST.TRANSFER; S.t = 0; buildHoseDroplets(10); S.lightTarget = 0.18; }
+          else { /* hold in HOSE_OUT waiting for the server */ S.t = DUR.HOSE_OUT - 0.05; }
+        }
+        break;
+      }
       case ST.TRANSFER: {
-        const dur = 6.0, k = Math.min(1, S.t / dur);
-        S.animTank = S.sellStart * (1 - k); S.truckFill = S.sellStart * k;
-        if (k >= 1) { S.animTank = 0; S.truckFill = S.sellStart; S.state = ST.HOSE_IN; S.t = 0; }
+        const k = Math.min(1, S.t / DUR.TRANSFER);
+        const ek = easeInOut(k);
+        // Scale transfer by the actual sale size so big sales transfer
+        // proportionally more "visually" (the ratio 0..1 of tank level).
+        S.animTank = S.sellStart * (1 - ek);
+        S.truckFill = S.sellStart * ek;
+        S.oilCollected = S.oilTarget * ek;
+        S.lightTarget = 0.18;
+        if (k >= 1) {
+          S.animTank = 0; S.truckFill = S.sellStart; S.oilCollected = S.oilTarget;
+          S.state = ST.LIGHTS_RESTORE; S.t = 0;
+          S.lightTarget = 1;
+          clearHose();
+        }
         break;
       }
-      case ST.HOSE_IN: { const dur = 2.0, k = Math.min(1, S.t / dur); S.hose = 1 - easeInOut(k); if (k >= 1) { S.hose = 0; S.state = ST.LEAVE; S.t = 0; } break; }
+      case ST.LIGHTS_RESTORE: {
+        const k = Math.min(1, S.t / DUR.LIGHTS_RESTORE);
+        S.lightTarget = 1;
+        if (k >= 1) { S.state = ST.HOSE_IN; S.t = 0; }
+        break;
+      }
+      case ST.HOSE_IN: {
+        const k = Math.min(1, S.t / DUR.HOSE_IN);
+        S.hose = 1 - easeInOut(k);
+        if (k >= 1) { S.hose = 0; S.state = ST.LEAVE; S.t = 0; S.headBeam = 1; }
+        break;
+      }
       case ST.LEAVE: {
-        const dur = 4.5, k = Math.min(1, S.t / dur);
+        const k = Math.min(1, S.t / DUR.LEAVE);
         S.truckX = TRUCK_PARK_X + (TRUCK_AWAY_X - TRUCK_PARK_X) * easeInOut(k);
-        if (k >= 1) { S.truckX = TRUCK_AWAY_X; S.truckFill = 0; S.state = ST.PUMPING; S.t = 0; truck.visible = false; }
+        if (Math.random() < 0.4) spawnDepartureDust();
+        if (k >= 1) {
+          S.truckX = TRUCK_AWAY_X;
+          S.truckFill = 0; S.state = ST.DONE; S.t = 0;
+          truck.visible = false; S.headBeam = 0; S.lightTarget = 0;
+        }
         break;
       }
+      case ST.DONE: break;
     }
     truck.position.x = S.truckX;
     const dx = S.truckX - (truck as any)._px; if ((truck as any)._px === undefined) (truck as any)._px = S.truckX;
     const wheels = (truck.userData as any).wheels;
     for (const w of wheels) w.rotation.z -= dx / 1.05;
     (truck as any)._px = S.truckX;
-  }
-  function triggerSell() {
-    if (S.state !== ST.PUMPING) return;
-    S.sellStart = displayLevel();
-    S.animTank = S.sellStart;
-    S.state = ST.ARRIVE; S.t = 0; S.truckX = TRUCK_AWAY_X;
-    truck.visible = true; truck.position.x = TRUCK_AWAY_X; S.truckFill = 0; S.hose = 0;
+
+    S.lightCur += (S.lightTarget - S.lightCur) * Math.min(1, dt * 4);
+    lightMul = S.state === ST.IDLE ? 1 : Math.max(0.18, S.lightCur);
+    const ud: any = truck.userData;
+    const hb = S.headBeam;
+    ud.headBeam.intensity = hb * 2.2;
+    ud.hlMat.emissiveIntensity = 0.4 + hb * 1.4;
+
+    emit();
   }
 
-  // --- tap detection (tap = quick pointer without drag) ---
+  function triggerSell() {
+    if (sellState.state !== ST.IDLE && sellState.state !== ST.DONE) return;
+    const S = sellState;
+    S.sellStart = displayTankLevel();
+    S.animTank = S.sellStart;
+    S.state = ST.ARRIVE; S.t = 0; S.truckX = TRUCK_AWAY_X;
+    truck.visible = true; truck.position.x = TRUCK_AWAY_X;
+    S.truckFill = 0; S.hose = 0; S.oilCollected = 0;
+    S.oilTarget = 0; S.coinsEarned = 0;
+    S.headBeam = 1; S.lightTarget = 0; S.lightCur = 0;
+    emit();
+  }
+
+  // --- tap detection ---
   let downX = 0, downY = 0, downT = 0, isDown = false;
   function onDown(e: PointerEvent) { isDown = true; downX = e.clientX; downY = e.clientY; downT = performance.now(); }
   function onUp(e: PointerEvent) {
@@ -605,9 +910,6 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
   canvas.addEventListener('pointerup', onUp as any);
 
   // --- sizing ---
-  // Portrait (phone) vs landscape get different camera framing so the pumpjack
-  // + tank + sky always compose well. The framing only resets when the
-  // orientation actually flips, so free orbit between resizes is preserved.
   let lastPortrait: boolean | null = null;
   function resize() {
     const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
@@ -637,12 +939,21 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
     dPumps.forEach((p, i) => { (p.children[1] as any).rotation.z = Math.sin(tt * 1.5 + i) * 0.2; });
     updatePump(dt, tt);
     stepState(dt);
-    setTankLevel(displayLevel());
-    setTruckFill(S.truckFill);
-    updateHose(S.hose);
+    setTankLevel(displayTankLevel());
+    setTruckFill(sellState.truckFill);
+    updateHose(sellState.hose);
+    if (sellState.state === ST.TRANSFER) animateHoseDroplets(tt);
     updateParticles(dt);
     updateSmoke(dt);
     updateSky(tt, dt);
+    const li = sellState.lightCur;
+    lampPump.bulbMat.emissiveIntensity = li * 2.2;
+    lampPump.glow.material.opacity = li * 0.7;
+    lampTruck.bulbMat.emissiveIntensity = li * 2.2;
+    lampTruck.glow.material.opacity = li * 0.7;
+    workPumpSpot.intensity = li * 3.2;
+    workTruckSpot.intensity = li * 3.2;
+    workFill.intensity = li * 2.2;
     controls.update();
     renderer.render(scene, camera);
   }
@@ -651,9 +962,34 @@ export function createPumpScene(canvas: HTMLCanvasElement, onTap: () => void): P
   return {
     setPumping(b: boolean) { pumping = !!b; },
     setOilRatio(r: number) { oilRatio = Math.max(0, Math.min(1, Number(r) || 0)); },
-    setParts(_p: PumpSceneParts) { /* production multipliers are applied by the host; the main pumpjack/tank/truck are always present */ },
+    setParts(_p: PumpSceneParts) { /* production multipliers are applied by the host */ },
     setSpecialParts(s: PumpSceneSpecial) { vip = !!s.vip_badge; specialBg = !!s.new_background; },
     triggerSell,
+    setSaleResult(oilSold: number, coinsEarned: number) {
+      sellState.oilTarget = Math.max(0, Number(oilSold) || 0);
+      sellState.coinsEarned = Math.max(0, Number(coinsEarned) || 0);
+      // If we were holding in HOSE_OUT waiting for the server numbers,
+      // unblock the transfer now.
+      if (sellState.state === ST.HOSE_OUT && sellState.hose >= 1 && sellState.oilTarget > 0) {
+        sellState.state = ST.TRANSFER; sellState.t = 0;
+        buildHoseDroplets(10);
+        sellState.lightTarget = 0.18;
+      }
+      emit();
+    },
+    resetSell() {
+      const S = sellState;
+      S.state = ST.IDLE; S.t = 0; S.truckX = TRUCK_AWAY_X;
+      S.truckFill = 0; S.animTank = 0; S.hose = 0;
+      S.oilCollected = 0; S.oilTarget = 0; S.coinsEarned = 0;
+      S.lightTarget = 0; S.lightCur = 0; S.headBeam = 0;
+      truck.visible = false; clearHose(); lightMul = 1;
+      emit();
+    },
+    onSellEvent(cb: (p: SellProgress) => void) {
+      listeners.add(cb);
+      return () => { listeners.delete(cb); };
+    },
     dispose() {
       disposed = true;
       cancelAnimationFrame(rafId);

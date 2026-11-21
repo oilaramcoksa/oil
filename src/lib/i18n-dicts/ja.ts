@@ -24,6 +24,13 @@ const ja: Dict = { ...en,
   promoMiningFeePaid: "マイニング手数料はすでに有効です",
   promoGenericError: "プロモコードを適用できませんでした",
 
+
+  // New sell-sequence phases (in-scene 3D HUD)
+  sellLightsOn: '作業エリアを照明中...',
+  sellTransferring: 'ポンプからトラックへ石油を移送中...',
+  sellLightsRestore: '照明を復元中...',
+  sellDeparting: 'トラックが出発...',
+  sellDone: '販売完了!',
 };
 
 export default ja;
