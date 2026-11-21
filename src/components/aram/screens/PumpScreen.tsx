@@ -230,15 +230,20 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
       setFeeGateOpen(true);
       return;
     }
-    if (active || oil <= 0 || actionAdBusyRef.current) return;
-    actionAdBusyRef.current = true;
+    if (active || oil <= 0 || actionAdBusyRef.current || sellOpen) return;
+
+    // Never make the core sale interaction wait for the ad SDK/postback.
+    // Open the truck sequence immediately; run the optional Monetag action ad
+    // independently so a stalled SDK cannot leave the Sell button unresponsive.
     sceneRef.current?.triggerSell();
     haptic('medium');
+    setSellOpen(true);
+
+    actionAdBusyRef.current = true;
     void rewardActionAd('sell_action')
       .catch((error) => console.info('monetag_sell_ad_unavailable', error))
       .finally(() => {
         actionAdBusyRef.current = false;
-        setSellOpen(true);
       });
   };
 
