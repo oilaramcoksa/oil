@@ -35,7 +35,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   const audioRef = useRef<{ pump: HTMLAudioElement; cricket: HTMLAudioElement; carcome: HTMLAudioElement; carout: HTMLAudioElement } | null>(null);
   const [isNight, setIsNight] = useState(() => {
     const hour = new Date().getHours();
-    return hour < 6 || hour >= 18;
+    return hour < 5 || hour >= 19;
   });
   const oil = useGame((s) => s.oil);
   const [feeActivated, setFeeActivated] = useState(false);
@@ -80,7 +80,7 @@ export function PumpScreen({ onGoToStore, onGoToArena, onOpenShorts, initData, i
   useEffect(() => {
     const updateNight = () => {
       const hour = new Date().getHours();
-      setIsNight(hour < 6 || hour >= 18);
+      setIsNight(hour < 5 || hour >= 19);
     };
     updateNight();
     const id = window.setInterval(updateNight, 60_000);
